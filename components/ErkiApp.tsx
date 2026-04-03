@@ -58,6 +58,24 @@ export default function ErkiApp() {
         }
     }, [activePlan?.backgroundImage]);
 
+    // Paste image from clipboard as background
+    useEffect(() => {
+        const handlePaste = (e: ClipboardEvent) => {
+            if (!activePlan || activeTab !== 'map') return;
+            const item = Array.from(e.clipboardData?.items || []).find(i => i.type.startsWith('image/'));
+            if (!item) return;
+            const file = item.getAsFile();
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                updateActivePlan({ backgroundImage: ev.target?.result as string });
+            };
+            reader.readAsDataURL(file);
+        };
+        window.addEventListener('paste', handlePaste);
+        return () => window.removeEventListener('paste', handlePaste);
+    }, [activePlan, activeTab]);
+
     // Auto-resize all textareas in the table when plan or tab changes
     useEffect(() => {
         if (activeTab !== 'table' || !tableRef.current) return;
@@ -586,7 +604,7 @@ export default function ErkiApp() {
                                         <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300 bg-gray-50/50 pointer-events-none">
                                             <MapIcon className="w-16 h-16 mb-4 opacity-10" />
                                             <p className="text-lg font-medium">Kein Lageplan vorhanden</p>
-                                            <p className="text-sm mt-1">Lade oben rechts ein Bild deiner Karte hoch.</p>
+                                            <p className="text-sm mt-1">Bild hochladen oder mit <kbd className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-400 font-mono text-xs">⌘V</kbd> aus Zwischenablage einfügen.</p>
                                         </div>
                                     )}
 
