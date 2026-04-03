@@ -516,20 +516,21 @@ export default function ErkiApp() {
                                                         />
 
                                                         <div
-                                                            className="absolute w-24 h-24 -ml-12 -mt-12 rounded-full border-[6px] flex flex-col items-center justify-center p-2 text-center shadow-xl cursor-move bg-white/95 backdrop-blur transition-all duration-200 hover:ring-2 ring-gray-100 z-30"
+                                                            className="absolute w-24 h-24 -ml-12 -mt-12 rounded-full border-[6px] flex flex-col items-center justify-center p-2 text-center shadow-xl cursor-move bg-white/95 backdrop-blur transition-all duration-200 hover:ring-2 ring-gray-100 z-30 overflow-hidden"
                                                             style={{
                                                                 left: `${s.x}%`,
                                                                 top: `${s.y}%`,
                                                                 ...(s.isFilled ? { backgroundColor: color.bg, borderColor: color.bg } : color.style),
-                                                                hyphens: 'auto',
-                                                                WebkitHyphens: 'auto'
                                                             }}
                                                             onMouseDown={(e) => {
                                                                 e.stopPropagation();
                                                                 setDraggedItem({ id: s.id, type: 'bubble' });
                                                             }}
                                                         >
-                                                            <span className={cn("font-black uppercase leading-tight line-clamp-5 break-words tracking-tight", fontSize, s.isFilled ? "text-white" : "text-gray-300")}>
+                                                            <span
+                                                                className={cn("font-black uppercase leading-tight line-clamp-5 tracking-tight w-full", fontSize, s.isFilled ? "text-white" : "text-gray-300")}
+                                                                style={{ hyphens: 'auto', WebkitHyphens: 'auto', overflowWrap: 'anywhere' }}
+                                                            >
                                                                 {s.name}
                                                             </span>
                                                         </div>
