@@ -494,6 +494,8 @@ export default function ErkiApp() {
         const masks = [...(activePlan?.masks || []), { points: currentMaskPoints }];
         updateActivePlan({ masks });
         setCurrentMaskPoints([]);
+        setMaskDrawing(false);
+        setCursorPos(null);
     };
 
     const handleMaskMouseMove = (e: React.MouseEvent) => {
@@ -625,12 +627,7 @@ export default function ErkiApp() {
                                 </label>
                                 <button
                                     onClick={() => {
-                                        if (maskDrawing && currentMaskPoints.length >= 3) {
-                                            const masks = [...(activePlan?.masks || []), { points: currentMaskPoints }];
-                                            updateActivePlan({ masks });
-                                            setCurrentMaskPoints([]);
-                                            setMaskDrawing(false);
-                                        } else if (maskDrawing) {
+                                        if (maskDrawing) {
                                             cancelMaskDrawing();
                                         } else {
                                             setMaskDrawing(true);
@@ -643,9 +640,23 @@ export default function ErkiApp() {
                                     title="Weiße Maske zeichnen"
                                 >
                                     <PenLine className="w-4 h-4" />
-                                    <span className="hidden sm:inline">{maskDrawing ? 'Fertig (Doppelklick)' : 'Maske'}</span>
+                                    <span className="hidden sm:inline">{maskDrawing ? 'Abbrechen' : 'Maske'}</span>
                                 </button>
-                                {(activePlan?.masks?.length ?? 0) > 0 && (
+                                {maskDrawing && currentMaskPoints.length >= 3 && (
+                                    <button
+                                        onClick={() => {
+                                            const masks = [...(activePlan?.masks || []), { points: currentMaskPoints }];
+                                            updateActivePlan({ masks });
+                                            setCurrentMaskPoints([]);
+                                            setMaskDrawing(false);
+                                            setCursorPos(null);
+                                        }}
+                                        className="flex items-center gap-2 px-3 py-2 bg-green-500 text-white rounded-full shadow-lg border-none cursor-pointer hover:bg-green-600 transition-all active:scale-95 text-sm font-medium"
+                                    >
+                                        <span>✓ Fertig</span>
+                                    </button>
+                                )}
+                                {(activePlan?.masks?.length ?? 0) > 0 && !maskDrawing && (
                                     <button
                                         onClick={clearMasks}
                                         className="flex items-center gap-2 px-3 py-2 bg-white text-red-400 rounded-full shadow-lg border cursor-pointer hover:bg-red-50 transition-all active:scale-95 text-sm font-medium"
@@ -683,14 +694,15 @@ export default function ErkiApp() {
                                         </div>
                                     )}
 
-                                    {/* White mask polygons */}
+                                    {/* Inverted white masks: white everywhere, polygon cuts out hole */}
                                     {activePlan && (activePlan.masks?.length ?? 0) > 0 && (
                                         <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" viewBox="0 0 100 100" preserveAspectRatio="none">
                                             {activePlan.masks!.map((mask, mi) => (
-                                                <polygon
+                                                <path
                                                     key={mi}
-                                                    points={mask.points.map(p => `${p.x},${p.y}`).join(' ')}
+                                                    fillRule="evenodd"
                                                     fill="white"
+                                                    d={`M0,0 L100,0 L100,100 L0,100 Z M${mask.points.map(p => `${p.x},${p.y}`).join(' L')} Z`}
                                                 />
                                             ))}
                                         </svg>
