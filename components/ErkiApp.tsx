@@ -328,7 +328,7 @@ export default function ErkiApp() {
                 styles: { fontSize: 8, cellPadding: 3, overflow: 'linebreak' },
                 headStyles: { fillColor: [249, 115, 22], textColor: 255, fontStyle: 'bold' },
                 columnStyles: {
-                    0: { cellWidth: 8 },   // Nr.
+                    0: { cellWidth: 12 },  // Nr.
                     1: { cellWidth: 30 },  // Station
                     2: { cellWidth: 65 },  // Beschreibung
                     3: { cellWidth: 72 },  // Material
