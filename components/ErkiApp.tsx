@@ -400,10 +400,24 @@ export default function ErkiApp() {
 
     const handleDistributeColors = () => {
         if (!activePlan) return;
-        const stations = activePlan.stations.map((s, i) => ({
-            ...s,
-            colorVariant: i % 4
-        }));
+        const THRESHOLD = 20; // % distance – stations closer than this are "neighbors"
+        const stations = activePlan.stations.map(s => ({ ...s }));
+
+        // Greedy graph coloring: assign each station the lowest color not used by any neighbor
+        for (let i = 0; i < stations.length; i++) {
+            const usedByNeighbors = new Set<number>();
+            for (let j = 0; j < i; j++) {
+                const dx = stations[i].targetX - stations[j].targetX;
+                const dy = stations[i].targetY - stations[j].targetY;
+                if (Math.sqrt(dx * dx + dy * dy) < THRESHOLD) {
+                    usedByNeighbors.add(stations[j].colorVariant ?? 0);
+                }
+            }
+            // Pick the first color not used by neighbors
+            let color = 0;
+            while (usedByNeighbors.has(color)) color = (color + 1) % 4;
+            stations[i].colorVariant = color;
+        }
         updateActivePlan({ stations });
     };
 
