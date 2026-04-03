@@ -43,31 +43,43 @@ export async function scrapeJugendarbeit(url: string): Promise<{ title: string; 
             let instructions = '';
             const impulses: string[] = [];
 
+            // Helper: extract text after a label, stopping at the next known label
+            const extractSection = (src: string, label: RegExp) => {
+                const match = src.match(label);
+                if (!match || match.index === undefined) return '';
+                const after = src.slice(match.index + match[0].length);
+                return after.split(/(?:Bastelanleitung:|Stationsbeschreibung:|Material:|Gesprächsimpulse:|Impulse:)/i)[0].trim();
+            };
+
             let next = $el.next();
             let inBastelanleitung = false;
             let inGespraechsimpulse = false;
             while (next.length && !next.is('h1, h2, h3, h4, h5, h6')) {
                 const text = next.text().trim();
 
-                // Detect section starts
-                if (/^Bastelanleitung:/i.test(text)) {
+                // Elements may contain multiple sections – check for each label anywhere in the text
+
+                if (/Material:/i.test(text) && !inBastelanleitung) {
+                    inGespraechsimpulse = false;
+                    material = extractSection(text, /Material:/i);
+                }
+                if (/Stationsbeschreibung:/i.test(text) && !inBastelanleitung) {
+                    inGespraechsimpulse = false;
+                    instructions = extractSection(text, /Stationsbeschreibung:/i);
+                }
+                if (/Bastelanleitung:/i.test(text)) {
                     inBastelanleitung = true;
                     inGespraechsimpulse = false;
                     next = next.next();
                     continue;
                 }
-                if (/^(Gesprächsimpulse:|Impulse:)/i.test(text)) {
-                    inGespraechsimpulse = true;
+                if (/(Gesprächsimpulse:|Impulse:)/i.test(text)) {
                     inBastelanleitung = false;
-                    // Inline text after the label on the same element
-                    const inline = text.replace(/^(Gesprächsimpulse:|Impulse:)/i, '').trim();
+                    inGespraechsimpulse = true;
+                    const inline = extractSection(text, /(Gesprächsimpulse:|Impulse:)/i);
                     if (inline) impulses.push(inline);
                     next = next.next();
                     continue;
-                }
-                if (/^(Material:|Stationsbeschreibung:)/i.test(text)) {
-                    inBastelanleitung = false;
-                    inGespraechsimpulse = false;
                 }
 
                 if (inBastelanleitung) {
@@ -84,14 +96,6 @@ export async function scrapeJugendarbeit(url: string): Promise<{ title: string; 
                     } else if (text) {
                         impulses.push(text);
                     }
-                    next = next.next();
-                    continue;
-                }
-
-                if (text.startsWith('Material:')) {
-                    material = text.replace('Material:', '').trim();
-                } else if (text.startsWith('Stationsbeschreibung:')) {
-                    instructions = text.replace('Stationsbeschreibung:', '').trim();
                 }
                 next = next.next();
             }
