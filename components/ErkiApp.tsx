@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Info, Move, Palette } from 'lucide-react';
+import { Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Info, Move, Palette, GripVertical } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plan, Station } from '@/lib/types';
 import { importPlanFromUrl } from '@/lib/actions';
@@ -17,6 +17,8 @@ export default function ErkiApp() {
     const [activeTab, setActiveTab] = useState<'map' | 'table'>('map');
     const [aspectRatio, setAspectRatio] = useState<'portrait' | 'landscape'>('landscape');
     const [draggedItem, setDraggedItem] = useState<{ id: string; type: 'bubble' | 'target' } | null>(null);
+    const [draggedRowId, setDraggedRowId] = useState<string | null>(null);
+    const [dragOverRowId, setDragOverRowId] = useState<string | null>(null);
 
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -339,6 +341,31 @@ export default function ErkiApp() {
         }
     };
 
+    const handleRowDragStart = (id: string) => setDraggedRowId(id);
+
+    const handleRowDragOver = (e: React.DragEvent, id: string) => {
+        e.preventDefault();
+        if (id !== draggedRowId) setDragOverRowId(id);
+    };
+
+    const handleRowDrop = (targetId: string) => {
+        if (!activePlan || !draggedRowId || draggedRowId === targetId) return;
+        const stations = [...activePlan.stations];
+        const fromIdx = stations.findIndex(s => s.id === draggedRowId);
+        const toIdx = stations.findIndex(s => s.id === targetId);
+        const [moved] = stations.splice(fromIdx, 1);
+        stations.splice(toIdx, 0, moved);
+        stations.forEach((s, i) => { s.number = (i + 1).toString(); });
+        updateActivePlan({ stations });
+        setDraggedRowId(null);
+        setDragOverRowId(null);
+    };
+
+    const handleRowDragEnd = () => {
+        setDraggedRowId(null);
+        setDragOverRowId(null);
+    };
+
     const handleMouseUp = () => {
         if (draggedItem && activePlan) {
             // Only check conflicts if we moved a marker
@@ -571,6 +598,7 @@ export default function ErkiApp() {
                                 <table className="w-full text-left border-collapse">
                                     <thead>
                                         <tr className="bg-gray-50 border-b">
+                                            <th className="p-4 w-8"></th>
                                             <th className="p-4 text-xs font-bold uppercase text-gray-400 tracking-wider">Nr.</th>
                                             <th className="p-4 text-xs font-bold uppercase text-gray-400 tracking-wider">Station</th>
                                             <th className="p-4 text-xs font-bold uppercase text-gray-400 tracking-wider">Beschreibung</th>
@@ -583,13 +611,24 @@ export default function ErkiApp() {
                                     </thead>
                                     <tbody className="divide-y">
                                         {activePlan?.stations.map(s => (
-                                            <tr key={s.id} className="hover:bg-gray-50/50 transition-colors">
+                                            <tr
+                                                key={s.id}
+                                                draggable
+                                                onDragStart={() => handleRowDragStart(s.id)}
+                                                onDragOver={(e) => handleRowDragOver(e, s.id)}
+                                                onDrop={() => handleRowDrop(s.id)}
+                                                onDragEnd={handleRowDragEnd}
+                                                className={cn(
+                                                    "hover:bg-gray-50/50 transition-colors",
+                                                    draggedRowId === s.id && "opacity-40",
+                                                    dragOverRowId === s.id && "border-t-2 border-orange-400"
+                                                )}
+                                            >
+                                                <td className="p-4 w-8 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-400">
+                                                    <GripVertical className="w-4 h-4" />
+                                                </td>
                                                 <td className="p-4">
-                                                    <input
-                                                        value={s.number}
-                                                        onChange={(e) => updateStation(s.id, { number: e.target.value })}
-                                                        className="w-12 bg-transparent border-none p-0 focus:ring-0 font-medium text-orange-600"
-                                                    />
+                                                    <span className="font-medium text-orange-600">{s.number}</span>
                                                 </td>
                                                 <td className="p-4">
                                                     <input
