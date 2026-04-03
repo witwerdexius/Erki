@@ -201,50 +201,19 @@ export default function ErkiApp() {
         if (!containerRef.current || !activePlan) return;
 
         try {
-            // Temporarily remove shadow and border for clean white PDF output
             const container = containerRef.current;
-            const originalShadow = container.style.boxShadow;
-            const originalBorder = container.style.border;
-            container.style.boxShadow = 'none';
-            container.style.border = 'none';
-
-            // Also temporarily remove shadows and tricky rendering classes from stations for print usage
-            const shadowNodes = container.querySelectorAll('.shadow-xl, .shadow-lg');
-            const originalShadows: string[] = [];
-            const originalClasses: { el: HTMLElement, classes: string }[] = [];
-
-            shadowNodes.forEach((node: Element) => {
-                const el = node as HTMLElement;
-                originalShadows.push(el.style.boxShadow);
-                el.style.boxShadow = 'none';
-
-                // Store and remove classes that might cause artifacts in html-to-image
-                originalClasses.push({ el, classes: el.className });
-                el.classList.remove('backdrop-blur', 'transition-all', 'duration-200');
-            });
 
             const dataUrl = await toPng(container, {
                 quality: 1,
                 pixelRatio: 2,
                 backgroundColor: '#ffffff',
-                style: {
-                    margin: '0',
-                    padding: '0'
-                }
             });
 
-            // Restore original styles
-            container.style.boxShadow = originalShadow;
-            container.style.border = originalBorder;
-            shadowNodes.forEach((node: Element, i: number) => {
-                const el = node as HTMLElement;
-                el.style.boxShadow = originalShadows[i] || '';
-            });
-
-            // Restore original classes
-            originalClasses.forEach(({ el, classes }) => {
-                el.className = classes;
-            });
+            // Determine rendered dimensions to preserve aspect ratio in PDF
+            const img = new Image();
+            img.src = dataUrl;
+            await new Promise<void>(resolve => { img.onload = () => resolve(); });
+            const imgAspect = img.width / img.height;
 
             const pdf = new jsPDF({
                 orientation: aspectRatio,
@@ -255,12 +224,21 @@ export default function ErkiApp() {
             const pdfWidth = pdf.internal.pageSize.getWidth();
             const pdfHeight = pdf.internal.pageSize.getHeight();
 
+            let drawW = pdfWidth;
+            let drawH = pdfWidth / imgAspect;
+            if (drawH > pdfHeight) {
+                drawH = pdfHeight;
+                drawW = pdfHeight * imgAspect;
+            }
+            const offsetX = (pdfWidth - drawW) / 2;
+            const offsetY = (pdfHeight - drawH) / 2;
+
             const sanitizedTitle = activePlan.title
                 .toLowerCase()
                 .replace(/[^a-z0-9]+/g, '-')
                 .replace(/^-+|-+$/g, '') || 'lageplan';
 
-            pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdf.addImage(dataUrl, 'PNG', offsetX, offsetY, drawW, drawH);
             pdf.save(`${sanitizedTitle}.pdf`);
         } catch (error) {
             console.error('PDF export failed:', error);
