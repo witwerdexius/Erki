@@ -301,12 +301,12 @@ export default function ErkiApp() {
                 headStyles: { fillColor: [249, 115, 22], textColor: 255, fontStyle: 'bold' },
                 columnStyles: {
                     0: { cellWidth: 8 },   // Nr.
-                    1: { cellWidth: 32 },  // Station
-                    2: { cellWidth: 50 },  // Beschreibung
+                    1: { cellWidth: 30 },  // Station
+                    2: { cellWidth: 65 },  // Beschreibung
                     3: { cellWidth: 72 },  // Material
-                    4: { cellWidth: 50 },  // Gesprächsimpulse
-                    5: { cellWidth: 22 },  // Aufbau
-                    6: { cellWidth: 22 },  // Durchführung
+                    4: { cellWidth: 40 },  // Gesprächsimpulse
+                    5: { cellWidth: 20 },  // Aufbau
+                    6: { cellWidth: 20 },  // Durchführung
                     7: { cellWidth: 10, halign: 'center' }, // Voll
                 },
                 alternateRowStyles: { fillColor: [249, 250, 251] },
@@ -709,9 +709,9 @@ export default function ErkiApp() {
                                             <th className="p-4 w-8"></th>
                                             <th className="p-4 w-10 text-xs font-bold uppercase text-gray-400 tracking-wider">Nr.</th>
                                             <th className="p-4 w-32 text-xs font-bold uppercase text-gray-400 tracking-wider">Station</th>
-                                            <th className="p-4 w-48 text-xs font-bold uppercase text-gray-400 tracking-wider">Beschreibung</th>
-                                            <th className="p-4 text-xs font-bold uppercase text-gray-400 tracking-wider">Material</th>
-                                            <th className="p-4 w-48 text-xs font-bold uppercase text-gray-400 tracking-wider">Gesprächsimpulse</th>
+                                            <th className="p-4 text-xs font-bold uppercase text-gray-400 tracking-wider">Beschreibung</th>
+                                            <th className="p-4 w-64 text-xs font-bold uppercase text-gray-400 tracking-wider">Material</th>
+                                            <th className="p-4 w-40 text-xs font-bold uppercase text-gray-400 tracking-wider">Gesprächsimpulse</th>
                                             <th className="p-4 w-28 text-xs font-bold uppercase text-gray-400 tracking-wider">Aufbau</th>
                                             <th className="p-4 w-28 text-xs font-bold uppercase text-gray-400 tracking-wider">Durchführung</th>
                                             <th className="p-4 w-12 text-xs font-bold uppercase text-gray-400 tracking-wider">Voll</th>
