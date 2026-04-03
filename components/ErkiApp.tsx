@@ -587,12 +587,8 @@ export default function ErkiApp() {
                                                         />
 
                                                         <div
-                                                            className="absolute w-24 h-24 -ml-12 -mt-12 rounded-full border-[6px] flex flex-col items-center justify-center p-2 text-center shadow-xl cursor-move bg-white/95 backdrop-blur transition-all duration-200 hover:ring-2 ring-gray-100 z-30 overflow-hidden"
-                                                            style={{
-                                                                left: `${s.x}%`,
-                                                                top: `${s.y}%`,
-                                                                ...(s.isFilled ? { backgroundColor: color.bg, borderColor: color.bg } : color.style),
-                                                            }}
+                                                            className="absolute w-24 h-24 -ml-12 -mt-12 rounded-full shadow-xl cursor-move transition-all duration-200 hover:ring-2 ring-gray-100 z-30"
+                                                            style={{ left: `${s.x}%`, top: `${s.y}%` }}
                                                             onMouseDown={(e) => {
                                                                 e.stopPropagation();
                                                                 setDraggedItem({ id: s.id, type: 'bubble' });
@@ -602,12 +598,17 @@ export default function ErkiApp() {
                                                                 setDraggedItem({ id: s.id, type: 'bubble' });
                                                             }}
                                                         >
-                                                            <span
-                                                                className={cn("font-mono font-bold uppercase leading-tight line-clamp-5 tracking-tight w-full", s.isFilled ? "text-white" : "text-gray-300")}
-                                                                style={{ hyphens: 'auto', WebkitHyphens: 'auto', overflowWrap: 'anywhere', fontSize: `${computedFontSize}px` }}
+                                                            <div
+                                                                className="w-full h-full rounded-full border-[6px] flex flex-col items-center justify-center p-2 text-center bg-white overflow-hidden"
+                                                                style={s.isFilled ? { backgroundColor: color.bg, borderColor: color.bg } : color.style}
                                                             >
-                                                                {s.name}
-                                                            </span>
+                                                                <span
+                                                                    className={cn("font-mono font-bold uppercase leading-tight line-clamp-5 tracking-tight w-full", s.isFilled ? "text-white" : "text-gray-300")}
+                                                                    style={{ hyphens: 'auto', WebkitHyphens: 'auto', overflowWrap: 'anywhere', fontSize: `${computedFontSize}px` }}
+                                                                >
+                                                                    {s.name}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     </React.Fragment>
                                                 );
