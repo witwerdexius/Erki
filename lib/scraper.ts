@@ -44,7 +44,7 @@ export async function scrapeJugendarbeit(url: string): Promise<{ title: string; 
             const impulses: string[] = [];
 
             // Remove link text and photo credits from a string
-            const cleanText = (el: cheerio.Cheerio<cheerio.AnyNode>) => {
+            const cleanText = (el: ReturnType<typeof $>) => {
                 // Clone and remove <a> tags (download links etc.) and image captions
                 const clone = el.clone();
                 clone.find('a').remove();
