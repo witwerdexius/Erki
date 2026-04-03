@@ -513,7 +513,7 @@ export default function ErkiApp() {
                                                     }
                                                     return lines;
                                                 };
-                                                const availW = 64, availH = 58, charRatio = 0.52, lineH = 1.1;
+                                                const availW = 64, availH = 58, charRatio = 0.60, lineH = 1.2;
                                                 let computedFontSize = 7;
                                                 for (let f = 14; f >= 7; f--) {
                                                     const cpl = Math.floor(availW / (f * charRatio));
@@ -547,8 +547,8 @@ export default function ErkiApp() {
                                                             }}
                                                         >
                                                             <span
-                                                                className={cn("font-black uppercase leading-tight line-clamp-5 tracking-tight w-full", s.isFilled ? "text-white" : "text-gray-300")}
-                                                                style={{ hyphens: 'auto', WebkitHyphens: 'auto', overflowWrap: 'anywhere', fontSize: `${computedFontSize}px` }}
+                                                                className={cn("font-mono font-bold uppercase leading-tight line-clamp-5 tracking-tight w-full", s.isFilled ? "text-white" : "text-gray-300")}
+                                                                style={{ overflowWrap: 'anywhere', fontSize: `${computedFontSize}px` }}
                                                             >
                                                                 {s.name}
                                                             </span>
