@@ -715,7 +715,7 @@ export default function ErkiApp() {
                             <label className="hover:text-gray-600 transition-colors cursor-pointer flex items-center gap-1" title="Backup laden">
                                 <Upload className="w-4 h-4" />
                                 <span className="hidden sm:inline">Backup laden</span>
-                                <input type="file" className="hidden" accept=".json" onChange={handleBackupImport} />
+                                <input type="file" className="hidden" accept=".rki" onChange={handleBackupImport} />
                             </label>
                             <button
                                 onClick={() => {
@@ -724,7 +724,7 @@ export default function ErkiApp() {
                                     const url = URL.createObjectURL(blob);
                                     const a = document.createElement('a');
                                     a.href = url;
-                                    a.download = `erki-plaene-${new Date().toISOString().split('T')[0]}.json`;
+                                    a.download = `erki-plaene-${new Date().toISOString().split('T')[0]}.rki`;
                                     a.click();
                                 }}
                                 className="hover:text-gray-600 transition-colors"
