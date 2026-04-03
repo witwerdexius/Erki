@@ -502,7 +502,26 @@ export default function ErkiApp() {
                                                 // Use explicit colorVariant if available, otherwise fallback to index/number based
                                                 const colorIndex = s.colorVariant ?? (idx % colors.length);
                                                 const color = colors[colorIndex % colors.length];
-                                                const fontSize = s.name.length > 25 ? 'text-[8px]' : s.name.length > 15 ? 'text-[10px]' : s.name.length > 8 ? 'text-xs' : 'text-sm';
+                                                // Simulate wrapping: break at hyphens/spaces first, then anywhere
+                                                const simulateLines = (text: string, cpl: number) => {
+                                                    const segs = text.split(/(?<=[-\s])/);
+                                                    let lines = 1, lc = 0;
+                                                    for (const seg of segs) {
+                                                        if (lc + seg.length > cpl && lc > 0) { lines++; lc = seg.length; }
+                                                        else { lc += seg.length; }
+                                                        while (lc > cpl) { lines++; lc -= cpl; }
+                                                    }
+                                                    return lines;
+                                                };
+                                                const availW = 56, availH = 58, charRatio = 0.65, lineH = 1.1;
+                                                let computedFontSize = 7;
+                                                for (let f = 14; f >= 7; f--) {
+                                                    const cpl = Math.floor(availW / (f * charRatio));
+                                                    if (cpl < 1) continue;
+                                                    if (simulateLines(s.name.toUpperCase(), cpl) * f * lineH <= availH) {
+                                                        computedFontSize = f; break;
+                                                    }
+                                                }
 
                                                 return (
                                                     <React.Fragment key={s.id}>
@@ -528,8 +547,8 @@ export default function ErkiApp() {
                                                             }}
                                                         >
                                                             <span
-                                                                className={cn("font-black uppercase leading-tight line-clamp-5 tracking-tight w-full", fontSize, s.isFilled ? "text-white" : "text-gray-300")}
-                                                                style={{ hyphens: 'auto', WebkitHyphens: 'auto', overflowWrap: 'anywhere' }}
+                                                                className={cn("font-black uppercase leading-tight line-clamp-5 tracking-tight w-full", s.isFilled ? "text-white" : "text-gray-300")}
+                                                                style={{ hyphens: 'auto', WebkitHyphens: 'auto', overflowWrap: 'anywhere', fontSize: `${computedFontSize}px` }}
                                                             >
                                                                 {s.name}
                                                             </span>
