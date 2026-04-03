@@ -44,8 +44,28 @@ export async function scrapeJugendarbeit(url: string): Promise<{ title: string; 
             const impulses: string[] = [];
 
             let next = $el.next();
+            let inBastelanleitung = false;
             while (next.length && !next.is('h1, h2, h3, h4, h5, h6')) {
                 const text = next.text().trim();
+
+                // Detect start of Bastelanleitung section
+                if (/^Bastelanleitung:/i.test(text)) {
+                    inBastelanleitung = true;
+                    next = next.next();
+                    continue;
+                }
+
+                // Known section headers reset the Bastelanleitung flag
+                if (/^(Material:|Stationsbeschreibung:|Gesprächsimpulse:|Impulse:)/i.test(text)) {
+                    inBastelanleitung = false;
+                }
+
+                // Skip everything inside a Bastelanleitung section
+                if (inBastelanleitung) {
+                    next = next.next();
+                    continue;
+                }
+
                 if (text.startsWith('Material:')) {
                     material = text.replace('Material:', '').trim();
                 } else if (text.startsWith('Stationsbeschreibung:')) {
