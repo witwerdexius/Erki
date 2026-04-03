@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plan, Station } from '@/lib/types';
 import { importPlanFromUrl } from '@/lib/actions';
 import { cn } from '@/lib/utils';
-import { toPng } from 'html-to-image';
+import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
 export default function ErkiApp() {
@@ -203,17 +203,15 @@ export default function ErkiApp() {
         try {
             const container = containerRef.current;
 
-            const dataUrl = await toPng(container, {
-                quality: 1,
-                pixelRatio: 2,
+            const canvas = await html2canvas(container, {
+                scale: 2,
+                useCORS: true,
                 backgroundColor: '#ffffff',
+                logging: false,
             });
 
-            // Determine rendered dimensions to preserve aspect ratio in PDF
-            const img = new Image();
-            img.src = dataUrl;
-            await new Promise<void>(resolve => { img.onload = () => resolve(); });
-            const imgAspect = img.width / img.height;
+            const dataUrl = canvas.toDataURL('image/png');
+            const imgAspect = canvas.width / canvas.height;
 
             const pdf = new jsPDF({
                 orientation: aspectRatio,
