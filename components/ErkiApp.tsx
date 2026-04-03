@@ -202,16 +202,21 @@ export default function ErkiApp() {
         try {
             const container = containerRef.current;
 
-            const html2canvas = (await import('html2canvas')).default;
-            const canvas = await html2canvas(container, {
-                scale: 2,
-                useCORS: true,
+            console.log('[PDF] Step 1: importing html-to-image');
+            const { toPng } = await import('html-to-image');
+
+            console.log('[PDF] Step 2: capturing canvas');
+            const dataUrl = await toPng(container, {
+                pixelRatio: 2,
                 backgroundColor: '#ffffff',
-                logging: false,
+                cacheBust: true,
             });
 
-            const dataUrl = canvas.toDataURL('image/png');
-            const imgAspect = canvas.width / canvas.height;
+            console.log('[PDF] Step 3: creating PDF');
+            const img = new Image();
+            img.src = dataUrl;
+            await new Promise<void>(resolve => { img.onload = () => resolve(); });
+            const imgAspect = img.naturalWidth / img.naturalHeight;
 
             const pdf = new jsPDF({
                 orientation: aspectRatio,
@@ -236,11 +241,14 @@ export default function ErkiApp() {
                 .replace(/[^a-z0-9]+/g, '-')
                 .replace(/^-+|-+$/g, '') || 'lageplan';
 
+            console.log('[PDF] Step 4: saving');
             pdf.addImage(dataUrl, 'PNG', offsetX, offsetY, drawW, drawH);
             pdf.save(`${sanitizedTitle}.pdf`);
+            console.log('[PDF] Done');
         } catch (error) {
-            console.error('PDF export failed:', error);
-            alert('PDF Export fehlgeschlagen. Bitte versuche es erneut.');
+            const msg = error instanceof Error ? error.message : String(error);
+            console.error('[PDF] Export failed:', error);
+            alert(`PDF Export fehlgeschlagen:\n${msg}`);
         }
     };
 
