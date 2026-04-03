@@ -43,6 +43,17 @@ export async function scrapeJugendarbeit(url: string): Promise<{ title: string; 
             let instructions = '';
             const impulses: string[] = [];
 
+            // Remove link text and photo credits from a string
+            const cleanText = (el: cheerio.Cheerio<cheerio.AnyNode>) => {
+                // Clone and remove <a> tags (download links etc.) and image captions
+                const clone = el.clone();
+                clone.find('a').remove();
+                clone.find('figure, figcaption, img').remove();
+                const txt = clone.text().trim();
+                // Strip photo credit lines like "Foto: ..."
+                return txt.split('\n').filter(l => !/^Foto:/i.test(l.trim())).join('\n').trim();
+            };
+
             // Helper: extract text after a label, stopping at the next known label
             const extractSection = (src: string, label: RegExp) => {
                 const match = src.match(label);
@@ -56,16 +67,16 @@ export async function scrapeJugendarbeit(url: string): Promise<{ title: string; 
             let inGespraechsimpulse = false;
             while (next.length && !next.is('h1, h2, h3, h4, h5, h6')) {
                 const text = next.text().trim();
+                const cleanedText = cleanText(next);
 
                 // Elements may contain multiple sections – check for each label anywhere in the text
-
                 if (/Material:/i.test(text) && !inBastelanleitung) {
                     inGespraechsimpulse = false;
-                    material = extractSection(text, /Material:/i);
+                    material = extractSection(cleanedText, /Material:/i);
                 }
                 if (/Stationsbeschreibung:/i.test(text) && !inBastelanleitung) {
                     inGespraechsimpulse = false;
-                    instructions = extractSection(text, /Stationsbeschreibung:/i);
+                    instructions = extractSection(cleanedText, /Stationsbeschreibung:/i);
                 }
                 if (/Bastelanleitung:/i.test(text)) {
                     inBastelanleitung = true;
@@ -76,7 +87,7 @@ export async function scrapeJugendarbeit(url: string): Promise<{ title: string; 
                 if (/(Gesprächsimpulse:|Impulse:)/i.test(text)) {
                     inBastelanleitung = false;
                     inGespraechsimpulse = true;
-                    const inline = extractSection(text, /(Gesprächsimpulse:|Impulse:)/i);
+                    const inline = extractSection(cleanedText, /(Gesprächsimpulse:|Impulse:)/i);
                     if (inline) impulses.push(inline);
                     next = next.next();
                     continue;
@@ -93,8 +104,8 @@ export async function scrapeJugendarbeit(url: string): Promise<{ title: string; 
                             const liText = $(li).text().trim();
                             if (liText) impulses.push(liText);
                         });
-                    } else if (text) {
-                        impulses.push(text);
+                    } else if (cleanedText && !/^Foto:/i.test(cleanedText)) {
+                        impulses.push(cleanedText);
                     }
                 }
                 next = next.next();

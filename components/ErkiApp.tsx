@@ -739,11 +739,17 @@ export default function ErkiApp() {
                                                 <td className="p-4">
                                                     <span className="font-medium text-orange-600">{s.number}</span>
                                                 </td>
-                                                <td className="p-4">
-                                                    <input
+                                                <td className="p-4 align-top">
+                                                    <textarea
                                                         value={s.name}
                                                         onChange={(e) => updateStation(s.id, { name: e.target.value })}
-                                                        className="w-full bg-transparent border-none p-0 focus:ring-0 font-bold"
+                                                        className="w-full bg-transparent border-none p-0 focus:ring-0 font-bold resize-none overflow-hidden h-auto"
+                                                        rows={1}
+                                                        onInput={(e) => {
+                                                            const t = e.target as HTMLTextAreaElement;
+                                                            t.style.height = 'auto';
+                                                            t.style.height = t.scrollHeight + 'px';
+                                                        }}
                                                     />
                                                 </td>
                                                 <td className="p-4 align-top">
