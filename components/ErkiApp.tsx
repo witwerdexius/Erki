@@ -624,7 +624,18 @@ export default function ErkiApp() {
                                     <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
                                 </label>
                                 <button
-                                    onClick={() => { setMaskDrawing(m => !m); setCurrentMaskPoints([]); }}
+                                    onClick={() => {
+                                        if (maskDrawing && currentMaskPoints.length >= 3) {
+                                            const masks = [...(activePlan?.masks || []), { points: currentMaskPoints }];
+                                            updateActivePlan({ masks });
+                                            setCurrentMaskPoints([]);
+                                            setMaskDrawing(false);
+                                        } else if (maskDrawing) {
+                                            cancelMaskDrawing();
+                                        } else {
+                                            setMaskDrawing(true);
+                                        }
+                                    }}
                                     className={cn(
                                         "flex items-center gap-2 px-3 py-2 rounded-full shadow-lg border cursor-pointer transition-all active:scale-95 text-sm font-medium",
                                         maskDrawing ? "bg-orange-500 text-white border-orange-500" : "bg-white text-gray-600 hover:bg-gray-50"
@@ -674,13 +685,12 @@ export default function ErkiApp() {
 
                                     {/* White mask polygons */}
                                     {activePlan && (activePlan.masks?.length ?? 0) > 0 && (
-                                        <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
+                                        <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" viewBox="0 0 100 100" preserveAspectRatio="none">
                                             {activePlan.masks!.map((mask, mi) => (
                                                 <polygon
                                                     key={mi}
-                                                    points={mask.points.map(p => `${p.x}%,${p.y}%`).join(' ')}
+                                                    points={mask.points.map(p => `${p.x},${p.y}`).join(' ')}
                                                     fill="white"
-                                                    opacity="1"
                                                 />
                                             ))}
                                         </svg>
@@ -688,26 +698,23 @@ export default function ErkiApp() {
 
                                     {/* Active drawing preview */}
                                     {maskDrawing && currentMaskPoints.length > 0 && (
-                                        <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
-                                            {/* Filled preview */}
+                                        <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" viewBox="0 0 100 100" preserveAspectRatio="none">
                                             {currentMaskPoints.length >= 3 && (
                                                 <polygon
-                                                    points={currentMaskPoints.map(p => `${p.x}%,${p.y}%`).join(' ')}
+                                                    points={currentMaskPoints.map(p => `${p.x},${p.y}`).join(' ')}
                                                     fill="white"
                                                     opacity="0.6"
                                                 />
                                             )}
-                                            {/* Outline + cursor line */}
                                             <polyline
-                                                points={[...currentMaskPoints, ...(cursorPos ? [cursorPos] : [])].map(p => `${p.x}%,${p.y}%`).join(' ')}
+                                                points={[...currentMaskPoints, ...(cursorPos ? [cursorPos] : [])].map(p => `${p.x},${p.y}`).join(' ')}
                                                 fill="none"
                                                 stroke="#f97316"
-                                                strokeWidth="1.5"
-                                                strokeDasharray="4 3"
+                                                strokeWidth="0.5"
+                                                strokeDasharray="2 1"
                                             />
-                                            {/* Points */}
                                             {currentMaskPoints.map((p, i) => (
-                                                <circle key={i} cx={`${p.x}%`} cy={`${p.y}%`} r="4" fill="#f97316" />
+                                                <circle key={i} cx={p.x} cy={p.y} r="1" fill="#f97316" />
                                             ))}
                                         </svg>
                                     )}
