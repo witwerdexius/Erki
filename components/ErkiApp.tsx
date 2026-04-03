@@ -513,7 +513,7 @@ export default function ErkiApp() {
                                                     }
                                                     return lines;
                                                 };
-                                                const availW = 64, availH = 58, charRatio = 0.60, lineH = 1.2;
+                                                const availW = 64, availH = 58, charRatio = 0.56, lineH = 1.2;
                                                 let computedFontSize = 7;
                                                 for (let f = 14; f >= 7; f--) {
                                                     const cpl = Math.floor(availW / (f * charRatio));
