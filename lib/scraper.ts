@@ -43,15 +43,15 @@ export async function scrapeJugendarbeit(url: string): Promise<{ title: string; 
             let instructions = '';
             const impulses: string[] = [];
 
-            // Remove link text and photo credits from a string
+            const isFotoCredit = (t: string) => /^Foto:/i.test(t.trim());
+
+            // Remove link text, photo credits and image elements from a cheerio element
             const cleanText = (el: ReturnType<typeof $>) => {
-                // Clone and remove <a> tags (download links etc.) and image captions
                 const clone = el.clone();
                 clone.find('a').remove();
                 clone.find('figure, figcaption, img').remove();
                 const txt = clone.text().trim();
-                // Strip photo credit lines like "Foto: ..."
-                return txt.split('\n').filter(l => !/^Foto:/i.test(l.trim())).join('\n').trim();
+                return txt.split('\n').filter(l => !isFotoCredit(l)).join('\n').trim();
             };
 
             // Helper: extract text after a label, stopping at the next known label
@@ -68,6 +68,12 @@ export async function scrapeJugendarbeit(url: string): Promise<{ title: string; 
             while (next.length && !next.is('h1, h2, h3, h4, h5, h6')) {
                 const text = next.text().trim();
                 const cleanedText = cleanText(next);
+
+                // Skip standalone photo credit elements
+                if (isFotoCredit(text)) {
+                    next = next.next();
+                    continue;
+                }
 
                 // Elements may contain multiple sections – check for each label anywhere in the text
                 if (/Material:/i.test(text) && !inBastelanleitung) {
