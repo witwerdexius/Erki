@@ -858,8 +858,8 @@ export default function ErkiApp() {
                                             <th className="p-4 w-8"></th>
                                             <th className="p-4 w-10 text-xs font-bold uppercase text-gray-400 tracking-wider">Nr.</th>
                                             <th className="p-4 w-32 text-xs font-bold uppercase text-gray-400 tracking-wider">Station</th>
-                                            <th className="p-4 text-xs font-bold uppercase text-gray-400 tracking-wider">Beschreibung</th>
-                                            <th className="p-4 w-64 text-xs font-bold uppercase text-gray-400 tracking-wider">Material</th>
+                                            <th className="p-4 w-56 text-xs font-bold uppercase text-gray-400 tracking-wider">Beschreibung</th>
+                                            <th className="p-4 text-xs font-bold uppercase text-gray-400 tracking-wider">Material</th>
                                             <th className="p-4 w-40 text-xs font-bold uppercase text-gray-400 tracking-wider">Gesprächsimpulse</th>
                                             <th className="p-4 w-28 text-xs font-bold uppercase text-gray-400 tracking-wider">Aufbau</th>
                                             <th className="p-4 w-28 text-xs font-bold uppercase text-gray-400 tracking-wider">Durchführung</th>
