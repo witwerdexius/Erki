@@ -741,7 +741,7 @@ export default function ErkiApp() {
 
                                     {activePlan && (
                                         <div className="absolute inset-0 select-none">
-                                            <svg className="absolute inset-0 w-full h-full overflow-visible pointer-events-none">
+                                            <svg className="absolute inset-0 w-full h-full overflow-visible pointer-events-none z-20">
                                                 {activePlan.stations.map(s => (
                                                     <line
                                                         key={s.id}
