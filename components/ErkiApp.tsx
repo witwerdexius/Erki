@@ -20,6 +20,7 @@ export default function ErkiApp() {
     const [dragOverRowId, setDragOverRowId] = useState<string | null>(null);
 
     const containerRef = useRef<HTMLDivElement>(null);
+    const tableRef = useRef<HTMLDivElement>(null);
 
     // Persistence and aspect ratio detection
     useEffect(() => {
@@ -56,6 +57,16 @@ export default function ErkiApp() {
             img.src = activePlan.backgroundImage;
         }
     }, [activePlan?.backgroundImage]);
+
+    // Auto-resize all textareas in the table when plan or tab changes
+    useEffect(() => {
+        if (activeTab !== 'table' || !tableRef.current) return;
+        const textareas = tableRef.current.querySelectorAll('textarea');
+        textareas.forEach((ta) => {
+            ta.style.height = 'auto';
+            ta.style.height = ta.scrollHeight + 'px';
+        });
+    }, [activeTab, activePlanId, activePlan?.stations]);
 
     const handleImport = async () => {
         if (!importUrl) return;
@@ -676,7 +687,7 @@ export default function ErkiApp() {
                             </div>
                         </div>
                     ) : (
-                        <div className="flex-1 overflow-auto p-4 sm:p-12">
+                        <div ref={tableRef} className="flex-1 overflow-auto p-4 sm:p-12">
                             <div className="flex justify-end mb-4">
                                 <button
                                     onClick={exportTableToPDF}
