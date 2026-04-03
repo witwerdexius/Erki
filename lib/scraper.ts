@@ -45,23 +45,45 @@ export async function scrapeJugendarbeit(url: string): Promise<{ title: string; 
 
             let next = $el.next();
             let inBastelanleitung = false;
+            let inGespraechsimpulse = false;
             while (next.length && !next.is('h1, h2, h3, h4, h5, h6')) {
                 const text = next.text().trim();
 
-                // Detect start of Bastelanleitung section
+                // Detect section starts
                 if (/^Bastelanleitung:/i.test(text)) {
                     inBastelanleitung = true;
+                    inGespraechsimpulse = false;
+                    next = next.next();
+                    continue;
+                }
+                if (/^(Gesprächsimpulse:|Impulse:)/i.test(text)) {
+                    inGespraechsimpulse = true;
+                    inBastelanleitung = false;
+                    // Inline text after the label on the same element
+                    const inline = text.replace(/^(Gesprächsimpulse:|Impulse:)/i, '').trim();
+                    if (inline) impulses.push(inline);
+                    next = next.next();
+                    continue;
+                }
+                if (/^(Material:|Stationsbeschreibung:)/i.test(text)) {
+                    inBastelanleitung = false;
+                    inGespraechsimpulse = false;
+                }
+
+                if (inBastelanleitung) {
                     next = next.next();
                     continue;
                 }
 
-                // Known section headers reset the Bastelanleitung flag
-                if (/^(Material:|Stationsbeschreibung:|Gesprächsimpulse:|Impulse:)/i.test(text)) {
-                    inBastelanleitung = false;
-                }
-
-                // Skip everything inside a Bastelanleitung section
-                if (inBastelanleitung) {
+                if (inGespraechsimpulse) {
+                    if (next.is('ul') || next.is('ol')) {
+                        next.find('li').each((_, li) => {
+                            const liText = $(li).text().trim();
+                            if (liText) impulses.push(liText);
+                        });
+                    } else if (text) {
+                        impulses.push(text);
+                    }
                     next = next.next();
                     continue;
                 }
@@ -70,11 +92,6 @@ export async function scrapeJugendarbeit(url: string): Promise<{ title: string; 
                     material = text.replace('Material:', '').trim();
                 } else if (text.startsWith('Stationsbeschreibung:')) {
                     instructions = text.replace('Stationsbeschreibung:', '').trim();
-                } else if (next.is('ul') || next.is('ol')) {
-                    next.find('li').each((_, li) => {
-                        const liText = $(li).text().trim();
-                        if (liText) impulses.push(liText);
-                    });
                 }
                 next = next.next();
             }

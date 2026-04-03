@@ -275,12 +275,13 @@ export default function ErkiApp() {
 
             autoTable(pdf, {
                 startY: 27,
-                head: [['Nr.', 'Station', 'Beschreibung', 'Material', 'Aufbau', 'Durchführung', 'Voll']],
+                head: [['Nr.', 'Station', 'Beschreibung', 'Material', 'Gesprächsimpulse', 'Aufbau', 'Durchführung', 'Voll']],
                 body: activePlan.stations.map(s => [
                     s.number,
                     s.name,
                     s.description || '',
                     s.material || '',
+                    (s.impulses || []).join('\n'),
                     s.setupBy || '',
                     s.conductedBy || '',
                     s.isFilled ? '✓' : '',
@@ -289,12 +290,13 @@ export default function ErkiApp() {
                 headStyles: { fillColor: [249, 115, 22], textColor: 255, fontStyle: 'bold' },
                 columnStyles: {
                     0: { cellWidth: 10 },
-                    1: { cellWidth: 35 },
-                    2: { cellWidth: 65 },
-                    3: { cellWidth: 55 },
-                    4: { cellWidth: 25 },
-                    5: { cellWidth: 25 },
-                    6: { cellWidth: 12, halign: 'center' },
+                    1: { cellWidth: 30 },
+                    2: { cellWidth: 50 },
+                    3: { cellWidth: 45 },
+                    4: { cellWidth: 50 },
+                    5: { cellWidth: 22 },
+                    6: { cellWidth: 22 },
+                    7: { cellWidth: 10, halign: 'center' },
                 },
                 alternateRowStyles: { fillColor: [249, 250, 251] },
             });
@@ -698,6 +700,7 @@ export default function ErkiApp() {
                                             <th className="p-4 text-xs font-bold uppercase text-gray-400 tracking-wider">Station</th>
                                             <th className="p-4 text-xs font-bold uppercase text-gray-400 tracking-wider">Beschreibung</th>
                                             <th className="p-4 text-xs font-bold uppercase text-gray-400 tracking-wider">Material</th>
+                                            <th className="p-4 text-xs font-bold uppercase text-gray-400 tracking-wider">Gesprächsimpulse</th>
                                             <th className="p-4 text-xs font-bold uppercase text-gray-400 tracking-wider">Aufbau</th>
                                             <th className="p-4 text-xs font-bold uppercase text-gray-400 tracking-wider">Durchführung</th>
                                             <th className="p-4 text-xs font-bold uppercase text-gray-400 tracking-wider">Voll</th>
@@ -751,6 +754,19 @@ export default function ErkiApp() {
                                                         onChange={(e) => updateStation(s.id, { material: e.target.value })}
                                                         className="w-full bg-transparent border-none p-0 focus:ring-0 text-xs h-auto min-h-[4rem] resize-none overflow-hidden text-gray-500"
                                                         placeholder="Kein Material..."
+                                                        onInput={(e) => {
+                                                            const target = e.target as HTMLTextAreaElement;
+                                                            target.style.height = 'auto';
+                                                            target.style.height = target.scrollHeight + 'px';
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td className="p-4 align-top">
+                                                    <textarea
+                                                        value={(s.impulses || []).join('\n')}
+                                                        onChange={(e) => updateStation(s.id, { impulses: e.target.value.split('\n').filter(l => l.trim()) })}
+                                                        className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm h-auto min-h-[4rem] resize-none overflow-hidden text-gray-500"
+                                                        placeholder="Keine Impulse..."
                                                         onInput={(e) => {
                                                             const target = e.target as HTMLTextAreaElement;
                                                             target.style.height = 'auto';
