@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plan, Station } from '@/lib/types';
 import { importPlanFromUrl } from '@/lib/actions';
 import { cn } from '@/lib/utils';
-import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
 export default function ErkiApp() {
@@ -203,6 +202,7 @@ export default function ErkiApp() {
         try {
             const container = containerRef.current;
 
+            const html2canvas = (await import('html2canvas')).default;
             const canvas = await html2canvas(container, {
                 scale: 2,
                 useCORS: true,
