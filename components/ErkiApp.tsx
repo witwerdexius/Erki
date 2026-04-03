@@ -300,14 +300,14 @@ export default function ErkiApp() {
                 styles: { fontSize: 8, cellPadding: 3, overflow: 'linebreak' },
                 headStyles: { fillColor: [249, 115, 22], textColor: 255, fontStyle: 'bold' },
                 columnStyles: {
-                    0: { cellWidth: 10 },
-                    1: { cellWidth: 30 },
-                    2: { cellWidth: 50 },
-                    3: { cellWidth: 45 },
-                    4: { cellWidth: 50 },
-                    5: { cellWidth: 22 },
-                    6: { cellWidth: 22 },
-                    7: { cellWidth: 10, halign: 'center' },
+                    0: { cellWidth: 8 },   // Nr.
+                    1: { cellWidth: 35 },  // Station
+                    2: { cellWidth: 62 },  // Beschreibung
+                    3: { cellWidth: 48 },  // Material
+                    4: { cellWidth: 62 },  // Gesprächsimpulse
+                    5: { cellWidth: 24 },  // Aufbau
+                    6: { cellWidth: 24 },  // Durchführung
+                    7: { cellWidth: 10, halign: 'center' }, // Voll
                 },
                 alternateRowStyles: { fillColor: [249, 250, 251] },
             });
@@ -707,15 +707,15 @@ export default function ErkiApp() {
                                     <thead>
                                         <tr className="bg-gray-50 border-b">
                                             <th className="p-4 w-8"></th>
-                                            <th className="p-4 text-xs font-bold uppercase text-gray-400 tracking-wider">Nr.</th>
-                                            <th className="p-4 text-xs font-bold uppercase text-gray-400 tracking-wider">Station</th>
+                                            <th className="p-4 w-10 text-xs font-bold uppercase text-gray-400 tracking-wider">Nr.</th>
+                                            <th className="p-4 w-36 text-xs font-bold uppercase text-gray-400 tracking-wider">Station</th>
                                             <th className="p-4 text-xs font-bold uppercase text-gray-400 tracking-wider">Beschreibung</th>
-                                            <th className="p-4 text-xs font-bold uppercase text-gray-400 tracking-wider">Material</th>
+                                            <th className="p-4 w-48 text-xs font-bold uppercase text-gray-400 tracking-wider">Material</th>
                                             <th className="p-4 text-xs font-bold uppercase text-gray-400 tracking-wider">Gesprächsimpulse</th>
-                                            <th className="p-4 text-xs font-bold uppercase text-gray-400 tracking-wider">Aufbau</th>
-                                            <th className="p-4 text-xs font-bold uppercase text-gray-400 tracking-wider">Durchführung</th>
-                                            <th className="p-4 text-xs font-bold uppercase text-gray-400 tracking-wider">Voll</th>
-                                            <th className="p-4"></th>
+                                            <th className="p-4 w-28 text-xs font-bold uppercase text-gray-400 tracking-wider">Aufbau</th>
+                                            <th className="p-4 w-28 text-xs font-bold uppercase text-gray-400 tracking-wider">Durchführung</th>
+                                            <th className="p-4 w-12 text-xs font-bold uppercase text-gray-400 tracking-wider">Voll</th>
+                                            <th className="p-4 w-10"></th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
