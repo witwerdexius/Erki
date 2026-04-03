@@ -548,7 +548,7 @@ export default function ErkiApp() {
                                                         >
                                                             <span
                                                                 className={cn("font-mono font-bold uppercase leading-tight line-clamp-5 tracking-tight w-full", s.isFilled ? "text-white" : "text-gray-300")}
-                                                                style={{ overflowWrap: 'anywhere', fontSize: `${computedFontSize}px` }}
+                                                                style={{ hyphens: 'auto', WebkitHyphens: 'auto', overflowWrap: 'anywhere', fontSize: `${computedFontSize}px` }}
                                                             >
                                                                 {s.name}
                                                             </span>
