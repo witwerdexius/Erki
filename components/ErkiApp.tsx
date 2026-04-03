@@ -767,7 +767,7 @@ export default function ErkiApp() {
                             <button
                                 onClick={() => {
                                     const data = JSON.stringify(plans);
-                                    const blob = new Blob([data], { type: 'application/json' });
+                                    const blob = new Blob([data], { type: 'application/octet-stream' });
                                     const url = URL.createObjectURL(blob);
                                     const a = document.createElement('a');
                                     a.href = url;
