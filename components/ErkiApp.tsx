@@ -341,6 +341,20 @@ export default function ErkiApp() {
         }
     };
 
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (!draggedItem || !containerRef.current || !activePlan) return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        const rect = containerRef.current.getBoundingClientRect();
+        const x = ((touch.clientX - rect.left) / rect.width) * 100;
+        const y = ((touch.clientY - rect.top) / rect.height) * 100;
+        if (draggedItem.type === 'bubble') {
+            updateStation(draggedItem.id, { x, y });
+        } else {
+            updateStation(draggedItem.id, { targetX: x, targetY: y });
+        }
+    };
+
     const handleRowDragStart = (id: string) => setDraggedRowId(id);
 
     const handleRowDragOver = (e: React.DragEvent, id: string) => {
@@ -382,50 +396,71 @@ export default function ErkiApp() {
     return (
         <div className="flex h-screen w-full flex-col bg-[#fdfdfd] text-[#1a1a1a] font-sans selection:bg-[#ffedd5]">
             {/* Header */}
-            <header className="flex h-16 items-center justify-between border-b px-8 bg-white/80 backdrop-blur-md sticky top-0 z-50">
-                <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-lg bg-orange-500 flex items-center justify-center text-white font-bold">EK</div>
-                    <h1 className="text-xl font-bold tracking-tight">Erlebnis Kirche Planner</h1>
-                </div>
-
-                <div className="flex items-center gap-6">
-                    <nav className="flex bg-gray-100 rounded-full p-1 border">
-                        <button
-                            onClick={() => setActiveTab('map')}
-                            className={cn(
-                                "flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all",
-                                activeTab === 'map' ? "bg-white shadow-sm text-orange-600" : "text-gray-500 hover:text-gray-700"
-                            )}>
-                            <MapIcon className="w-4 h-4" /> Lageplan
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('table')}
-                            className={cn(
-                                "flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all",
-                                activeTab === 'table' ? "bg-white shadow-sm text-orange-600" : "text-gray-500 hover:text-gray-700"
-                            )}>
-                            <List className="w-4 h-4" /> Tabelle
-                        </button>
-                    </nav>
-
-                    <div className="flex items-center bg-gray-100 rounded-full px-3 py-1 border focus-within:ring-2 ring-orange-200 transition-all">
-                        <Link className="w-4 h-4 text-gray-400 mr-2" />
-                        <input
-                            type="text"
-                            placeholder="Import URL (jugendarbeit.online)"
-                            className="bg-transparent border-none outline-none text-sm w-48 h-8"
-                            value={importUrl}
-                            onChange={(e) => setImportUrl(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleImport()}
-                        />
-                        <button
-                            onClick={handleImport}
-                            disabled={isImporting}
-                            className="ml-2 bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-semibold hover:bg-orange-600 active:scale-95 transition-all disabled:opacity-50"
-                        >
-                            {isImporting ? '...' : 'Import'}
-                        </button>
+            <header className="flex flex-col border-b bg-white/80 backdrop-blur-md sticky top-0 z-50">
+                <div className="flex h-14 items-center justify-between px-4 sm:px-8">
+                    <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-lg bg-orange-500 flex items-center justify-center text-white font-bold shrink-0">EK</div>
+                        <h1 className="hidden sm:block text-xl font-bold tracking-tight">Erlebnis Kirche Planner</h1>
                     </div>
+
+                    <div className="flex items-center gap-3 sm:gap-6">
+                        <nav className="flex bg-gray-100 rounded-full p-1 border">
+                            <button
+                                onClick={() => setActiveTab('map')}
+                                className={cn(
+                                    "flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-all",
+                                    activeTab === 'map' ? "bg-white shadow-sm text-orange-600" : "text-gray-500 hover:text-gray-700"
+                                )}>
+                                <MapIcon className="w-4 h-4" /> <span className="hidden xs:inline">Lageplan</span>
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('table')}
+                                className={cn(
+                                    "flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-all",
+                                    activeTab === 'table' ? "bg-white shadow-sm text-orange-600" : "text-gray-500 hover:text-gray-700"
+                                )}>
+                                <List className="w-4 h-4" /> <span className="hidden xs:inline">Tabelle</span>
+                            </button>
+                        </nav>
+
+                        <div className="hidden sm:flex items-center bg-gray-100 rounded-full px-3 py-1 border focus-within:ring-2 ring-orange-200 transition-all">
+                            <Link className="w-4 h-4 text-gray-400 mr-2" />
+                            <input
+                                type="text"
+                                placeholder="Import URL (jugendarbeit.online)"
+                                className="bg-transparent border-none outline-none text-sm w-48 h-8"
+                                value={importUrl}
+                                onChange={(e) => setImportUrl(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleImport()}
+                            />
+                            <button
+                                onClick={handleImport}
+                                disabled={isImporting}
+                                className="ml-2 bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-semibold hover:bg-orange-600 active:scale-95 transition-all disabled:opacity-50"
+                            >
+                                {isImporting ? '...' : 'Import'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {/* Mobile URL import bar */}
+                <div className="sm:hidden flex items-center bg-gray-100 mx-4 mb-2 rounded-full px-3 py-1 border focus-within:ring-2 ring-orange-200 transition-all">
+                    <Link className="w-4 h-4 text-gray-400 mr-2 shrink-0" />
+                    <input
+                        type="text"
+                        placeholder="Import URL"
+                        className="bg-transparent border-none outline-none text-sm flex-1 h-8 min-w-0"
+                        value={importUrl}
+                        onChange={(e) => setImportUrl(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleImport()}
+                    />
+                    <button
+                        onClick={handleImport}
+                        disabled={isImporting}
+                        className="ml-2 bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-semibold hover:bg-orange-600 active:scale-95 transition-all disabled:opacity-50 shrink-0"
+                    >
+                        {isImporting ? '...' : 'Import'}
+                    </button>
                 </div>
             </header>
 
@@ -434,45 +469,45 @@ export default function ErkiApp() {
                 <main className="flex-1 relative bg-gray-100 overflow-hidden flex flex-col">
                     {activeTab === 'map' ? (
                         <div className="flex-1 flex flex-col overflow-hidden relative">
-                            <div className="absolute top-4 right-4 z-40 flex gap-2">
+                            <div className="absolute top-3 right-3 z-40 flex flex-wrap gap-2 justify-end max-w-[calc(100%-1.5rem)]">
                                 <button
                                     onClick={addStation}
-                                    className="flex items-center gap-2 px-4 py-2 bg-white text-orange-600 rounded-full shadow-lg border border-orange-100 cursor-pointer hover:bg-orange-50 transition-all active:scale-95 text-sm font-medium"
+                                    className="flex items-center gap-2 px-3 py-2 bg-white text-orange-600 rounded-full shadow-lg border border-orange-100 cursor-pointer hover:bg-orange-50 transition-all active:scale-95 text-sm font-medium"
                                 >
                                     <Plus className="w-4 h-4" />
-                                    Station
+                                    <span className="hidden sm:inline">Station</span>
                                 </button>
                                 <button
                                     onClick={renumberStations}
-                                    className="flex items-center gap-2 px-4 py-2 bg-white text-gray-600 rounded-full shadow-lg border cursor-pointer hover:bg-gray-50 transition-all active:scale-95 text-sm font-medium"
+                                    className="flex items-center gap-2 px-3 py-2 bg-white text-gray-600 rounded-full shadow-lg border cursor-pointer hover:bg-gray-50 transition-all active:scale-95 text-sm font-medium"
                                     title="Neu nummerieren"
                                 >
                                     <Move className="w-4 h-4" />
-                                    Nummerieren
+                                    <span className="hidden sm:inline">Nummerieren</span>
                                 </button>
                                 <button
                                     onClick={handleDistributeColors}
-                                    className="flex items-center gap-2 px-4 py-2 bg-white text-gray-600 rounded-full shadow-lg border cursor-pointer hover:bg-gray-50 transition-all active:scale-95 text-sm font-medium"
+                                    className="flex items-center gap-2 px-3 py-2 bg-white text-gray-600 rounded-full shadow-lg border cursor-pointer hover:bg-gray-50 transition-all active:scale-95 text-sm font-medium"
                                     title="Farben gleichmäßig verteilen"
                                 >
                                     <Palette className="w-4 h-4" />
-                                    Farben
+                                    <span className="hidden sm:inline">Farben</span>
                                 </button>
                                 <button
                                     onClick={exportToPDF}
-                                    className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-full shadow-lg border-none cursor-pointer hover:bg-orange-600 transition-all active:scale-95 text-sm font-medium"
+                                    className="flex items-center gap-2 px-3 py-2 bg-orange-500 text-white rounded-full shadow-lg border-none cursor-pointer hover:bg-orange-600 transition-all active:scale-95 text-sm font-medium"
                                 >
                                     <Download className="w-4 h-4" />
-                                    PDF Download
+                                    <span className="hidden sm:inline">PDF</span>
                                 </button>
-                                <label className="flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-lg border cursor-pointer hover:bg-gray-50 transition-all active:scale-95 text-sm font-medium">
+                                <label className="flex items-center gap-2 px-3 py-2 bg-white rounded-full shadow-lg border cursor-pointer hover:bg-gray-50 transition-all active:scale-95 text-sm font-medium">
                                     <Upload className="w-4 h-4 text-blue-500" />
-                                    Lageplan hochladen
+                                    <span className="hidden sm:inline">Lageplan hochladen</span>
                                     <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
                                 </label>
                             </div>
 
-                            <div className="flex-1 overflow-auto p-8 flex items-center justify-center">
+                            <div className="flex-1 overflow-auto p-2 sm:p-8 flex items-center justify-center">
                                 <div
                                     ref={containerRef}
                                     className={cn(
@@ -482,6 +517,8 @@ export default function ErkiApp() {
                                     onMouseMove={handleMouseMove}
                                     onMouseUp={handleMouseUp}
                                     onMouseLeave={handleMouseUp}
+                                    onTouchMove={handleTouchMove}
+                                    onTouchEnd={handleMouseUp}
                                 >
                                     {activePlan?.backgroundImage && (
                                         <div className="absolute inset-0 select-none pointer-events-none">
@@ -559,6 +596,10 @@ export default function ErkiApp() {
                                                                 e.stopPropagation();
                                                                 setDraggedItem({ id: s.id, type: 'target' });
                                                             }}
+                                                            onTouchStart={(e) => {
+                                                                e.stopPropagation();
+                                                                setDraggedItem({ id: s.id, type: 'target' });
+                                                            }}
                                                         />
 
                                                         <div
@@ -569,6 +610,10 @@ export default function ErkiApp() {
                                                                 ...(s.isFilled ? { backgroundColor: color.bg, borderColor: color.bg } : color.style),
                                                             }}
                                                             onMouseDown={(e) => {
+                                                                e.stopPropagation();
+                                                                setDraggedItem({ id: s.id, type: 'bubble' });
+                                                            }}
+                                                            onTouchStart={(e) => {
                                                                 e.stopPropagation();
                                                                 setDraggedItem({ id: s.id, type: 'bubble' });
                                                             }}
@@ -589,13 +634,14 @@ export default function ErkiApp() {
                             </div>
                         </div>
                     ) : (
-                        <div className="flex-1 overflow-auto p-12">
+                        <div className="flex-1 overflow-auto p-4 sm:p-12">
                             <motion.div
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-200"
                             >
-                                <table className="w-full text-left border-collapse">
+                                <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse min-w-[700px]">
                                     <thead>
                                         <tr className="bg-gray-50 border-b">
                                             <th className="p-4 w-8"></th>
@@ -699,6 +745,7 @@ export default function ErkiApp() {
                                         ))}
                                     </tbody>
                                 </table>
+                                </div>
                                 <button
                                     onClick={addStation}
                                     className="w-full p-6 text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-all flex items-center justify-center gap-2 font-medium"
@@ -709,13 +756,13 @@ export default function ErkiApp() {
                         </div>
                     )}
 
-                    <div className="px-8 py-4 bg-white border-t flex items-center justify-between text-xs text-gray-400">
+                    <div className="px-4 sm:px-8 py-4 bg-white border-t flex items-center justify-between text-xs text-gray-400">
                         <p>© 2026 Erlebnis Kirche Planner | Made with ❤️ for community</p>
                         <div className="flex gap-4">
                             <label className="hover:text-gray-600 transition-colors cursor-pointer flex items-center gap-1" title="Backup laden">
                                 <Upload className="w-4 h-4" />
                                 <span className="hidden sm:inline">Backup laden</span>
-                                <input type="file" className="hidden" accept=".json" onChange={handleBackupImport} />
+                                <input type="file" className="hidden" accept=".rki" onChange={handleBackupImport} />
                             </label>
                             <button
                                 onClick={() => {
@@ -724,7 +771,7 @@ export default function ErkiApp() {
                                     const url = URL.createObjectURL(blob);
                                     const a = document.createElement('a');
                                     a.href = url;
-                                    a.download = `erki-plaene-${new Date().toISOString().split('T')[0]}.json`;
+                                    a.download = `erki-plaene-${new Date().toISOString().split('T')[0]}.rki`;
                                     a.click();
                                 }}
                                 className="hover:text-gray-600 transition-colors"
