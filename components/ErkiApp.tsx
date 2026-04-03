@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Info, Move, Palette, GripVertical } from 'lucide-react';
+import { Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Info, Move, Palette, GripVertical, PenLine, Eraser } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plan, Station } from '@/lib/types';
+import { Plan, Station, MaskPolygon } from '@/lib/types';
 import { importPlanFromUrl } from '@/lib/actions';
 import { cn } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
@@ -18,6 +18,9 @@ export default function ErkiApp() {
     const [draggedItem, setDraggedItem] = useState<{ id: string; type: 'bubble' | 'target' } | null>(null);
     const [draggedRowId, setDraggedRowId] = useState<string | null>(null);
     const [dragOverRowId, setDragOverRowId] = useState<string | null>(null);
+    const [maskDrawing, setMaskDrawing] = useState(false);
+    const [currentMaskPoints, setCurrentMaskPoints] = useState<{ x: number; y: number }[]>([]);
+    const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
 
     const containerRef = useRef<HTMLDivElement>(null);
     const tableRef = useRef<HTMLDivElement>(null);
@@ -57,6 +60,13 @@ export default function ErkiApp() {
             img.src = activePlan.backgroundImage;
         }
     }, [activePlan?.backgroundImage]);
+
+    // Escape cancels mask drawing
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') cancelMaskDrawing(); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [maskDrawing]);
 
     // Paste image from clipboard as background
     useEffect(() => {
@@ -452,7 +462,6 @@ export default function ErkiApp() {
 
     const handleMouseUp = () => {
         if (draggedItem && activePlan) {
-            // Only check conflicts if we moved a marker
             if (draggedItem.type === 'target') {
                 const updatedStations = resolveColorConflicts(draggedItem.id, activePlan.stations);
                 if (updatedStations !== activePlan.stations) {
@@ -461,6 +470,45 @@ export default function ErkiApp() {
             }
         }
         setDraggedItem(null);
+    };
+
+    const getMapCoords = (e: React.MouseEvent) => {
+        if (!containerRef.current) return null;
+        const rect = containerRef.current.getBoundingClientRect();
+        return {
+            x: ((e.clientX - rect.left) / rect.width) * 100,
+            y: ((e.clientY - rect.top) / rect.height) * 100,
+        };
+    };
+
+    const handleMapClick = (e: React.MouseEvent) => {
+        if (!maskDrawing) return;
+        const pos = getMapCoords(e);
+        if (!pos) return;
+        setCurrentMaskPoints(prev => [...prev, pos]);
+    };
+
+    const handleMapDoubleClick = (e: React.MouseEvent) => {
+        if (!maskDrawing || currentMaskPoints.length < 3) return;
+        e.preventDefault();
+        const masks = [...(activePlan?.masks || []), { points: currentMaskPoints }];
+        updateActivePlan({ masks });
+        setCurrentMaskPoints([]);
+    };
+
+    const handleMaskMouseMove = (e: React.MouseEvent) => {
+        if (!maskDrawing) return;
+        setCursorPos(getMapCoords(e));
+    };
+
+    const cancelMaskDrawing = () => {
+        setMaskDrawing(false);
+        setCurrentMaskPoints([]);
+        setCursorPos(null);
+    };
+
+    const clearMasks = () => {
+        updateActivePlan({ masks: [] });
     };
 
     return (
@@ -575,6 +623,27 @@ export default function ErkiApp() {
                                     <span className="hidden sm:inline">Lageplan hochladen</span>
                                     <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
                                 </label>
+                                <button
+                                    onClick={() => { setMaskDrawing(m => !m); setCurrentMaskPoints([]); }}
+                                    className={cn(
+                                        "flex items-center gap-2 px-3 py-2 rounded-full shadow-lg border cursor-pointer transition-all active:scale-95 text-sm font-medium",
+                                        maskDrawing ? "bg-orange-500 text-white border-orange-500" : "bg-white text-gray-600 hover:bg-gray-50"
+                                    )}
+                                    title="Weiße Maske zeichnen"
+                                >
+                                    <PenLine className="w-4 h-4" />
+                                    <span className="hidden sm:inline">{maskDrawing ? 'Fertig (Doppelklick)' : 'Maske'}</span>
+                                </button>
+                                {(activePlan?.masks?.length ?? 0) > 0 && (
+                                    <button
+                                        onClick={clearMasks}
+                                        className="flex items-center gap-2 px-3 py-2 bg-white text-red-400 rounded-full shadow-lg border cursor-pointer hover:bg-red-50 transition-all active:scale-95 text-sm font-medium"
+                                        title="Alle Masken löschen"
+                                    >
+                                        <Eraser className="w-4 h-4" />
+                                        <span className="hidden sm:inline">Masken löschen</span>
+                                    </button>
+                                )}
                             </div>
 
                             <div className="flex-1 overflow-auto p-2 sm:p-8 flex items-center justify-center">
@@ -584,11 +653,14 @@ export default function ErkiApp() {
                                         "relative bg-white shadow-2xl overflow-hidden border border-gray-200 transition-all duration-500",
                                         aspectRatio === 'landscape' ? "aspect-[297/210] h-auto w-full max-w-5xl" : "aspect-[210/297] w-auto h-full max-h-[80vh]"
                                     )}
-                                    onMouseMove={handleMouseMove}
+                                    onMouseMove={(e) => { handleMouseMove(e); handleMaskMouseMove(e); }}
                                     onMouseUp={handleMouseUp}
                                     onMouseLeave={handleMouseUp}
                                     onTouchMove={handleTouchMove}
                                     onTouchEnd={handleMouseUp}
+                                    onClick={handleMapClick}
+                                    onDoubleClick={handleMapDoubleClick}
+                                    style={{ cursor: maskDrawing ? 'crosshair' : undefined }}
                                 >
                                     {activePlan?.backgroundImage && (
                                         <div className="absolute inset-0 select-none pointer-events-none">
@@ -598,6 +670,46 @@ export default function ErkiApp() {
                                                 alt="Lageplan Background"
                                             />
                                         </div>
+                                    )}
+
+                                    {/* White mask polygons */}
+                                    {activePlan && (activePlan.masks?.length ?? 0) > 0 && (
+                                        <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
+                                            {activePlan.masks!.map((mask, mi) => (
+                                                <polygon
+                                                    key={mi}
+                                                    points={mask.points.map(p => `${p.x}%,${p.y}%`).join(' ')}
+                                                    fill="white"
+                                                    opacity="1"
+                                                />
+                                            ))}
+                                        </svg>
+                                    )}
+
+                                    {/* Active drawing preview */}
+                                    {maskDrawing && currentMaskPoints.length > 0 && (
+                                        <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
+                                            {/* Filled preview */}
+                                            {currentMaskPoints.length >= 3 && (
+                                                <polygon
+                                                    points={currentMaskPoints.map(p => `${p.x}%,${p.y}%`).join(' ')}
+                                                    fill="white"
+                                                    opacity="0.6"
+                                                />
+                                            )}
+                                            {/* Outline + cursor line */}
+                                            <polyline
+                                                points={[...currentMaskPoints, ...(cursorPos ? [cursorPos] : [])].map(p => `${p.x}%,${p.y}%`).join(' ')}
+                                                fill="none"
+                                                stroke="#f97316"
+                                                strokeWidth="1.5"
+                                                strokeDasharray="4 3"
+                                            />
+                                            {/* Points */}
+                                            {currentMaskPoints.map((p, i) => (
+                                                <circle key={i} cx={`${p.x}%`} cy={`${p.y}%`} r="4" fill="#f97316" />
+                                            ))}
+                                        </svg>
                                     )}
 
                                     {!activePlan?.backgroundImage && (

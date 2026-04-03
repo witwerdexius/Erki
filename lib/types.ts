@@ -16,10 +16,15 @@ export interface Station {
   colorVariant?: number; // 0-3 for specific color override
 }
 
+export interface MaskPolygon {
+  points: { x: number; y: number }[]; // percentage coordinates
+}
+
 export interface Plan {
   id: string;
   title: string;
   url?: string;
   stations: Station[];
   backgroundImage?: string; // Data URL
+  masks?: MaskPolygon[];
 }
