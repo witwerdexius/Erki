@@ -733,7 +733,7 @@ export default function ErkiApp() {
                     )}
 
                     <div className="px-4 sm:px-8 py-4 bg-white border-t flex items-center justify-between text-xs text-gray-400">
-                        <p>© 2026 Erlebnis Kirche Planner | v{process.env.NEXT_PUBLIC_APP_VERSION}</p>
+                        <p>© 2026 Erlebnis Kirche Planner · v{process.env.NEXT_PUBLIC_APP_VERSION}</p>
                         <div className="flex gap-4">
                             <label className="hover:text-gray-600 transition-colors cursor-pointer flex items-center gap-1" title="Backup laden">
                                 <Upload className="w-4 h-4" />
