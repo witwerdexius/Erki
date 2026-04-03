@@ -252,6 +252,61 @@ export default function ErkiApp() {
         }
     };
 
+    const exportTableToPDF = async () => {
+        if (!activePlan) return;
+        try {
+            const autoTable = (await import('jspdf-autotable')).default;
+            const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+            const sanitizedTitle = activePlan.title
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '') || 'tabelle';
+
+            // Title
+            pdf.setFontSize(16);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text(activePlan.title, 14, 16);
+            pdf.setFontSize(9);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setTextColor(150);
+            pdf.text(`Erstellt am ${new Date().toLocaleDateString('de-DE')}`, 14, 22);
+            pdf.setTextColor(0);
+
+            autoTable(pdf, {
+                startY: 27,
+                head: [['Nr.', 'Station', 'Beschreibung', 'Material', 'Aufbau', 'Durchführung', 'Voll']],
+                body: activePlan.stations.map(s => [
+                    s.number,
+                    s.name,
+                    s.description || '',
+                    s.material || '',
+                    s.setupBy || '',
+                    s.conductedBy || '',
+                    s.isFilled ? '✓' : '',
+                ]),
+                styles: { fontSize: 8, cellPadding: 3, overflow: 'linebreak' },
+                headStyles: { fillColor: [249, 115, 22], textColor: 255, fontStyle: 'bold' },
+                columnStyles: {
+                    0: { cellWidth: 10 },
+                    1: { cellWidth: 35 },
+                    2: { cellWidth: 65 },
+                    3: { cellWidth: 55 },
+                    4: { cellWidth: 25 },
+                    5: { cellWidth: 25 },
+                    6: { cellWidth: 12, halign: 'center' },
+                },
+                alternateRowStyles: { fillColor: [249, 250, 251] },
+            });
+
+            pdf.save(`${sanitizedTitle}-tabelle.pdf`);
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            console.error('[PDF Table] Export failed:', error);
+            alert(`Tabellen-PDF Export fehlgeschlagen:\n${msg}`);
+        }
+    };
+
     const deleteStation = (id: string) => {
         if (!activePlan) return;
         updateActivePlan({ stations: activePlan.stations.filter(s => s.id !== id) });
@@ -620,6 +675,15 @@ export default function ErkiApp() {
                         </div>
                     ) : (
                         <div className="flex-1 overflow-auto p-4 sm:p-12">
+                            <div className="flex justify-end mb-4">
+                                <button
+                                    onClick={exportTableToPDF}
+                                    className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-full shadow-lg border-none cursor-pointer hover:bg-orange-600 transition-all active:scale-95 text-sm font-medium"
+                                >
+                                    <Download className="w-4 h-4" />
+                                    <span className="hidden sm:inline">Tabelle als PDF</span>
+                                </button>
+                            </div>
                             <motion.div
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
