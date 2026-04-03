@@ -502,7 +502,7 @@ export default function ErkiApp() {
                                                 // Use explicit colorVariant if available, otherwise fallback to index/number based
                                                 const colorIndex = s.colorVariant ?? (idx % colors.length);
                                                 const color = colors[colorIndex % colors.length];
-                                                const fontSize = s.name.length > 30 ? 'text-[10px]' : s.name.length > 15 ? 'text-xs' : 'text-sm';
+                                                const fontSize = s.name.length > 25 ? 'text-[8px]' : s.name.length > 15 ? 'text-[10px]' : s.name.length > 8 ? 'text-xs' : 'text-sm';
 
                                                 return (
                                                     <React.Fragment key={s.id}>
