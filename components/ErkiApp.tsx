@@ -1,16 +1,22 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Info, Move, Palette, GripVertical, PenLine, Eraser } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Move, Palette, GripVertical, PenLine, Eraser } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { User } from '@supabase/supabase-js';
 import { Plan, Station, MaskPolygon } from '@/lib/types';
 import { importPlanFromUrl } from '@/lib/actions';
 import { cn } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
 
-export default function ErkiApp() {
-    const [plans, setPlans] = useState<Plan[]>([]);
-    const [activePlanId, setActivePlanId] = useState<string | null>(null);
+interface ErkiAppProps {
+    plan: Plan;
+    user: User;
+    onPlanUpdate: (plan: Plan) => void;
+    onBack: () => void;
+}
+
+export default function ErkiApp({ plan, onPlanUpdate, onBack }: ErkiAppProps) {
     const [importUrl, setImportUrl] = useState('');
     const [isImporting, setIsImporting] = useState(false);
     const [activeTab, setActiveTab] = useState<'map' | 'table'>('map');
@@ -25,31 +31,7 @@ export default function ErkiApp() {
     const containerRef = useRef<HTMLDivElement>(null);
     const tableRef = useRef<HTMLDivElement>(null);
 
-    // Persistence and aspect ratio detection
-    useEffect(() => {
-        const saved = localStorage.getItem('erki_plans');
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                // eslint-disable-next-line react-hooks/set-state-in-effect
-                setPlans(parsed);
-                if (parsed.length > 0) {
-                    // eslint-disable-next-line react-hooks/set-state-in-effect
-                    setActivePlanId(parsed[0].id);
-                }
-            } catch (e) {
-                console.error('Failed to load plans', e);
-            }
-        }
-    }, []);
-
-    useEffect(() => {
-        if (plans.length > 0) {
-            localStorage.setItem('erki_plans', JSON.stringify(plans));
-        }
-    }, [plans]);
-
-    const activePlan = plans.find(p => p.id === activePlanId);
+    const activePlan = plan;
 
     useEffect(() => {
         if (activePlan?.backgroundImage) {
@@ -94,21 +76,18 @@ export default function ErkiApp() {
             ta.style.height = 'auto';
             ta.style.height = ta.scrollHeight + 'px';
         });
-    }, [activeTab, activePlanId, activePlan?.stations]);
+    }, [activeTab, plan.id, activePlan?.stations]);
 
     const handleImport = async () => {
         if (!importUrl) return;
         setIsImporting(true);
         const result = await importPlanFromUrl(importUrl);
         if (result.success && result.data) {
-            const newPlan: Plan = {
-                id: crypto.randomUUID(),
+            updateActivePlan({
                 title: result.data.title,
                 url: importUrl,
                 stations: result.data.stations,
-            };
-            setPlans(prev => [newPlan, ...prev]);
-            setActivePlanId(newPlan.id);
+            });
             setImportUrl('');
         } else {
             alert('Import fehlgeschlagen: ' + result.error);
@@ -116,19 +95,8 @@ export default function ErkiApp() {
         setIsImporting(false);
     };
 
-    const handleCreatePlan = () => {
-        const newPlan: Plan = {
-            id: crypto.randomUUID(),
-            title: 'Neuer Plan',
-            stations: [],
-        };
-        setPlans(prev => [newPlan, ...prev]);
-        setActivePlanId(newPlan.id);
-    };
-
     const updateActivePlan = (updates: Partial<Plan>) => {
-        if (!activePlanId) return;
-        setPlans(prev => prev.map(p => p.id === activePlanId ? { ...p, ...updates } : p));
+        onPlanUpdate({ ...plan, ...updates });
     };
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -170,13 +138,18 @@ export default function ErkiApp() {
                 try {
                     const content = ev.target?.result as string;
                     const parsed = JSON.parse(content);
-                    // Basic validation: check if it looks like an array of plans
                     if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id && parsed[0].stations) {
-                        setPlans(parsed);
-                        setActivePlanId(parsed[0].id);
-                        alert('Backup erfolgreich geladen!');
+                        // Load first plan from backup into current editor
+                        const imported = parsed[0];
+                        updateActivePlan({
+                            title: imported.title ?? plan.title,
+                            stations: imported.stations,
+                            backgroundImage: imported.backgroundImage,
+                            masks: imported.masks,
+                        });
+                        alert('Backup geladen! Bitte speichern.');
                     } else {
-                        alert('Ungültiges Dateiformat. Bitte eine gültige Erki-Backup-Datei wählen.');
+                        alert('Ungültiges Dateiformat. Bitte eine gültige .rki-Datei wählen.');
                     }
                 } catch (error) {
                     console.error('Failed to parse backup', error);
@@ -532,9 +505,20 @@ export default function ErkiApp() {
             {/* Header */}
             <header className="flex flex-col border-b bg-white/80 backdrop-blur-md sticky top-0 z-50">
                 <div className="flex h-14 items-center justify-between px-4 sm:px-8">
-                    <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-lg bg-[#6bbfd4] flex items-center justify-center text-white font-bold shrink-0">EK</div>
-                        <h1 className="hidden sm:block text-xl font-bold tracking-tight">Erlebnis Kirche Planner</h1>
+                    <div className="flex items-center gap-2 min-w-0">
+                        <button
+                            onClick={onBack}
+                            className="h-8 w-8 rounded-lg bg-[#6bbfd4] flex items-center justify-center text-white shrink-0 hover:bg-[#5aaec3] transition-colors"
+                            title="Zurück zur Übersicht"
+                        >
+                            <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        <input
+                            value={plan.title}
+                            onChange={(e) => updateActivePlan({ title: e.target.value })}
+                            className="text-lg font-bold tracking-tight bg-transparent border-none outline-none focus:bg-gray-50 rounded px-1 min-w-0 max-w-[180px] sm:max-w-xs"
+                            title="Titel bearbeiten"
+                        />
                     </div>
 
                     <div className="flex items-center gap-3 sm:gap-6">
@@ -1004,23 +988,25 @@ export default function ErkiApp() {
                     <div className="px-4 sm:px-8 py-4 bg-white border-t flex items-center justify-between text-xs text-gray-400">
                         <p>© 2026 Erlebnis Kirche Planner · v{process.env.NEXT_PUBLIC_APP_VERSION}</p>
                         <div className="flex gap-4">
-                            <label className="hover:text-gray-600 transition-colors cursor-pointer flex items-center gap-1" title="Backup laden">
+                            <label className="hover:text-gray-600 transition-colors cursor-pointer flex items-center gap-1" title="Backup laden (.rki)">
                                 <Upload className="w-4 h-4" />
                                 <span className="hidden sm:inline">Backup laden</span>
                                 <input type="file" className="hidden" accept=".rki" onChange={handleBackupImport} />
                             </label>
                             <button
                                 onClick={() => {
-                                    const data = JSON.stringify(plans);
+                                    const data = JSON.stringify([plan]);
                                     const blob = new Blob([data], { type: 'application/octet-stream' });
                                     const url = URL.createObjectURL(blob);
                                     const a = document.createElement('a');
                                     a.href = url;
-                                    a.download = `erki-plaene-${new Date().toISOString().split('T')[0]}.rki`;
+                                    const safeName = plan.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'plan';
+                                    a.download = `erki-${safeName}-${new Date().toISOString().split('T')[0]}.rki`;
                                     a.click();
+                                    URL.revokeObjectURL(url);
                                 }}
                                 className="hover:text-gray-600 transition-colors"
-                                title="Export als JSON"
+                                title="Diese Planung als .rki exportieren"
                             >
                                 <Download className="w-4 h-4" />
                             </button>

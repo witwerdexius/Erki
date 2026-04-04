@@ -20,11 +20,16 @@ export interface MaskPolygon {
   points: { x: number; y: number }[]; // percentage coordinates
 }
 
+export type PlanStatus = 'draft' | 'active' | 'archive';
+
 export interface Plan {
   id: string;
   title: string;
+  status: PlanStatus;
   url?: string;
   stations: Station[];
   backgroundImage?: string; // Data URL
   masks?: MaskPolygon[];
+  createdAt?: string;
+  updatedAt?: string;
 }
