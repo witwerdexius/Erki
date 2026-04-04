@@ -43,8 +43,10 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
 
     const containerRef = useRef<HTMLDivElement>(null);
     const tableRef = useRef<HTMLDivElement>(null);
+    const [containerWidth, setContainerWidth] = useState(0);
 
     const activePlan = plan;
+    const mapScale = containerWidth > 0 ? containerWidth / 800 : 1;
 
     // Templates lazy-laden beim ersten Wechsel zum Vorlagen-Tab oder beim Öffnen des Pickers
     const ensureTemplatesLoaded = async () => {
@@ -180,6 +182,18 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
         window.addEventListener('paste', handlePaste);
         return () => window.removeEventListener('paste', handlePaste);
     }, [activePlan, activeTab]);
+
+    // Measure container width for responsive bubble scaling
+    useEffect(() => {
+        const el = containerRef.current;
+        if (!el) return;
+        const ro = new ResizeObserver(entries => {
+            setContainerWidth(entries[0].contentRect.width);
+        });
+        ro.observe(el);
+        setContainerWidth(el.getBoundingClientRect().width);
+        return () => ro.disconnect();
+    }, []);
 
     // Auto-resize all textareas in the table when plan or tab changes
     useEffect(() => {
@@ -1149,7 +1163,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                     <React.Fragment key={s.id}>
                                                         <div
                                                             className="absolute flex items-center justify-center cursor-move z-20"
-                                                            style={{ left: `${s.targetX}%`, top: `${s.targetY}%`, width: 44, height: 44, marginLeft: -22, marginTop: -22, touchAction: 'none' }}
+                                                            style={{ left: `${s.targetX}%`, top: `${s.targetY}%`, width: 44 * mapScale, height: 44 * mapScale, marginLeft: -22 * mapScale, marginTop: -22 * mapScale, touchAction: 'none' }}
                                                             onMouseDown={(e) => {
                                                                 e.stopPropagation();
                                                                 setDraggedItem({ id: s.id, type: 'target' });
@@ -1160,12 +1174,12 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                                 setDraggedItem({ id: s.id, type: 'target' });
                                                             }}
                                                         >
-                                                            <div className="w-4 h-4 rounded-full shadow-lg border-2 border-white hover:scale-125 transition-transform active:scale-90" style={{ backgroundColor: color.bg }} />
+                                                            <div className="rounded-full shadow-lg border-2 border-white hover:scale-125 transition-transform active:scale-90" style={{ backgroundColor: color.bg, width: 16 * mapScale, height: 16 * mapScale }} />
                                                         </div>
 
                                                         <div
-                                                            className="absolute w-24 h-24 -ml-12 -mt-12 rounded-full shadow-xl cursor-move transition-all duration-200 hover:ring-2 ring-gray-100 z-30"
-                                                            style={{ left: `${s.x}%`, top: `${s.y}%`, touchAction: 'none' }}
+                                                            className="absolute rounded-full shadow-xl cursor-move transition-all duration-200 hover:ring-2 ring-gray-100 z-30"
+                                                            style={{ left: `${s.x}%`, top: `${s.y}%`, width: 96 * mapScale, height: 96 * mapScale, marginLeft: -48 * mapScale, marginTop: -48 * mapScale, touchAction: 'none' }}
                                                             onMouseDown={(e) => {
                                                                 e.stopPropagation();
                                                                 setDraggedItem({ id: s.id, type: 'bubble' });
@@ -1177,12 +1191,12 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                             }}
                                                         >
                                                             <div
-                                                                className="w-full h-full rounded-full border-[6px] flex flex-col items-center justify-center p-2 text-center bg-white overflow-hidden"
-                                                                style={s.isFilled ? { backgroundColor: color.bg, borderColor: color.bg } : color.style}
+                                                                className="w-full h-full rounded-full flex flex-col items-center justify-center text-center bg-white overflow-hidden"
+                                                                style={s.isFilled ? { backgroundColor: color.bg, borderColor: color.bg, borderWidth: 6 * mapScale, borderStyle: 'solid', padding: 8 * mapScale } : { ...color.style, borderWidth: 6 * mapScale, borderStyle: 'solid', padding: 8 * mapScale }}
                                                             >
                                                                 <span
                                                                     className={cn("font-mono font-bold uppercase leading-tight line-clamp-5 tracking-tight w-full", s.isFilled ? "text-white" : "text-gray-300")}
-                                                                    style={{ hyphens: 'auto', WebkitHyphens: 'auto', overflowWrap: 'anywhere', fontSize: `${computedFontSize}px` }}
+                                                                    style={{ hyphens: 'auto', WebkitHyphens: 'auto', overflowWrap: 'anywhere', fontSize: `${computedFontSize * mapScale}px` }}
                                                                 >
                                                                     {s.name}
                                                                 </span>
@@ -1269,7 +1283,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                     <div className="relative inline-block">
                                                         <div
                                                             className="cursor-move select-none font-bold uppercase tracking-widest whitespace-nowrap"
-                                                            style={{ fontSize: lb.fontSize, color: '#1a1a1a' }}
+                                                            style={{ fontSize: lb.fontSize * mapScale, color: '#1a1a1a' }}
                                                             onMouseDown={(e) => { e.stopPropagation(); startOverlayDrag('label', e.clientX, e.clientY); }}
                                                             onTouchStart={(e) => { e.stopPropagation(); startOverlayDrag('label', e.touches[0].clientX, e.touches[0].clientY); }}
                                                             onDoubleClick={(e) => { e.stopPropagation(); setEditingLabel(true); }}
