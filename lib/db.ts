@@ -119,36 +119,36 @@ export async function createPlanning(title: string, userId: string): Promise<Pla
 export async function savePlanning(plan: Plan): Promise<void> {
   console.log('[savePlanning] starte für:', plan.id, '|', plan.title, '| status:', plan.status, '| Stationen:', plan.stations.length);
 
-  const { error: planError } = await supabase
-    .from('plannings')
-    .update({
-      title: plan.title,
-      status: plan.status,
-      url: plan.url ?? null,
-      background_image: plan.backgroundImage ?? null,
-      masks: plan.masks ?? [],
-      logo_overlay: plan.logoOverlay ?? null,
-      label_overlay: plan.labelOverlay ?? null,
-      bg_zoom: plan.bgZoom ?? 1,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', plan.id);
+  // plannings UPDATE und stations DELETE sind unabhängig → parallel ausführen
+  const [{ error: planError }, { error: deleteError }] = await Promise.all([
+    supabase
+      .from('plannings')
+      .update({
+        title: plan.title,
+        status: plan.status,
+        url: plan.url ?? null,
+        background_image: plan.backgroundImage ?? null,
+        masks: plan.masks ?? [],
+        logo_overlay: plan.logoOverlay ?? null,
+        label_overlay: plan.labelOverlay ?? null,
+        bg_zoom: plan.bgZoom ?? 1,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', plan.id),
+    supabase
+      .from('stations')
+      .delete()
+      .eq('planning_id', plan.id),
+  ]);
   if (planError) {
     console.error('[savePlanning] plannings UPDATE Fehler:', planError);
     throw planError;
   }
-  console.log('[savePlanning] plannings UPDATE ok');
-
-  // Replace stations: delete all, then re-insert
-  const { error: deleteError } = await supabase
-    .from('stations')
-    .delete()
-    .eq('planning_id', plan.id);
   if (deleteError) {
     console.error('[savePlanning] stations DELETE Fehler:', deleteError);
     throw deleteError;
   }
-  console.log('[savePlanning] stations DELETE ok');
+  console.log('[savePlanning] plannings UPDATE + stations DELETE ok (parallel)');
 
   if (plan.stations.length > 0) {
     // Sicherstellen dass alle IDs gültige UUIDs sind (alte .rki-Importe können Non-UUIDs enthalten)

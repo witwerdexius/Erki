@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Move, Palette, GripVertical, PenLine, Eraser, Image as ImageIcon, Type, ZoomIn, ZoomOut, BookTemplate, Bookmark, Pencil } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Move, Palette, GripVertical, PenLine, Eraser, Image as ImageIcon, Type, ZoomIn, ZoomOut, BookTemplate, Bookmark, Pencil, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { User } from '@supabase/supabase-js';
 import { Plan, Station, MaskPolygon, LogoOverlay, LabelOverlay, StationTemplate } from '@/lib/types';
@@ -16,9 +16,10 @@ interface ErkiAppProps {
     user: User;
     onPlanUpdate: (plan: Plan) => void;
     onBack: () => void;
+    isSaving?: boolean;
 }
 
-export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppProps) {
+export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = false }: ErkiAppProps) {
     const [importUrl, setImportUrl] = useState('');
     const [isImporting, setIsImporting] = useState(false);
     const [activeTab, setActiveTab] = useState<'map' | 'table' | 'templates'>('map');
@@ -758,10 +759,14 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
                     <div className="flex items-center gap-2 min-w-0">
                         <button
                             onClick={onBack}
-                            className="h-8 w-8 rounded-lg bg-[#6bbfd4] flex items-center justify-center text-white shrink-0 hover:bg-[#5aaec3] transition-colors"
-                            title="Zurück zur Übersicht"
+                            disabled={isSaving}
+                            className="h-8 w-8 rounded-lg bg-[#6bbfd4] flex items-center justify-center text-white shrink-0 hover:bg-[#5aaec3] transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                            title={isSaving ? 'Wird gespeichert…' : 'Zurück zur Übersicht'}
                         >
-                            <ChevronLeft className="w-5 h-5" />
+                            {isSaving
+                                ? <Loader2 className="w-5 h-5 animate-spin" />
+                                : <ChevronLeft className="w-5 h-5" />
+                            }
                         </button>
                         <input
                             value={plan.title}

@@ -18,6 +18,7 @@ export default function Home() {
   const [view, setView] = useState<View>('login');
   const [activePlan, setActivePlan] = useState<Plan | null>(null);
   const [loadingPlan, setLoadingPlan] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   // Ref hält immer den neuesten Plan-Stand synchron (unabhängig von React-State-Batching)
   const latestPlanRef = useRef<Plan | null>(null);
@@ -109,11 +110,14 @@ export default function Home() {
     );
     if (plan) {
       console.log('[handleBack] starte savePlanning...');
+      setIsSaving(true);
       try {
         await savePlanning(plan);
         console.log('[handleBack] savePlanning erfolgreich');
       } catch (e) {
         console.error('[handleBack] savePlanning FEHLGESCHLAGEN:', e);
+      } finally {
+        setIsSaving(false);
       }
     } else {
       console.warn('[handleBack] kein Plan in latestPlanRef – nichts gespeichert!');
@@ -153,6 +157,7 @@ export default function Home() {
           user={user}
           onPlanUpdate={handlePlanUpdate}
           onBack={handleBack}
+          isSaving={isSaving}
         />
       </main>
     );
