@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Move, Palette, GripVertical, PenLine, Eraser, Image as ImageIcon, Type } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Move, Palette, GripVertical, PenLine, Eraser, Image as ImageIcon, Type, ZoomIn, ZoomOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { User } from '@supabase/supabase-js';
 import { Plan, Station, MaskPolygon, LogoOverlay, LabelOverlay } from '@/lib/types';
@@ -35,6 +35,11 @@ export default function ErkiApp({ plan, onPlanUpdate, onBack }: ErkiAppProps) {
     const tableRef = useRef<HTMLDivElement>(null);
 
     const activePlan = plan;
+
+    const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+    const currentZoom = activePlan?.bgZoom ?? 1;
+    const zoomIn  = () => { const next = ZOOM_STEPS.find(z => z > currentZoom); if (next) updateActivePlan({ bgZoom: next }); };
+    const zoomOut = () => { const prev = [...ZOOM_STEPS].reverse().find(z => z < currentZoom); if (prev) updateActivePlan({ bgZoom: prev }); };
 
     useEffect(() => {
         if (activePlan?.backgroundImage) {
@@ -672,6 +677,36 @@ export default function ErkiApp({ plan, onPlanUpdate, onBack }: ErkiAppProps) {
                                     <Palette className="w-4 h-4" />
                                     <span className="hidden sm:inline">Farben</span>
                                 </button>
+                                {activePlan?.backgroundImage && (
+                                    <div className="flex items-center bg-white rounded-full shadow-lg border overflow-hidden">
+                                        <button
+                                            onClick={zoomOut}
+                                            disabled={currentZoom <= ZOOM_STEPS[0]}
+                                            className="px-2 py-2 hover:bg-gray-50 disabled:opacity-30 transition-colors"
+                                            title="Hintergrundbild verkleinern"
+                                        >
+                                            <ZoomOut className="w-4 h-4 text-gray-600" />
+                                        </button>
+                                        <select
+                                            value={currentZoom}
+                                            onChange={(e) => updateActivePlan({ bgZoom: Number(e.target.value) })}
+                                            className="text-xs font-medium text-gray-600 bg-transparent border-none outline-none px-1 cursor-pointer"
+                                            title="Zoom-Stufe"
+                                        >
+                                            {ZOOM_STEPS.map(z => (
+                                                <option key={z} value={z}>{Math.round(z * 100)}%</option>
+                                            ))}
+                                        </select>
+                                        <button
+                                            onClick={zoomIn}
+                                            disabled={currentZoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1]}
+                                            className="px-2 py-2 hover:bg-gray-50 disabled:opacity-30 transition-colors"
+                                            title="Hintergrundbild vergrößern"
+                                        >
+                                            <ZoomIn className="w-4 h-4 text-gray-600" />
+                                        </button>
+                                    </div>
+                                )}
                                 <button
                                     onClick={exportToPDF}
                                     className="flex items-center gap-2 px-3 py-2 bg-[#6bbfd4] text-white rounded-full shadow-lg border-none cursor-pointer hover:bg-[#5aaec3] transition-all active:scale-95 text-sm font-medium"
@@ -784,10 +819,11 @@ export default function ErkiApp({ plan, onPlanUpdate, onBack }: ErkiAppProps) {
                                     style={{ cursor: maskDrawing ? 'crosshair' : undefined }}
                                 >
                                     {activePlan?.backgroundImage && (
-                                        <div className="absolute inset-0 select-none pointer-events-none">
+                                        <div className="absolute inset-0 select-none pointer-events-none overflow-hidden">
                                             <img
                                                 src={activePlan.backgroundImage}
-                                                className="w-full h-full object-contain opacity-50"
+                                                className="w-full h-full object-contain opacity-50 origin-center"
+                                                style={{ transform: `scale(${currentZoom})` }}
                                                 alt="Lageplan Background"
                                             />
                                         </div>

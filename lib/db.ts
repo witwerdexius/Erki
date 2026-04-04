@@ -14,6 +14,7 @@ function rowToPlan(row: any, stations: Station[]): Plan {
     masks: row.masks ?? [],
     logoOverlay: row.logo_overlay ?? undefined,
     labelOverlay: row.label_overlay ?? undefined,
+    bgZoom: row.bg_zoom ?? 1,
     stations,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -128,6 +129,7 @@ export async function savePlanning(plan: Plan): Promise<void> {
       masks: plan.masks ?? [],
       logo_overlay: plan.logoOverlay ?? null,
       label_overlay: plan.labelOverlay ?? null,
+      bg_zoom: plan.bgZoom ?? 1,
       updated_at: new Date().toISOString(),
     })
     .eq('id', plan.id);
@@ -194,6 +196,7 @@ export async function importPlannings(plans: Plan[], userId: string): Promise<vo
         masks: plan.masks ?? [],
         logo_overlay: plan.logoOverlay ?? null,
         label_overlay: plan.labelOverlay ?? null,
+        bg_zoom: plan.bgZoom ?? 1,
       })
       .select()
       .single();

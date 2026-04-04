@@ -46,6 +46,7 @@ export interface Plan {
   masks?: MaskPolygon[];
   logoOverlay?: LogoOverlay;
   labelOverlay?: LabelOverlay;
+  bgZoom?: number; // 0.5 | 0.75 | 1 | 1.25 | 1.5 | 2
   createdAt?: string;
   updatedAt?: string;
 }
