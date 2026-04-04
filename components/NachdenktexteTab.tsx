@@ -46,12 +46,15 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
             .filter(l => l.trim())
             .map(l => {
                 const parts = l.split(';');
+                // Support both 5-column (Station;Überschrift;Teil1;Bibel;Teil2)
+                // and 6-column (Nummer;Station;Überschrift;Teil1;Bibel;Teil2) formats
+                const o = parts.length >= 6 ? 1 : 0;
                 return {
-                    station: parts[0]?.trim() ?? '',
-                    ueberschrift: parts[1]?.trim() ?? '',
-                    teil1: parts[2]?.trim() ?? '',
-                    bibelzitat: parts[3]?.trim() ?? '',
-                    teil2: parts[4]?.trim() ?? '',
+                    station: parts[o]?.trim() ?? '',
+                    ueberschrift: parts[o + 1]?.trim() ?? '',
+                    teil1: parts[o + 2]?.trim() ?? '',
+                    bibelzitat: parts[o + 3]?.trim() ?? '',
+                    teil2: parts[o + 4]?.trim() ?? '',
                 };
             });
 
@@ -106,22 +109,31 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const drawWrapped = (page: any, text: string, font: any, size: number, startY: number): number => {
                 if (!text.trim()) return startY;
-                const words = text.split(/\s+/);
-                let line = '';
+                // Normalize literal \n (two chars) and \r\n to real newlines
+                const normalized = text.replace(/\\n/g, '\n').replace(/\r\n/g, '\n');
+                const paragraphs = normalized.split('\n');
                 let y = startY;
-                for (const word of words) {
-                    const test = line ? `${line} ${word}` : word;
-                    if (font.widthOfTextAtSize(test, size) > textWidth && line) {
+                for (const para of paragraphs) {
+                    if (!para.trim()) {
+                        y -= size * 0.8; // blank line gap
+                        continue;
+                    }
+                    const words = para.split(/[ \t]+/);
+                    let line = '';
+                    for (const word of words) {
+                        const test = line ? `${line} ${word}` : word;
+                        if (font.widthOfTextAtSize(test, size) > textWidth && line) {
+                            page.drawText(line, { x: marginLR, y, font, size, color: rgb(0, 0, 0) });
+                            y -= size * 1.5;
+                            line = word;
+                        } else {
+                            line = test;
+                        }
+                    }
+                    if (line) {
                         page.drawText(line, { x: marginLR, y, font, size, color: rgb(0, 0, 0) });
                         y -= size * 1.5;
-                        line = word;
-                    } else {
-                        line = test;
                     }
-                }
-                if (line) {
-                    page.drawText(line, { x: marginLR, y, font, size, color: rgb(0, 0, 0) });
-                    y -= size * 1.5;
                 }
                 return y;
             };
