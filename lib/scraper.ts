@@ -132,7 +132,7 @@ export async function scrapeJugendarbeit(url: string): Promise<{ title: string; 
             const targetY = 40 + Math.floor(i / 3) * 10;
 
             stations.push({
-                id: Math.random().toString(36).substr(2, 9),
+                id: crypto.randomUUID(),
                 number,
                 name: name || `Station ${i + 1}`,
                 description: instructions,

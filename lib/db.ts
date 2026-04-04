@@ -126,7 +126,13 @@ export async function savePlanning(plan: Plan): Promise<void> {
   console.log('[savePlanning] stations DELETE ok');
 
   if (plan.stations.length > 0) {
-    const rows = plan.stations.map((s, i) => stationToRow(s, plan.id, i));
+    // Sicherstellen dass alle IDs gültige UUIDs sind (alte .rki-Importe können Non-UUIDs enthalten)
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const stations = plan.stations.map(s => ({
+      ...s,
+      id: UUID_RE.test(s.id) ? s.id : crypto.randomUUID(),
+    }));
+    const rows = stations.map((s, i) => stationToRow(s, plan.id, i));
     const { error: insertError } = await supabase.from('stations').insert(rows);
     if (insertError) {
       console.error('[savePlanning] stations INSERT Fehler:', insertError);
@@ -169,7 +175,9 @@ export async function importPlannings(plans: Plan[], userId: string): Promise<vo
     if (error) throw error;
 
     if (plan.stations.length > 0) {
-      const rows = plan.stations.map((s, i) => stationToRow(s, data.id, i));
+      // Neue UUIDs vergeben – .rki-Dateien können alte Non-UUID-IDs enthalten
+      const stationsWithUUIDs = plan.stations.map(s => ({ ...s, id: crypto.randomUUID() }));
+      const rows = stationsWithUUIDs.map((s, i) => stationToRow(s, data.id, i));
       const { error: stationsError } = await supabase.from('stations').insert(rows);
       if (stationsError) throw stationsError;
     }
