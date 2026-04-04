@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, FolderOpen, Trash2, Upload, Download, LogOut } from 'lucide-react';
+import { Plus, FolderOpen, Trash2, Upload, Download, LogOut, Settings } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { loadPlannings, createPlanning, deletePlanning, updatePlanningStatus, importPlannings } from '@/lib/db';
-import { Plan, PlanStatus } from '@/lib/types';
+import { Plan, PlanStatus, Profile, Community } from '@/lib/types';
+import AdminPanel from '@/components/AdminPanel';
 
 const STATUS_LABELS: Record<PlanStatus, string> = {
   draft: 'Entwurf',
@@ -21,13 +22,18 @@ const STATUS_COLORS: Record<PlanStatus, string> = {
 
 interface Props {
   user: User;
+  profile: Profile | null;
+  community: Community | null;
   onOpenPlan: (planId: string) => void;
 }
 
-export default function PlanningList({ user, onOpenPlan }: Props) {
+export default function PlanningList({ user, profile, community, onOpenPlan }: Props) {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
+
+  const isAdmin = profile?.role === 'admin';
 
   useEffect(() => {
     loadPlannings()
@@ -120,13 +126,28 @@ export default function PlanningList({ user, onOpenPlan }: Props) {
       {/* Header */}
       <header className="flex h-14 items-center justify-between px-4 sm:px-8 border-b bg-white/80 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-orange-500 flex items-center justify-center text-white font-bold shrink-0">
+          <div className="h-8 w-8 rounded-lg bg-[#6bbfd4] flex items-center justify-center text-white font-bold shrink-0">
             EK
           </div>
-          <h1 className="hidden sm:block text-xl font-bold tracking-tight">Erlebnis Kirche Planner</h1>
+          <div className="hidden sm:block">
+            <h1 className="text-base font-bold tracking-tight leading-tight">Erlebnis Kirche Planner</h1>
+            {community && (
+              <p className="text-xs text-gray-400 leading-tight">{community.name}</p>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <span className="text-sm text-gray-400 hidden sm:block">{user.email}</span>
+          {isAdmin && (
+            <button
+              onClick={() => setShowAdmin(true)}
+              className="flex items-center gap-1.5 text-sm text-[#6bbfd4] hover:text-[#5aaeC3] transition-colors"
+              title="Verwaltung"
+            >
+              <Settings className="w-4 h-4" />
+              <span className="hidden sm:inline">Verwaltung</span>
+            </button>
+          )}
           <button
             onClick={handleLogout}
             className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
@@ -162,7 +183,7 @@ export default function PlanningList({ user, onOpenPlan }: Props) {
             <button
               onClick={handleCreate}
               disabled={creating}
-              className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white text-sm rounded-xl hover:bg-orange-600 active:scale-[0.98] transition-all disabled:opacity-50 font-medium"
+              className="flex items-center gap-2 px-4 py-2 bg-[#6bbfd4] text-white text-sm rounded-xl hover:bg-[#5aaeC3] active:scale-[0.98] transition-all disabled:opacity-50 font-medium"
             >
               <Plus className="w-4 h-4" />
               Neue Planung
@@ -178,7 +199,7 @@ export default function PlanningList({ user, onOpenPlan }: Props) {
             <button
               onClick={handleCreate}
               disabled={creating}
-              className="px-6 py-3 bg-orange-500 text-white rounded-xl font-medium hover:bg-orange-600 active:scale-[0.98] transition-all disabled:opacity-50"
+              className="px-6 py-3 bg-[#6bbfd4] text-white rounded-xl font-medium hover:bg-[#5aaeC3] active:scale-[0.98] transition-all disabled:opacity-50"
             >
               Erste Planung erstellen
             </button>
@@ -188,7 +209,7 @@ export default function PlanningList({ user, onOpenPlan }: Props) {
             {plans.map(plan => (
               <div
                 key={plan.id}
-                className="flex items-center gap-3 p-4 bg-white rounded-2xl border hover:border-orange-200 transition-all group"
+                className="flex items-center gap-3 p-4 bg-white rounded-2xl border hover:border-[#6bbfd4]/40 transition-all group"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -220,7 +241,7 @@ export default function PlanningList({ user, onOpenPlan }: Props) {
                   </button>
                   <button
                     onClick={() => onOpenPlan(plan.id)}
-                    className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white text-sm rounded-xl hover:bg-orange-600 active:scale-[0.98] transition-all font-medium"
+                    className="flex items-center gap-2 px-4 py-2 bg-[#6bbfd4] text-white text-sm rounded-xl hover:bg-[#5aaeC3] active:scale-[0.98] transition-all font-medium"
                   >
                     <FolderOpen className="w-4 h-4" />
                     Öffnen
@@ -235,6 +256,14 @@ export default function PlanningList({ user, onOpenPlan }: Props) {
       <footer className="text-center py-4 text-xs text-gray-400">
         © 2026 Erlebnis Kirche Planner · v{process.env.NEXT_PUBLIC_APP_VERSION}
       </footer>
+
+      {showAdmin && community && (
+        <AdminPanel
+          community={community}
+          currentUserId={user.id}
+          onClose={() => setShowAdmin(false)}
+        />
+      )}
     </div>
   );
 }

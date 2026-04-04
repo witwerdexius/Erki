@@ -6,13 +6,15 @@ import { supabase } from '@/lib/supabase';
 import LoginScreen from '@/components/LoginScreen';
 import PlanningList from '@/components/PlanningList';
 import ErkiApp from '@/components/ErkiApp';
-import { loadPlanning, savePlanning } from '@/lib/db';
-import { Plan } from '@/lib/types';
+import { loadPlanning, savePlanning, loadProfile, loadCommunity } from '@/lib/db';
+import { Plan, Profile, Community } from '@/lib/types';
 
 type View = 'login' | 'list' | 'editor';
 
 export default function Home() {
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [community, setCommunity] = useState<Community | null>(null);
   const [view, setView] = useState<View>('login');
   const [activePlan, setActivePlan] = useState<Plan | null>(null);
   const [loadingPlan, setLoadingPlan] = useState(false);
@@ -20,19 +22,40 @@ export default function Home() {
   // Ref hält immer den neuesten Plan-Stand synchron (unabhängig von React-State-Batching)
   const latestPlanRef = useRef<Plan | null>(null);
 
+  const loadUserProfile = useCallback(async (userId: string) => {
+    try {
+      const p = await loadProfile(userId);
+      setProfile(p);
+      if (p?.communityId) {
+        const c = await loadCommunity(p.communityId);
+        setCommunity(c);
+      }
+    } catch (e) {
+      console.error('[loadUserProfile] Fehler:', e);
+    }
+  }, []);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      setView(session?.user ? 'list' : 'login');
+      if (session?.user) {
+        setView('list');
+        loadUserProfile(session.user.id);
+      } else {
+        setView('login');
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       if (!session?.user) {
         setActivePlan(null);
+        setProfile(null);
+        setCommunity(null);
         setView('login');
       } else if (view === 'login') {
         setView('list');
+        loadUserProfile(session.user.id);
       }
     });
 
@@ -112,7 +135,14 @@ export default function Home() {
   if (view === 'login') return <LoginScreen />;
 
   if (view === 'list' && user) {
-    return <PlanningList user={user} onOpenPlan={handleOpenPlan} />;
+    return (
+      <PlanningList
+        user={user}
+        profile={profile}
+        community={community}
+        onOpenPlan={handleOpenPlan}
+      />
+    );
   }
 
   if (view === 'editor' && activePlan && user) {

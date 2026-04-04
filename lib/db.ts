@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Plan, PlanStatus, Station, LogoOverlay, LabelOverlay, StationTemplate } from './types';
+import { Plan, PlanStatus, Station, LogoOverlay, LabelOverlay, StationTemplate, Profile, Community, UserRole } from './types';
 
 // ── Row converters ──────────────────────────────────────────────
 
@@ -278,5 +278,66 @@ export async function updateTemplate(
 
 export async function deleteTemplate(id: string): Promise<void> {
   const { error } = await supabase.from('templates').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ── Profiles & Communities ──────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToProfile(row: any): Profile {
+  return {
+    id: row.id,
+    communityId: row.community_id,
+    role: row.role as UserRole,
+    displayName: row.display_name ?? undefined,
+    email: row.email ?? undefined,
+    createdAt: row.created_at,
+  };
+}
+
+export async function loadProfile(userId: string): Promise<Profile | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? rowToProfile(data) : null;
+}
+
+export async function loadCommunity(communityId: string): Promise<Community | null> {
+  const { data, error } = await supabase
+    .from('communities')
+    .select('*')
+    .eq('id', communityId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return { id: data.id, name: data.name, createdAt: data.created_at };
+}
+
+export async function loadCommunityUsers(communityId: string): Promise<Profile[]> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('community_id', communityId)
+    .order('created_at');
+  if (error) throw error;
+  return (data ?? []).map(rowToProfile);
+}
+
+export async function updateUserRole(userId: string, role: UserRole): Promise<void> {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ role })
+    .eq('id', userId);
+  if (error) throw error;
+}
+
+export async function sendInvite(email: string): Promise<void> {
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: true },
+  });
   if (error) throw error;
 }

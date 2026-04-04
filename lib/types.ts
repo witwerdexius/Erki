@@ -47,6 +47,23 @@ export interface LabelOverlay {
   fontSize: number; // px
 }
 
+export type UserRole = 'user' | 'admin';
+
+export interface Community {
+  id: string;
+  name: string;
+  createdAt?: string;
+}
+
+export interface Profile {
+  id: string; // same as auth user id
+  communityId: string;
+  role: UserRole;
+  displayName?: string;
+  email?: string;
+  createdAt?: string;
+}
+
 export interface Plan {
   id: string;
   title: string;
