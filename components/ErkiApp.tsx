@@ -634,6 +634,25 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
         setDragOverRowId(null);
     };
 
+    const handleRowReorder = (id: string, inputValue: string) => {
+        if (!activePlan) return;
+        const stations = [...activePlan.stations];
+        const fromIdx = stations.findIndex(s => s.id === id);
+        if (fromIdx === -1) return;
+        const parsed = parseInt(inputValue, 10);
+        if (isNaN(parsed) || parsed < 1) return;
+        const toIdx = Math.min(parsed - 1, stations.length - 1);
+        if (toIdx === fromIdx) {
+            // Keine Änderung, aber Nummer normalisieren
+            updateActivePlan({ stations: stations.map((s, i) => ({ ...s, number: (i + 1).toString() })) });
+            return;
+        }
+        const [moved] = stations.splice(fromIdx, 1);
+        stations.splice(toIdx, 0, moved);
+        stations.forEach((s, i) => { s.number = (i + 1).toString(); });
+        updateActivePlan({ stations });
+    };
+
     const handleMouseUp = () => {
         if (draggedItem && activePlan) {
             if (draggedItem.type === 'target') {
@@ -1324,7 +1343,19 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                     <GripVertical className="w-4 h-4" />
                                                 </td>
                                                 <td className="p-4">
-                                                    <span className="font-medium text-[#6bbfd4]">{s.number}</span>
+                                                    <input
+                                                        type="number"
+                                                        defaultValue={s.number}
+                                                        key={s.number}
+                                                        min={1}
+                                                        className="w-10 font-medium text-[#6bbfd4] bg-transparent border-none p-0 focus:ring-0 focus:bg-[#6bbfd4]/10 rounded text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                (e.target as HTMLInputElement).blur();
+                                                            }
+                                                        }}
+                                                        onBlur={(e) => handleRowReorder(s.id, e.target.value)}
+                                                    />
                                                 </td>
                                                 <td className="p-4 align-top">
                                                     <textarea
