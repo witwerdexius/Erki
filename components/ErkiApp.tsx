@@ -344,7 +344,22 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
             // Handles ausblenden vor Capture
             setEditingLabel(false);
             setIsExporting(true);
-            await new Promise<void>(resolve => setTimeout(resolve, 80));
+            container.classList.add('is-exporting');
+
+            // Warte auf Hintergrundbild (Mobile Safari lädt ggf. noch)
+            if (activePlan.backgroundImage) {
+                const bgImg = container.querySelector<HTMLImageElement>('img[alt="Lageplan Background"]');
+                if (bgImg && !(bgImg.complete && bgImg.naturalHeight !== 0)) {
+                    await new Promise<void>(resolve => {
+                        bgImg.onload = () => resolve();
+                        bgImg.onerror = () => resolve();
+                        setTimeout(resolve, 2000); // max 2s fallback
+                    });
+                }
+            }
+
+            // Längere Wartezeit damit Mobile Safari re-rendert
+            await new Promise<void>(resolve => setTimeout(resolve, 300));
 
             console.log('[PDF] Step 1: importing html-to-image');
             const { toPng } = await import('html-to-image');
@@ -354,6 +369,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                 pixelRatio: 2,
                 backgroundColor: '#ffffff',
                 cacheBust: true,
+                skipFonts: false,
             });
 
             console.log('[PDF] Step 3: creating PDF');
@@ -394,6 +410,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
             console.error('[PDF] Export failed:', error);
             alert(`PDF Export fehlgeschlagen:\n${msg}`);
         } finally {
+            containerRef.current?.classList.remove('is-exporting');
             setIsExporting(false);
         }
     };
@@ -1112,7 +1129,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
 
                                     {activePlan && (
                                         <div className="absolute inset-0 select-none">
-                                            <svg className="absolute inset-0 w-full h-full overflow-visible pointer-events-none z-20">
+                                            <svg data-export-hidden className="absolute inset-0 w-full h-full overflow-visible pointer-events-none z-20">
                                                 {activePlan.stations.map(s => (
                                                     <line
                                                         key={s.id}
@@ -1162,6 +1179,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                 return (
                                                     <React.Fragment key={s.id}>
                                                         <div
+                                                            data-export-hidden
                                                             className="absolute flex items-center justify-center cursor-move z-20"
                                                             style={{ left: `${s.targetX}%`, top: `${s.targetY}%`, width: 44 * mapScale, height: 44 * mapScale, marginLeft: -22 * mapScale, marginTop: -22 * mapScale, touchAction: 'none' }}
                                                             onMouseDown={(e) => {
