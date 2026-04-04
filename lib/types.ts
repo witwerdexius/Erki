@@ -78,4 +78,5 @@ export interface Plan {
   bgZoom?: number; // 0.5 | 0.75 | 1 | 1.25 | 1.5 | 2
   createdAt?: string;
   updatedAt?: string;
+  nachdenk_template?: string; // base64 data URL of vorlage.pdf
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Move, Palette, GripVertical, PenLine, Eraser, Image as ImageIcon, Type, ZoomIn, ZoomOut, BookTemplate, Bookmark, Pencil, Loader2 } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Move, Palette, GripVertical, PenLine, Eraser, Image as ImageIcon, Type, ZoomIn, ZoomOut, BookTemplate, Bookmark, Pencil, Loader2, BookOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { User } from '@supabase/supabase-js';
 import { Plan, Station, MaskPolygon, LogoOverlay, LabelOverlay, StationTemplate } from '@/lib/types';
@@ -10,6 +10,7 @@ import { loadTemplates, createTemplate, updateTemplate, deleteTemplate } from '@
 import { cn } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
 import TemplatePickerDialog from './TemplatePickerDialog';
+import NachdenktexteTab from '@/components/NachdenktexteTab';
 
 interface ErkiAppProps {
     plan: Plan;
@@ -22,7 +23,7 @@ interface ErkiAppProps {
 export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = false }: ErkiAppProps) {
     const [importUrl, setImportUrl] = useState('');
     const [isImporting, setIsImporting] = useState(false);
-    const [activeTab, setActiveTab] = useState<'map' | 'table' | 'templates'>('map');
+    const [activeTab, setActiveTab] = useState<'map' | 'table' | 'templates' | 'nachdenk'>('map');
     const [templates, setTemplates] = useState<StationTemplate[]>([]);
     const [templatesLoaded, setTemplatesLoaded] = useState(false);
     const [showTemplatePicker, setShowTemplatePicker] = useState(false);
@@ -821,6 +822,14 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                 )}>
                                 <BookTemplate className="w-4 h-4" /> <span className="hidden xs:inline">Vorlagen</span>
                             </button>
+                            <button
+                                onClick={() => setActiveTab('nachdenk')}
+                                className={cn(
+                                    "flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-all",
+                                    activeTab === 'nachdenk' ? "bg-white shadow-sm text-[#6bbfd4]" : "text-gray-500 hover:text-gray-700"
+                                )}>
+                                <BookOpen className="w-4 h-4" /> <span className="hidden xs:inline">Nachdenk-Texte</span>
+                            </button>
                         </nav>
 
                         <div className="hidden sm:flex items-center bg-gray-100 rounded-full px-3 py-1 border focus-within:ring-2 ring-[#6bbfd4]/30 transition-all">
@@ -1292,6 +1301,8 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                 </div>
                             </div>
                         </div>
+                    ) : activeTab === 'nachdenk' ? (
+                        <NachdenktexteTab activePlan={activePlan} updateActivePlan={updateActivePlan} />
                     ) : (
                         <div ref={tableRef} className="flex-1 overflow-auto p-4 sm:p-12" style={{ overscrollBehavior: 'contain' }}>
                             <div className="flex justify-end mb-4">
