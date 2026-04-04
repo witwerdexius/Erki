@@ -776,7 +776,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
                             <button
                                 onClick={() => setActiveTab('map')}
                                 className={cn(
-                                    "flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-all",
+                                    "flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-full text-sm font-medium transition-all",
                                     activeTab === 'map' ? "bg-white shadow-sm text-[#6bbfd4]" : "text-gray-500 hover:text-gray-700"
                                 )}>
                                 <MapIcon className="w-4 h-4" /> <span className="hidden xs:inline">Lageplan</span>
@@ -784,7 +784,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
                             <button
                                 onClick={() => setActiveTab('table')}
                                 className={cn(
-                                    "flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-all",
+                                    "flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-full text-sm font-medium transition-all",
                                     activeTab === 'table' ? "bg-white shadow-sm text-[#6bbfd4]" : "text-gray-500 hover:text-gray-700"
                                 )}>
                                 <List className="w-4 h-4" /> <span className="hidden xs:inline">Tabelle</span>
@@ -994,7 +994,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
                                 )}
                             </div>
 
-                            <div className="flex-1 overflow-auto p-2 sm:p-8 flex items-center justify-center">
+                            <div className="flex-1 overflow-auto p-2 sm:p-8 flex items-center justify-center" style={{ overscrollBehavior: 'contain' }}>
                                 <div
                                     ref={containerRef}
                                     className={cn(
@@ -1008,7 +1008,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
                                     onTouchEnd={() => { handleMouseUp(); stopOverlayDrag(); }}
                                     onClick={handleMapClick}
                                     onDoubleClick={handleMapDoubleClick}
-                                    style={{ cursor: maskDrawing ? 'crosshair' : undefined }}
+                                    style={{ cursor: maskDrawing ? 'crosshair' : undefined, touchAction: 'none' }}
                                 >
                                     {/* Zoom-Wrapper: Hintergrundbild + Masken skalieren gemeinsam */}
                                     <div
@@ -1123,26 +1123,30 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
                                                 return (
                                                     <React.Fragment key={s.id}>
                                                         <div
-                                                            className="absolute w-4 h-4 -ml-2 -mt-2 rounded-full shadow-lg border-2 border-white cursor-move hover:scale-125 transition-transform active:scale-90 z-20"
-                                                            style={{ left: `${s.targetX}%`, top: `${s.targetY}%`, backgroundColor: color.bg }}
+                                                            className="absolute flex items-center justify-center cursor-move z-20"
+                                                            style={{ left: `${s.targetX}%`, top: `${s.targetY}%`, width: 44, height: 44, marginLeft: -22, marginTop: -22, touchAction: 'none' }}
                                                             onMouseDown={(e) => {
                                                                 e.stopPropagation();
                                                                 setDraggedItem({ id: s.id, type: 'target' });
                                                             }}
                                                             onTouchStart={(e) => {
+                                                                e.preventDefault();
                                                                 e.stopPropagation();
                                                                 setDraggedItem({ id: s.id, type: 'target' });
                                                             }}
-                                                        />
+                                                        >
+                                                            <div className="w-4 h-4 rounded-full shadow-lg border-2 border-white hover:scale-125 transition-transform active:scale-90" style={{ backgroundColor: color.bg }} />
+                                                        </div>
 
                                                         <div
                                                             className="absolute w-24 h-24 -ml-12 -mt-12 rounded-full shadow-xl cursor-move transition-all duration-200 hover:ring-2 ring-gray-100 z-30"
-                                                            style={{ left: `${s.x}%`, top: `${s.y}%` }}
+                                                            style={{ left: `${s.x}%`, top: `${s.y}%`, touchAction: 'none' }}
                                                             onMouseDown={(e) => {
                                                                 e.stopPropagation();
                                                                 setDraggedItem({ id: s.id, type: 'bubble' });
                                                             }}
                                                             onTouchStart={(e) => {
+                                                                e.preventDefault();
                                                                 e.stopPropagation();
                                                                 setDraggedItem({ id: s.id, type: 'bubble' });
                                                             }}
@@ -1265,7 +1269,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
                             </div>
                         </div>
                     ) : (
-                        <div ref={tableRef} className="flex-1 overflow-auto p-4 sm:p-12">
+                        <div ref={tableRef} className="flex-1 overflow-auto p-4 sm:p-12" style={{ overscrollBehavior: 'contain' }}>
                             <div className="flex justify-end mb-4">
                                 <button
                                     onClick={exportTableToPDF}
@@ -1280,7 +1284,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
                                 animate={{ opacity: 1, y: 0 }}
                                 className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-200"
                             >
-                                <div className="overflow-x-auto">
+                                <div className="overflow-x-auto" style={{ overscrollBehavior: 'contain' }}>
                                 <table className="w-full text-left border-collapse min-w-[700px]">
                                     <thead>
                                         <tr className="bg-gray-50 border-b">
@@ -1322,6 +1326,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
                                                         value={s.name}
                                                         onChange={(e) => updateStation(s.id, { name: e.target.value })}
                                                         className="w-full bg-transparent border-none p-0 focus:ring-0 font-bold resize-none overflow-hidden h-auto"
+                                                        style={{ touchAction: 'pan-y' }}
                                                         rows={1}
                                                         onInput={(e) => {
                                                             const t = e.target as HTMLTextAreaElement;
@@ -1335,6 +1340,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
                                                         value={s.description}
                                                         onChange={(e) => updateStation(s.id, { description: e.target.value })}
                                                         className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm h-auto min-h-[4rem] resize-none overflow-hidden"
+                                                        style={{ touchAction: 'pan-y' }}
                                                         placeholder="Keine Beschreibung..."
                                                         onInput={(e) => {
                                                             const target = e.target as HTMLTextAreaElement;
@@ -1348,6 +1354,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
                                                         value={s.material}
                                                         onChange={(e) => updateStation(s.id, { material: e.target.value })}
                                                         className="w-full bg-transparent border-none p-0 focus:ring-0 text-xs h-auto min-h-[4rem] resize-none overflow-hidden text-gray-500"
+                                                        style={{ touchAction: 'pan-y' }}
                                                         placeholder="Kein Material..."
                                                         onInput={(e) => {
                                                             const target = e.target as HTMLTextAreaElement;
@@ -1361,6 +1368,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
                                                         value={(s.impulses || []).join('\n')}
                                                         onChange={(e) => updateStation(s.id, { impulses: e.target.value.split('\n').filter(l => l.trim()) })}
                                                         className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm h-auto min-h-[4rem] resize-none overflow-hidden text-gray-500"
+                                                        style={{ touchAction: 'pan-y' }}
                                                         placeholder="Keine Impulse..."
                                                         onInput={(e) => {
                                                             const target = e.target as HTMLTextAreaElement;
@@ -1417,14 +1425,14 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
                                                     <div className="flex items-center gap-2">
                                                         <button
                                                             onClick={() => handleSaveAsTemplate(s)}
-                                                            className="text-gray-300 hover:text-[#6bbfd4] transition-colors opacity-0 group-hover:opacity-100"
+                                                            className="p-2 -m-2 text-gray-300 hover:text-[#6bbfd4] transition-colors opacity-0 group-hover:opacity-100"
                                                             title="Als Vorlage speichern"
                                                         >
                                                             <Bookmark className="w-4 h-4" />
                                                         </button>
                                                         <button
                                                             onClick={() => deleteStation(s.id)}
-                                                            className="text-gray-300 hover:text-red-500 transition-colors"
+                                                            className="p-2 -m-2 text-gray-300 hover:text-red-500 transition-colors"
                                                         >
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>
