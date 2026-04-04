@@ -36,7 +36,7 @@ export default function ErkiApp({ plan, onPlanUpdate, onBack }: ErkiAppProps) {
 
     const activePlan = plan;
 
-    const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+    const ZOOM_STEPS = [0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3];
     const currentZoom = activePlan?.bgZoom ?? 1;
     const zoomIn  = () => { const next = ZOOM_STEPS.find(z => z > currentZoom); if (next) updateActivePlan({ bgZoom: next }); };
     const zoomOut = () => { const prev = [...ZOOM_STEPS].reverse().find(z => z < currentZoom); if (prev) updateActivePlan({ bgZoom: prev }); };
@@ -818,53 +818,58 @@ export default function ErkiApp({ plan, onPlanUpdate, onBack }: ErkiAppProps) {
                                     onDoubleClick={handleMapDoubleClick}
                                     style={{ cursor: maskDrawing ? 'crosshair' : undefined }}
                                 >
-                                    {activePlan?.backgroundImage && (
-                                        <div className="absolute inset-0 select-none pointer-events-none overflow-hidden">
-                                            <img
-                                                src={activePlan.backgroundImage}
-                                                className="w-full h-full object-contain opacity-50 origin-center"
-                                                style={{ transform: `scale(${currentZoom})` }}
-                                                alt="Lageplan Background"
-                                            />
-                                        </div>
-                                    )}
-
-                                    {/* Inverted white masks: white everywhere, polygon cuts out hole */}
-                                    {activePlan && (activePlan.masks?.length ?? 0) > 0 && (
-                                        <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" viewBox="0 0 100 100" preserveAspectRatio="none">
-                                            {activePlan.masks!.map((mask, mi) => (
-                                                <path
-                                                    key={mi}
-                                                    fillRule="evenodd"
-                                                    fill="white"
-                                                    d={`M0,0 L100,0 L100,100 L0,100 Z M${mask.points.map(p => `${p.x},${p.y}`).join(' L')} Z`}
+                                    {/* Zoom-Wrapper: Hintergrundbild + Masken skalieren gemeinsam */}
+                                    <div
+                                        className="absolute inset-0 pointer-events-none origin-center"
+                                        style={{ transform: `scale(${currentZoom})` }}
+                                    >
+                                        {activePlan?.backgroundImage && (
+                                            <div className="absolute inset-0 select-none overflow-hidden">
+                                                <img
+                                                    src={activePlan.backgroundImage}
+                                                    className="w-full h-full object-contain opacity-50"
+                                                    alt="Lageplan Background"
                                                 />
-                                            ))}
-                                        </svg>
-                                    )}
+                                            </div>
+                                        )}
 
-                                    {/* Active drawing preview */}
-                                    {maskDrawing && currentMaskPoints.length > 0 && (
-                                        <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" viewBox="0 0 100 100" preserveAspectRatio="none">
-                                            {currentMaskPoints.length >= 3 && (
-                                                <polygon
-                                                    points={currentMaskPoints.map(p => `${p.x},${p.y}`).join(' ')}
-                                                    fill="white"
-                                                    opacity="0.6"
+                                        {/* Inverted white masks: white everywhere, polygon cuts out hole */}
+                                        {activePlan && (activePlan.masks?.length ?? 0) > 0 && (
+                                            <svg className="absolute inset-0 w-full h-full z-10" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                                {activePlan.masks!.map((mask, mi) => (
+                                                    <path
+                                                        key={mi}
+                                                        fillRule="evenodd"
+                                                        fill="white"
+                                                        d={`M0,0 L100,0 L100,100 L0,100 Z M${mask.points.map(p => `${p.x},${p.y}`).join(' L')} Z`}
+                                                    />
+                                                ))}
+                                            </svg>
+                                        )}
+
+                                        {/* Active drawing preview */}
+                                        {maskDrawing && currentMaskPoints.length > 0 && (
+                                            <svg className="absolute inset-0 w-full h-full z-10" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                                {currentMaskPoints.length >= 3 && (
+                                                    <polygon
+                                                        points={currentMaskPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                                                        fill="white"
+                                                        opacity="0.6"
+                                                    />
+                                                )}
+                                                <polyline
+                                                    points={[...currentMaskPoints, ...(cursorPos ? [cursorPos] : [])].map(p => `${p.x},${p.y}`).join(' ')}
+                                                    fill="none"
+                                                    stroke="#6bbfd4"
+                                                    strokeWidth="0.5"
+                                                    strokeDasharray="2 1"
                                                 />
-                                            )}
-                                            <polyline
-                                                points={[...currentMaskPoints, ...(cursorPos ? [cursorPos] : [])].map(p => `${p.x},${p.y}`).join(' ')}
-                                                fill="none"
-                                                stroke="#6bbfd4"
-                                                strokeWidth="0.5"
-                                                strokeDasharray="2 1"
-                                            />
-                                            {currentMaskPoints.map((p, i) => (
-                                                <circle key={i} cx={p.x} cy={p.y} r="1" fill="#6bbfd4" />
-                                            ))}
-                                        </svg>
-                                    )}
+                                                {currentMaskPoints.map((p, i) => (
+                                                    <circle key={i} cx={p.x} cy={p.y} r="1" fill="#6bbfd4" />
+                                                ))}
+                                            </svg>
+                                        )}
+                                    </div>
 
                                     {!activePlan?.backgroundImage && (
                                         <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300 bg-gray-50/50 pointer-events-none">
