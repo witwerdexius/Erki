@@ -791,7 +791,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                         <input
                             value={plan.title}
                             onChange={(e) => updateActivePlan({ title: e.target.value })}
-                            className="text-lg font-bold tracking-tight bg-transparent border-none outline-none focus:bg-gray-50 rounded px-1 min-w-0 max-w-[180px] sm:max-w-xs"
+                            className="text-lg font-bold tracking-tight bg-transparent border-none outline-none focus:bg-gray-50 rounded px-1 min-w-0 w-full"
                             title="Titel bearbeiten"
                         />
                     </div>
@@ -885,14 +885,6 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                 >
                                     <Plus className="w-4 h-4" />
                                     <span className="hidden sm:inline">Station</span>
-                                </button>
-                                <button
-                                    onClick={renumberStations}
-                                    className="flex items-center gap-2 px-3 py-2 bg-white text-gray-600 rounded-full shadow-lg border cursor-pointer hover:bg-gray-50 transition-all active:scale-95 text-sm font-medium"
-                                    title="Neu nummerieren"
-                                >
-                                    <Move className="w-4 h-4" />
-                                    <span className="hidden sm:inline">Nummerieren</span>
                                 </button>
                                 <button
                                     onClick={handleDistributeColors}
@@ -1060,7 +1052,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
 
                                         {/* Inverted white masks: white everywhere, polygon cuts out hole */}
                                         {activePlan && (activePlan.masks?.length ?? 0) > 0 && (
-                                            <svg className="absolute inset-0 w-full h-full z-10" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                            <svg className="absolute z-10" style={{ inset: '-1px', width: 'calc(100% + 2px)', height: 'calc(100% + 2px)' }} viewBox="0 0 100 100" preserveAspectRatio="none">
                                                 {activePlan.masks!.map((mask, mi) => (
                                                     <path
                                                         key={mi}
