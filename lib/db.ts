@@ -69,7 +69,26 @@ export async function loadPlannings(): Promise<Plan[]> {
     .select('*')
     .order('updated_at', { ascending: false });
   if (error) throw error;
-  return (data ?? []).map(row => rowToPlan(row, []));
+
+  const plans = data ?? [];
+  if (plans.length === 0) return [];
+
+  // Station-Anzahl per separater Query laden (nur planning_id, kein Daten-Overhead)
+  const planIds = plans.map(p => p.id);
+  const { data: stationRows } = await supabase
+    .from('stations')
+    .select('planning_id')
+    .in('planning_id', planIds);
+
+  const countMap = new Map<string, number>();
+  for (const row of stationRows ?? []) {
+    countMap.set(row.planning_id, (countMap.get(row.planning_id) ?? 0) + 1);
+  }
+
+  return plans.map(row => ({
+    ...rowToPlan(row, []),
+    stationCount: countMap.get(row.id) ?? 0,
+  }));
 }
 
 export async function loadPlanning(id: string): Promise<Plan> {

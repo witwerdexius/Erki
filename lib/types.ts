@@ -28,6 +28,7 @@ export interface Plan {
   status: PlanStatus;
   url?: string;
   stations: Station[];
+  stationCount?: number; // Nur in der Listenansicht gesetzt (ohne vollständiges Laden der Stationen)
   backgroundImage?: string; // Data URL
   masks?: MaskPolygon[];
   createdAt?: string;
