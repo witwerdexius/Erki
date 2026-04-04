@@ -55,32 +55,51 @@ export default function Home() {
   };
 
   const handlePlanUpdate = useCallback((updatedPlan: Plan) => {
-    latestPlanRef.current = updatedPlan; // synchron – immer aktuell
+    console.log('[handlePlanUpdate] aufgerufen:', {
+      id: updatedPlan.id,
+      title: updatedPlan.title,
+      stations: updatedPlan.stations.length,
+      status: updatedPlan.status,
+    });
+    latestPlanRef.current = updatedPlan;
+    console.log('[handlePlanUpdate] latestPlanRef gesetzt auf:', updatedPlan.title);
     setActivePlan(updatedPlan);
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
+      console.log('[Auto-Save] speichere:', updatedPlan.title, '| Stationen:', updatedPlan.stations.length);
       try {
         await savePlanning(updatedPlan);
+        console.log('[Auto-Save] erfolgreich');
       } catch (e) {
-        console.error('Auto-save fehlgeschlagen:', e);
+        console.error('[Auto-Save] fehlgeschlagen:', e);
       }
     }, 1500);
   }, []);
 
   const handleBack = useCallback(async () => {
-    clearTimeout(saveTimer.current); // Auto-Save abbrechen
-    const plan = latestPlanRef.current; // neuester Stand, nicht der ggf. veraltete State
+    console.log('[handleBack] aufgerufen');
+    clearTimeout(saveTimer.current);
+    const plan = latestPlanRef.current;
+    console.log('[handleBack] latestPlanRef.current:', plan
+      ? { id: plan.id, title: plan.title, stations: plan.stations.length }
+      : null
+    );
     if (plan) {
+      console.log('[handleBack] starte savePlanning...');
       try {
         await savePlanning(plan);
+        console.log('[handleBack] savePlanning erfolgreich');
       } catch (e) {
-        console.error('Speichern fehlgeschlagen:', e);
+        console.error('[handleBack] savePlanning FEHLGESCHLAGEN:', e);
       }
+    } else {
+      console.warn('[handleBack] kein Plan in latestPlanRef – nichts gespeichert!');
     }
     latestPlanRef.current = null;
     setActivePlan(null);
+    console.log('[handleBack] navigiere zurück zur Liste');
     setView('list');
-  }, []); // keine State-Abhängigkeit nötig dank Ref
+  }, []);
 
   if (loadingPlan) {
     return (

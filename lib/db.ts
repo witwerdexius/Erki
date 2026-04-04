@@ -95,6 +95,8 @@ export async function createPlanning(title: string, userId: string): Promise<Pla
 }
 
 export async function savePlanning(plan: Plan): Promise<void> {
+  console.log('[savePlanning] starte für:', plan.id, '|', plan.title, '| status:', plan.status, '| Stationen:', plan.stations.length);
+
   const { error: planError } = await supabase
     .from('plannings')
     .update({
@@ -106,20 +108,34 @@ export async function savePlanning(plan: Plan): Promise<void> {
       updated_at: new Date().toISOString(),
     })
     .eq('id', plan.id);
-  if (planError) throw planError;
+  if (planError) {
+    console.error('[savePlanning] plannings UPDATE Fehler:', planError);
+    throw planError;
+  }
+  console.log('[savePlanning] plannings UPDATE ok');
 
   // Replace stations: delete all, then re-insert
   const { error: deleteError } = await supabase
     .from('stations')
     .delete()
     .eq('planning_id', plan.id);
-  if (deleteError) throw deleteError;
+  if (deleteError) {
+    console.error('[savePlanning] stations DELETE Fehler:', deleteError);
+    throw deleteError;
+  }
+  console.log('[savePlanning] stations DELETE ok');
 
   if (plan.stations.length > 0) {
     const rows = plan.stations.map((s, i) => stationToRow(s, plan.id, i));
     const { error: insertError } = await supabase.from('stations').insert(rows);
-    if (insertError) throw insertError;
+    if (insertError) {
+      console.error('[savePlanning] stations INSERT Fehler:', insertError);
+      throw insertError;
+    }
+    console.log('[savePlanning] stations INSERT ok (' + rows.length + ' Zeilen)');
   }
+
+  console.log('[savePlanning] komplett abgeschlossen');
 }
 
 export async function deletePlanning(id: string): Promise<void> {
