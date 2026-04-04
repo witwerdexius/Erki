@@ -195,6 +195,18 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
         return () => ro.disconnect();
     }, []);
 
+    // Re-measure when switching back to map tab (container was hidden/zero-width)
+    useEffect(() => {
+        if (activeTab !== 'map') return;
+        const measure = () => {
+            const w = containerRef.current?.getBoundingClientRect().width ?? 0;
+            if (w > 0) setContainerWidth(w);
+        };
+        measure();
+        const t = setTimeout(measure, 50);
+        return () => clearTimeout(t);
+    }, [activeTab]);
+
     // Auto-resize all textareas in the table when plan or tab changes
     useEffect(() => {
         if (activeTab !== 'table' || !tableRef.current) return;
@@ -338,28 +350,40 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
     const exportToPDF = async () => {
         if (!containerRef.current || !activePlan) return;
 
+        const hiddenEls: { el: HTMLElement; prev: string }[] = [];
+        let bgStylePrev: string | null = null;
+
         try {
             const container = containerRef.current;
-
-            // Handles ausblenden vor Capture
             setEditingLabel(false);
             setIsExporting(true);
-            container.classList.add('is-exporting');
 
-            // Warte auf Hintergrundbild (Mobile Safari lädt ggf. noch)
+            // Direkt per style ausblenden (Mobile Safari ignoriert CSS-Klassen zuverlässig nicht)
+            container.querySelectorAll<HTMLElement>('[data-export-hidden]').forEach(el => {
+                hiddenEls.push({ el, prev: el.style.display });
+                el.style.display = 'none';
+            });
+
+            // Hintergrundbild als base64 direkt auf den Container setzen, damit Mobile Safari es rendert
             if (activePlan.backgroundImage) {
-                const bgImg = container.querySelector<HTMLImageElement>('img[alt="Lageplan Background"]');
-                if (bgImg && !(bgImg.complete && bgImg.naturalHeight !== 0)) {
+                bgStylePrev = container.style.backgroundImage;
+                // Bild vorladen und auf complete warten
+                const preload = new Image();
+                preload.src = activePlan.backgroundImage;
+                if (!(preload.complete && preload.naturalHeight !== 0)) {
                     await new Promise<void>(resolve => {
-                        bgImg.onload = () => resolve();
-                        bgImg.onerror = () => resolve();
-                        setTimeout(resolve, 2000); // max 2s fallback
+                        preload.onload = () => resolve();
+                        preload.onerror = () => resolve();
+                        setTimeout(resolve, 2000);
                     });
                 }
+                // Sicherstellen dass das <img>-Element im DOM das Bild hat
+                const bgImg = container.querySelector<HTMLImageElement>('img[alt="Lageplan Background"]');
+                if (bgImg) bgImg.src = activePlan.backgroundImage;
             }
 
-            // Längere Wartezeit damit Mobile Safari re-rendert
-            await new Promise<void>(resolve => setTimeout(resolve, 300));
+            // Wartezeit für Mobile Safari Re-Render
+            await new Promise<void>(resolve => setTimeout(resolve, 500));
 
             console.log('[PDF] Step 1: importing html-to-image');
             const { toPng } = await import('html-to-image');
@@ -370,6 +394,8 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                 backgroundColor: '#ffffff',
                 cacheBust: true,
                 skipFonts: false,
+                includeQueryParams: true,
+                fetchRequestInit: { cache: 'force-cache' },
             });
 
             console.log('[PDF] Step 3: creating PDF');
@@ -410,7 +436,9 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
             console.error('[PDF] Export failed:', error);
             alert(`PDF Export fehlgeschlagen:\n${msg}`);
         } finally {
-            containerRef.current?.classList.remove('is-exporting');
+            // Alle ausgeblendeten Elemente wiederherstellen
+            hiddenEls.forEach(({ el, prev }) => { el.style.display = prev; });
+            if (bgStylePrev !== null && containerRef.current) containerRef.current.style.backgroundImage = bgStylePrev;
             setIsExporting(false);
         }
     };
