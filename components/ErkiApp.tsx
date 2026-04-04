@@ -386,7 +386,68 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
         if (!activePlan) return;
         try {
             const autoTable = (await import('jspdf-autotable')).default;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const createHyphenator = (await import('hyphen') as any).default ?? (await import('hyphen') as any);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const dePatterns = ((await import('hyphen/patterns/de-1996')) as any).default ?? (await import('hyphen/patterns/de-1996'));
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const hyphenate: (word: string) => string = createHyphenator(dePatterns);
+
             const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+            // Set cell font for accurate measurements
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(8);
+
+            // Pre-wrap a text block so jsPDF receives already-broken lines with German syllable hyphens.
+            // jsPDF only breaks on spaces, so we handle long words ourselves.
+            const CELL_PADDING = 3; // mm (matches cellPadding below)
+            const preWrap = (rawText: string, colWidthMm: number): string => {
+                const maxW = colWidthMm - CELL_PADDING * 2;
+                if (!rawText) return '';
+                const measure = (s: string) => pdf.getTextWidth(s);
+                const hyphenW = measure('-');
+                const lines: string[] = [];
+
+                for (const paragraph of rawText.split('\n')) {
+                    let line = '';
+                    let lineW = 0;
+
+                    for (const word of paragraph.split(' ')) {
+                        if (!word) continue;
+                        const wordW = measure(word);
+                        const sep = line ? measure(' ') : 0;
+
+                        if (lineW + sep + wordW <= maxW) {
+                            // Word fits
+                            line = line ? line + ' ' + word : word;
+                            lineW += sep + wordW;
+                        } else {
+                            // Word doesn't fit — flush current line and hyphenate
+                            if (line) { lines.push(line); line = ''; lineW = 0; }
+                            // Break the word across lines using hyphenation points
+                            const parts = hyphenate(word).split('\u00AD');
+                            let chunk = '';
+                            let chunkW = 0;
+                            for (const part of parts) {
+                                const partW = measure(part);
+                                if (!chunk) {
+                                    chunk = part; chunkW = partW;
+                                } else if (chunkW + partW + hyphenW <= maxW) {
+                                    chunk += part; chunkW += partW;
+                                } else {
+                                    lines.push(chunk + '-');
+                                    chunk = part; chunkW = partW;
+                                }
+                            }
+                            line = chunk; lineW = chunkW;
+                        }
+                    }
+                    if (line) lines.push(line);
+                }
+
+                return lines.join('\n');
+            };
 
             const sanitizedTitle = activePlan.title
                 .toLowerCase()
@@ -403,30 +464,37 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
             pdf.text(`Erstellt am ${new Date().toLocaleDateString('de-DE')}`, 14, 22);
             pdf.setTextColor(0);
 
+            // Reset to cell font for measurements used in preWrap
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(8);
+
+            // Column widths (mm)
+            const W = { nr: 12, station: 30, desc: 65, mat: 72, imp: 40, setup: 20, cond: 20, stamp: 10 };
+
             autoTable(pdf, {
                 startY: 27,
                 head: [['Nr.', 'Station', 'Beschreibung', 'Material', 'Gesprächsimpulse', 'Aufbau', 'Durchführung', 'Stempelfeld']],
                 body: activePlan.stations.map(s => [
                     s.number,
-                    s.name,
-                    s.description || '',
-                    s.material || '',
-                    (s.impulses || []).join('\n'),
-                    s.setupBy || '',
-                    s.conductedBy || '',
+                    preWrap(s.name, W.station),
+                    preWrap(s.description || '', W.desc),
+                    preWrap(s.material || '', W.mat),
+                    (s.impulses || []).map(imp => preWrap(imp, W.imp)).join('\n'),
+                    preWrap(s.setupBy || '', W.setup),
+                    preWrap(s.conductedBy || '', W.cond),
                     s.isFilled ? '✓' : '',
                 ]),
-                styles: { fontSize: 8, cellPadding: 3, overflow: 'linebreak' },
+                styles: { fontSize: 8, cellPadding: CELL_PADDING, overflow: 'linebreak' },
                 headStyles: { fillColor: [107, 191, 212], textColor: 255, fontStyle: 'bold' },
                 columnStyles: {
-                    0: { cellWidth: 12 },  // Nr.
-                    1: { cellWidth: 30 },  // Station
-                    2: { cellWidth: 65 },  // Beschreibung
-                    3: { cellWidth: 72 },  // Material
-                    4: { cellWidth: 40 },  // Gesprächsimpulse
-                    5: { cellWidth: 20 },  // Aufbau
-                    6: { cellWidth: 20 },  // Durchführung
-                    7: { cellWidth: 10, halign: 'center' }, // Stempelfeld
+                    0: { cellWidth: W.nr },
+                    1: { cellWidth: W.station },
+                    2: { cellWidth: W.desc },
+                    3: { cellWidth: W.mat },
+                    4: { cellWidth: W.imp },
+                    5: { cellWidth: W.setup },
+                    6: { cellWidth: W.cond },
+                    7: { cellWidth: W.stamp, halign: 'center' },
                 },
                 alternateRowStyles: { fillColor: [249, 250, 251] },
             });
