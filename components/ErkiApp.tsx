@@ -29,9 +29,10 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
     const [editingTemplateData, setEditingTemplateData] = useState<Partial<StationTemplate>>({});
     const [aspectRatio, setAspectRatio] = useState<'portrait' | 'landscape'>('landscape');
     const [draggedItem, setDraggedItem] = useState<{ id: string; type: 'bubble' | 'target' } | null>(null);
-    const [draggingOverlay, setDraggingOverlay] = useState<'logo' | 'label' | 'logo-resize' | null>(null);
+    const [draggingOverlay, setDraggingOverlay] = useState<'logo' | 'label' | 'logo-resize' | 'label-resize' | null>(null);
     const [editingLabel, setEditingLabel] = useState(false);
-    const overlayDragStart = useRef<{ mouseX: number; mouseY: number; elemX: number; elemY: number; size?: number } | null>(null);
+    const [isExporting, setIsExporting] = useState(false);
+    const overlayDragStart = useRef<{ mouseX: number; mouseY: number; elemX: number; elemY: number; size?: number; fontSize?: number } | null>(null);
     const [draggedRowId, setDraggedRowId] = useState<string | null>(null);
     const [dragOverRowId, setDragOverRowId] = useState<string | null>(null);
     const [maskDrawing, setMaskDrawing] = useState(false);
@@ -324,6 +325,11 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
         try {
             const container = containerRef.current;
 
+            // Handles ausblenden vor Capture
+            setEditingLabel(false);
+            setIsExporting(true);
+            await new Promise<void>(resolve => setTimeout(resolve, 80));
+
             console.log('[PDF] Step 1: importing html-to-image');
             const { toPng } = await import('html-to-image');
 
@@ -371,6 +377,8 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
             const msg = error instanceof Error ? error.message : String(error);
             console.error('[PDF] Export failed:', error);
             alert(`PDF Export fehlgeschlagen:\n${msg}`);
+        } finally {
+            setIsExporting(false);
         }
     };
 
@@ -621,7 +629,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
     };
 
     const startOverlayDrag = (
-        type: 'logo' | 'label' | 'logo-resize',
+        type: 'logo' | 'label' | 'logo-resize' | 'label-resize',
         clientX: number,
         clientY: number,
     ) => {
@@ -630,9 +638,10 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
         overlayDragStart.current = {
             mouseX: clientX,
             mouseY: clientY,
-            elemX: type === 'label' ? (label?.x ?? 5) : (logo?.x ?? 5),
-            elemY: type === 'label' ? (label?.y ?? 5) : (logo?.y ?? 5),
+            elemX: (type === 'label' || type === 'label-resize') ? (label?.x ?? 5) : (logo?.x ?? 5),
+            elemY: (type === 'label' || type === 'label-resize') ? (label?.y ?? 5) : (logo?.y ?? 5),
             size: logo?.size,
+            fontSize: label?.fontSize,
         };
         setDraggingOverlay(type);
     };
@@ -643,6 +652,8 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
         const dx = ((clientX - overlayDragStart.current.mouseX) / rect.width) * 100;
         const dy = ((clientY - overlayDragStart.current.mouseY) / rect.height) * 100;
 
+        const dxPx = clientX - overlayDragStart.current.mouseX;
+
         if (draggingOverlay === 'logo-resize') {
             const newSize = Math.max(5, Math.min(60, (overlayDragStart.current.size ?? 20) + dx));
             updateActivePlan({ logoOverlay: { ...(activePlan?.logoOverlay ?? { x: 5, y: 5, size: 20 }), size: newSize } });
@@ -650,6 +661,9 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
             updateActivePlan({ logoOverlay: { ...(activePlan?.logoOverlay ?? { x: 5, y: 5, size: 20 }), x: overlayDragStart.current.elemX + dx, y: overlayDragStart.current.elemY + dy } });
         } else if (draggingOverlay === 'label') {
             updateActivePlan({ labelOverlay: { ...(activePlan?.labelOverlay ?? { x: 5, y: 5, text: 'LAGEPLAN', fontSize: 24 }), x: overlayDragStart.current.elemX + dx, y: overlayDragStart.current.elemY + dy } });
+        } else if (draggingOverlay === 'label-resize') {
+            const newFontSize = Math.max(10, Math.min(120, (overlayDragStart.current.fontSize ?? 24) + dxPx * 0.3));
+            updateActivePlan({ labelOverlay: { ...(activePlan?.labelOverlay ?? { x: 5, y: 5, text: 'LAGEPLAN', fontSize: 24 }), fontSize: newFontSize } });
         }
     };
 
@@ -1114,11 +1128,13 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
                                                     </div>
                                                 </div>
                                                 {/* Resize handle — bottom-right corner */}
-                                                <div
-                                                    className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-[#6bbfd4] rounded-full cursor-se-resize border-2 border-white shadow"
-                                                    onMouseDown={(e) => { e.stopPropagation(); startOverlayDrag('logo-resize', e.clientX, e.clientY); }}
-                                                    onTouchStart={(e) => { e.stopPropagation(); startOverlayDrag('logo-resize', e.touches[0].clientX, e.touches[0].clientY); }}
-                                                />
+                                                {!isExporting && (
+                                                    <div
+                                                        className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-[#6bbfd4] rounded-full cursor-se-resize border-2 border-white shadow"
+                                                        onMouseDown={(e) => { e.stopPropagation(); startOverlayDrag('logo-resize', e.clientX, e.clientY); }}
+                                                        onTouchStart={(e) => { e.stopPropagation(); startOverlayDrag('logo-resize', e.touches[0].clientX, e.touches[0].clientY); }}
+                                                    />
+                                                )}
                                             </div>
                                         );
                                     })()}
@@ -1129,9 +1145,9 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
                                         return (
                                             <div
                                                 className="absolute z-40 group"
-                                                style={{ left: `${lb.x}%`, top: `${lb.y}%` }}
+                                                style={{ left: `${lb.x}%`, top: `${lb.y}%`, position: 'absolute' }}
                                             >
-                                                {editingLabel ? (
+                                                {!isExporting && editingLabel ? (
                                                     <div className="flex flex-col gap-1">
                                                         <input
                                                             autoFocus
@@ -1153,15 +1169,25 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppPro
                                                         />
                                                     </div>
                                                 ) : (
-                                                    <div
-                                                        className="cursor-move select-none font-bold uppercase tracking-widest whitespace-nowrap"
-                                                        style={{ fontSize: lb.fontSize, color: '#1a1a1a' }}
-                                                        onMouseDown={(e) => { e.stopPropagation(); startOverlayDrag('label', e.clientX, e.clientY); }}
-                                                        onTouchStart={(e) => { e.stopPropagation(); startOverlayDrag('label', e.touches[0].clientX, e.touches[0].clientY); }}
-                                                        onDoubleClick={(e) => { e.stopPropagation(); setEditingLabel(true); }}
-                                                        title="Doppelklick zum Bearbeiten"
-                                                    >
-                                                        {lb.text}
+                                                    <div className="relative inline-block">
+                                                        <div
+                                                            className="cursor-move select-none font-bold uppercase tracking-widest whitespace-nowrap"
+                                                            style={{ fontSize: lb.fontSize, color: '#1a1a1a' }}
+                                                            onMouseDown={(e) => { e.stopPropagation(); startOverlayDrag('label', e.clientX, e.clientY); }}
+                                                            onTouchStart={(e) => { e.stopPropagation(); startOverlayDrag('label', e.touches[0].clientX, e.touches[0].clientY); }}
+                                                            onDoubleClick={(e) => { e.stopPropagation(); setEditingLabel(true); }}
+                                                            title="Doppelklick zum Bearbeiten"
+                                                        >
+                                                            {lb.text}
+                                                        </div>
+                                                        {/* Resize handle — bottom-right corner */}
+                                                        {!isExporting && (
+                                                            <div
+                                                                className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-[#6bbfd4] rounded-full cursor-se-resize border-2 border-white shadow"
+                                                                onMouseDown={(e) => { e.stopPropagation(); startOverlayDrag('label-resize', e.clientX, e.clientY); }}
+                                                                onTouchStart={(e) => { e.stopPropagation(); startOverlayDrag('label-resize', e.touches[0].clientX, e.touches[0].clientY); }}
+                                                            />
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
