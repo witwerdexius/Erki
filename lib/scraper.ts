@@ -145,6 +145,7 @@ export async function scrapeJugendarbeit(url: string): Promise<{ title: string; 
                 y,
                 targetX,
                 targetY,
+                colorVariant: i % 4, // Round-Robin
             });
         });
 

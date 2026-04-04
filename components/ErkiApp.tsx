@@ -287,7 +287,7 @@ export default function ErkiApp({ plan, onPlanUpdate, onBack }: ErkiAppProps) {
 
             autoTable(pdf, {
                 startY: 27,
-                head: [['Nr.', 'Station', 'Beschreibung', 'Material', 'Gesprächsimpulse', 'Aufbau', 'Durchführung', 'Voll']],
+                head: [['Nr.', 'Station', 'Beschreibung', 'Material', 'Gesprächsimpulse', 'Aufbau', 'Durchführung', 'Stempelfeld']],
                 body: activePlan.stations.map(s => [
                     s.number,
                     s.name,
@@ -308,7 +308,7 @@ export default function ErkiApp({ plan, onPlanUpdate, onBack }: ErkiAppProps) {
                     4: { cellWidth: 40 },  // Gesprächsimpulse
                     5: { cellWidth: 20 },  // Aufbau
                     6: { cellWidth: 20 },  // Durchführung
-                    7: { cellWidth: 10, halign: 'center' }, // Voll
+                    7: { cellWidth: 10, halign: 'center' }, // Stempelfeld
                 },
                 alternateRowStyles: { fillColor: [249, 250, 251] },
             });
@@ -861,7 +861,7 @@ export default function ErkiApp({ plan, onPlanUpdate, onBack }: ErkiAppProps) {
                                             <th className="p-4 w-40 text-xs font-bold uppercase text-gray-400 tracking-wider">Gesprächsimpulse</th>
                                             <th className="p-4 w-28 text-xs font-bold uppercase text-gray-400 tracking-wider">Aufbau</th>
                                             <th className="p-4 w-28 text-xs font-bold uppercase text-gray-400 tracking-wider">Durchführung</th>
-                                            <th className="p-4 w-12 text-xs font-bold uppercase text-gray-400 tracking-wider">Voll</th>
+                                            <th className="p-4 w-12 text-xs font-bold uppercase text-gray-400 tracking-wider">Stempelfeld</th>
                                             <th className="p-4 w-10"></th>
                                         </tr>
                                     </thead>
@@ -939,19 +939,39 @@ export default function ErkiApp({ plan, onPlanUpdate, onBack }: ErkiAppProps) {
                                                     />
                                                 </td>
                                                 <td className="p-4">
-                                                    <input
+                                                    <textarea
                                                         value={s.setupBy}
-                                                        onChange={(e) => updateStation(s.id, { setupBy: e.target.value })}
-                                                        className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm"
+                                                        onChange={(e) => {
+                                                            updateStation(s.id, { setupBy: e.target.value });
+                                                            e.target.style.height = 'auto';
+                                                            e.target.style.height = e.target.scrollHeight + 'px';
+                                                        }}
+                                                        onInput={(e) => {
+                                                            const t = e.target as HTMLTextAreaElement;
+                                                            t.style.height = 'auto';
+                                                            t.style.height = t.scrollHeight + 'px';
+                                                        }}
+                                                        className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm resize-none overflow-hidden"
                                                         placeholder="Name..."
+                                                        rows={1}
                                                     />
                                                 </td>
                                                 <td className="p-4">
-                                                    <input
+                                                    <textarea
                                                         value={s.conductedBy}
-                                                        onChange={(e) => updateStation(s.id, { conductedBy: e.target.value })}
-                                                        className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm"
+                                                        onChange={(e) => {
+                                                            updateStation(s.id, { conductedBy: e.target.value });
+                                                            e.target.style.height = 'auto';
+                                                            e.target.style.height = e.target.scrollHeight + 'px';
+                                                        }}
+                                                        onInput={(e) => {
+                                                            const t = e.target as HTMLTextAreaElement;
+                                                            t.style.height = 'auto';
+                                                            t.style.height = t.scrollHeight + 'px';
+                                                        }}
+                                                        className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm resize-none overflow-hidden"
                                                         placeholder="Name..."
+                                                        rows={1}
                                                     />
                                                 </td>
                                                 <td className="p-4">
