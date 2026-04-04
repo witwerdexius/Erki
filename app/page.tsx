@@ -17,6 +17,8 @@ export default function Home() {
   const [activePlan, setActivePlan] = useState<Plan | null>(null);
   const [loadingPlan, setLoadingPlan] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // Ref hält immer den neuesten Plan-Stand synchron (unabhängig von React-State-Batching)
+  const latestPlanRef = useRef<Plan | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -42,6 +44,7 @@ export default function Home() {
     setLoadingPlan(true);
     try {
       const plan = await loadPlanning(planId);
+      latestPlanRef.current = plan;
       setActivePlan(plan);
       setView('editor');
     } catch (e) {
@@ -52,6 +55,7 @@ export default function Home() {
   };
 
   const handlePlanUpdate = useCallback((updatedPlan: Plan) => {
+    latestPlanRef.current = updatedPlan; // synchron – immer aktuell
     setActivePlan(updatedPlan);
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
@@ -64,17 +68,19 @@ export default function Home() {
   }, []);
 
   const handleBack = useCallback(async () => {
-    if (activePlan) {
-      clearTimeout(saveTimer.current);
+    clearTimeout(saveTimer.current); // Auto-Save abbrechen
+    const plan = latestPlanRef.current; // neuester Stand, nicht der ggf. veraltete State
+    if (plan) {
       try {
-        await savePlanning(activePlan);
+        await savePlanning(plan);
       } catch (e) {
         console.error('Speichern fehlgeschlagen:', e);
       }
     }
+    latestPlanRef.current = null;
     setActivePlan(null);
     setView('list');
-  }, [activePlan]);
+  }, []); // keine State-Abhängigkeit nötig dank Ref
 
   if (loadingPlan) {
     return (
