@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Move, Palette, GripVertical, PenLine, Eraser } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Move, Palette, GripVertical, PenLine, Eraser, Image as ImageIcon, Type } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { User } from '@supabase/supabase-js';
-import { Plan, Station, MaskPolygon } from '@/lib/types';
+import { Plan, Station, MaskPolygon, LogoOverlay, LabelOverlay } from '@/lib/types';
 import { importPlanFromUrl } from '@/lib/actions';
 import { cn } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
@@ -22,6 +22,9 @@ export default function ErkiApp({ plan, onPlanUpdate, onBack }: ErkiAppProps) {
     const [activeTab, setActiveTab] = useState<'map' | 'table'>('map');
     const [aspectRatio, setAspectRatio] = useState<'portrait' | 'landscape'>('landscape');
     const [draggedItem, setDraggedItem] = useState<{ id: string; type: 'bubble' | 'target' } | null>(null);
+    const [draggingOverlay, setDraggingOverlay] = useState<'logo' | 'label' | 'logo-resize' | null>(null);
+    const [editingLabel, setEditingLabel] = useState(false);
+    const overlayDragStart = useRef<{ mouseX: number; mouseY: number; elemX: number; elemY: number; size?: number } | null>(null);
     const [draggedRowId, setDraggedRowId] = useState<string | null>(null);
     const [dragOverRowId, setDragOverRowId] = useState<string | null>(null);
     const [maskDrawing, setMaskDrawing] = useState(false);
@@ -500,6 +503,64 @@ export default function ErkiApp({ plan, onPlanUpdate, onBack }: ErkiAppProps) {
         updateActivePlan({ masks: [] });
     };
 
+    // ── Overlay drag helpers ────────────────────────────────────
+    const getContainerPercent = (clientX: number, clientY: number) => {
+        if (!containerRef.current) return null;
+        const rect = containerRef.current.getBoundingClientRect();
+        return {
+            x: ((clientX - rect.left) / rect.width) * 100,
+            y: ((clientY - rect.top) / rect.height) * 100,
+        };
+    };
+
+    const startOverlayDrag = (
+        type: 'logo' | 'label' | 'logo-resize',
+        clientX: number,
+        clientY: number,
+    ) => {
+        const logo = activePlan?.logoOverlay;
+        const label = activePlan?.labelOverlay;
+        overlayDragStart.current = {
+            mouseX: clientX,
+            mouseY: clientY,
+            elemX: type === 'label' ? (label?.x ?? 5) : (logo?.x ?? 5),
+            elemY: type === 'label' ? (label?.y ?? 5) : (logo?.y ?? 5),
+            size: logo?.size,
+        };
+        setDraggingOverlay(type);
+    };
+
+    const handleOverlayMouseMove = (clientX: number, clientY: number) => {
+        if (!draggingOverlay || !overlayDragStart.current || !containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+        const dx = ((clientX - overlayDragStart.current.mouseX) / rect.width) * 100;
+        const dy = ((clientY - overlayDragStart.current.mouseY) / rect.height) * 100;
+
+        if (draggingOverlay === 'logo-resize') {
+            const newSize = Math.max(5, Math.min(60, (overlayDragStart.current.size ?? 20) + dx));
+            updateActivePlan({ logoOverlay: { ...(activePlan?.logoOverlay ?? { x: 5, y: 5, size: 20 }), size: newSize } });
+        } else if (draggingOverlay === 'logo') {
+            updateActivePlan({ logoOverlay: { ...(activePlan?.logoOverlay ?? { x: 5, y: 5, size: 20 }), x: overlayDragStart.current.elemX + dx, y: overlayDragStart.current.elemY + dy } });
+        } else if (draggingOverlay === 'label') {
+            updateActivePlan({ labelOverlay: { ...(activePlan?.labelOverlay ?? { x: 5, y: 5, text: 'LAGEPLAN', fontSize: 24 }), x: overlayDragStart.current.elemX + dx, y: overlayDragStart.current.elemY + dy } });
+        }
+    };
+
+    const stopOverlayDrag = () => {
+        setDraggingOverlay(null);
+        overlayDragStart.current = null;
+    };
+
+    const addLogoOverlay = () => {
+        if (activePlan?.logoOverlay) return;
+        updateActivePlan({ logoOverlay: { x: 5, y: 5, size: 20 } });
+    };
+
+    const addLabelOverlay = () => {
+        if (activePlan?.labelOverlay) return;
+        updateActivePlan({ labelOverlay: { x: 5, y: 12, text: 'LAGEPLAN', fontSize: 24 } });
+    };
+
     return (
         <div className="flex h-screen w-full flex-col bg-[#fdfdfd] text-[#1a1a1a] font-sans selection:bg-[#e8f7fb]">
             {/* Header */}
@@ -664,6 +725,46 @@ export default function ErkiApp({ plan, onPlanUpdate, onBack }: ErkiAppProps) {
                                         <span className="hidden sm:inline">Masken löschen</span>
                                     </button>
                                 )}
+                                {!activePlan?.logoOverlay && (
+                                    <button
+                                        onClick={addLogoOverlay}
+                                        className="flex items-center gap-2 px-3 py-2 bg-white text-gray-600 rounded-full shadow-lg border cursor-pointer hover:bg-gray-50 transition-all active:scale-95 text-sm font-medium"
+                                        title="Logo hinzufügen"
+                                    >
+                                        <ImageIcon className="w-4 h-4" />
+                                        <span className="hidden sm:inline">Logo</span>
+                                    </button>
+                                )}
+                                {activePlan?.logoOverlay && (
+                                    <button
+                                        onClick={() => updateActivePlan({ logoOverlay: undefined })}
+                                        className="flex items-center gap-2 px-3 py-2 bg-white text-red-400 rounded-full shadow-lg border cursor-pointer hover:bg-red-50 transition-all active:scale-95 text-sm font-medium"
+                                        title="Logo entfernen"
+                                    >
+                                        <ImageIcon className="w-4 h-4" />
+                                        <span className="hidden sm:inline">Logo entfernen</span>
+                                    </button>
+                                )}
+                                {!activePlan?.labelOverlay && (
+                                    <button
+                                        onClick={addLabelOverlay}
+                                        className="flex items-center gap-2 px-3 py-2 bg-white text-gray-600 rounded-full shadow-lg border cursor-pointer hover:bg-gray-50 transition-all active:scale-95 text-sm font-medium"
+                                        title="Überschrift hinzufügen"
+                                    >
+                                        <Type className="w-4 h-4" />
+                                        <span className="hidden sm:inline">Überschrift</span>
+                                    </button>
+                                )}
+                                {activePlan?.labelOverlay && (
+                                    <button
+                                        onClick={() => updateActivePlan({ labelOverlay: undefined })}
+                                        className="flex items-center gap-2 px-3 py-2 bg-white text-red-400 rounded-full shadow-lg border cursor-pointer hover:bg-red-50 transition-all active:scale-95 text-sm font-medium"
+                                        title="Überschrift entfernen"
+                                    >
+                                        <Type className="w-4 h-4" />
+                                        <span className="hidden sm:inline">Überschrift entf.</span>
+                                    </button>
+                                )}
                             </div>
 
                             <div className="flex-1 overflow-auto p-2 sm:p-8 flex items-center justify-center">
@@ -673,11 +774,11 @@ export default function ErkiApp({ plan, onPlanUpdate, onBack }: ErkiAppProps) {
                                         "relative bg-white shadow-2xl overflow-hidden border border-gray-200 transition-all duration-500",
                                         aspectRatio === 'landscape' ? "aspect-[297/210] h-auto w-full max-w-5xl" : "aspect-[210/297] w-auto h-full max-h-[80vh]"
                                     )}
-                                    onMouseMove={(e) => { handleMouseMove(e); handleMaskMouseMove(e); }}
-                                    onMouseUp={handleMouseUp}
-                                    onMouseLeave={handleMouseUp}
-                                    onTouchMove={handleTouchMove}
-                                    onTouchEnd={handleMouseUp}
+                                    onMouseMove={(e) => { handleMouseMove(e); handleMaskMouseMove(e); handleOverlayMouseMove(e.clientX, e.clientY); }}
+                                    onMouseUp={() => { handleMouseUp(); stopOverlayDrag(); }}
+                                    onMouseLeave={() => { handleMouseUp(); stopOverlayDrag(); }}
+                                    onTouchMove={(e) => { handleTouchMove(e); if (draggingOverlay) { e.preventDefault(); handleOverlayMouseMove(e.touches[0].clientX, e.touches[0].clientY); } }}
+                                    onTouchEnd={() => { handleMouseUp(); stopOverlayDrag(); }}
                                     onClick={handleMapClick}
                                     onDoubleClick={handleMapDoubleClick}
                                     style={{ cursor: maskDrawing ? 'crosshair' : undefined }}
@@ -830,6 +931,91 @@ export default function ErkiApp({ plan, onPlanUpdate, onBack }: ErkiAppProps) {
                                             })}
                                         </div>
                                     )}
+
+                                    {/* Logo Overlay */}
+                                    {activePlan?.logoOverlay && (() => {
+                                        const lo = activePlan.logoOverlay;
+                                        return (
+                                            <div
+                                                className="absolute z-40"
+                                                style={{ left: `${lo.x}%`, top: `${lo.y}%`, width: `${lo.size}%` }}
+                                            >
+                                                {/* drag handle = the image itself */}
+                                                <div
+                                                    className="cursor-move select-none"
+                                                    onMouseDown={(e) => { e.stopPropagation(); startOverlayDrag('logo', e.clientX, e.clientY); }}
+                                                    onTouchStart={(e) => { e.stopPropagation(); startOverlayDrag('logo', e.touches[0].clientX, e.touches[0].clientY); }}
+                                                >
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img
+                                                        src="/logo.jpeg"
+                                                        alt="Logo"
+                                                        className="w-full h-auto block"
+                                                        draggable={false}
+                                                        onError={(e) => {
+                                                            // Fallback: show placeholder box
+                                                            (e.target as HTMLImageElement).style.display = 'none';
+                                                            (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                                                        }}
+                                                    />
+                                                    <div className="hidden w-full aspect-square bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 text-xs">
+                                                        Logo<br />(public/logo.jpeg)
+                                                    </div>
+                                                </div>
+                                                {/* Resize handle — bottom-right corner */}
+                                                <div
+                                                    className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-[#6bbfd4] rounded-full cursor-se-resize border-2 border-white shadow"
+                                                    onMouseDown={(e) => { e.stopPropagation(); startOverlayDrag('logo-resize', e.clientX, e.clientY); }}
+                                                    onTouchStart={(e) => { e.stopPropagation(); startOverlayDrag('logo-resize', e.touches[0].clientX, e.touches[0].clientY); }}
+                                                />
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* Label Overlay */}
+                                    {activePlan?.labelOverlay && (() => {
+                                        const lb = activePlan.labelOverlay;
+                                        return (
+                                            <div
+                                                className="absolute z-40 group"
+                                                style={{ left: `${lb.x}%`, top: `${lb.y}%` }}
+                                            >
+                                                {editingLabel ? (
+                                                    <div className="flex flex-col gap-1">
+                                                        <input
+                                                            autoFocus
+                                                            value={lb.text}
+                                                            onChange={(e) => updateActivePlan({ labelOverlay: { ...lb, text: e.target.value } })}
+                                                            onBlur={() => setEditingLabel(false)}
+                                                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') setEditingLabel(false); }}
+                                                            className="bg-white/80 border border-[#6bbfd4] rounded px-1 font-bold uppercase tracking-widest outline-none"
+                                                            style={{ fontSize: lb.fontSize }}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        />
+                                                        <input
+                                                            type="range"
+                                                            min={10} max={72} step={2}
+                                                            value={lb.fontSize}
+                                                            onChange={(e) => updateActivePlan({ labelOverlay: { ...lb, fontSize: Number(e.target.value) } })}
+                                                            className="w-full"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <div
+                                                        className="cursor-move select-none font-bold uppercase tracking-widest whitespace-nowrap"
+                                                        style={{ fontSize: lb.fontSize, color: '#1a1a1a' }}
+                                                        onMouseDown={(e) => { e.stopPropagation(); startOverlayDrag('label', e.clientX, e.clientY); }}
+                                                        onTouchStart={(e) => { e.stopPropagation(); startOverlayDrag('label', e.touches[0].clientX, e.touches[0].clientY); }}
+                                                        onDoubleClick={(e) => { e.stopPropagation(); setEditingLabel(true); }}
+                                                        title="Doppelklick zum Bearbeiten"
+                                                    >
+                                                        {lb.text}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         </div>

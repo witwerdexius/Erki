@@ -22,6 +22,19 @@ export interface MaskPolygon {
 
 export type PlanStatus = 'draft' | 'active' | 'archive';
 
+export interface LogoOverlay {
+  x: number;      // % from left
+  y: number;      // % from top
+  size: number;   // width in %, height proportional
+}
+
+export interface LabelOverlay {
+  x: number;      // % from left
+  y: number;      // % from top
+  text: string;
+  fontSize: number; // px
+}
+
 export interface Plan {
   id: string;
   title: string;
@@ -31,6 +44,8 @@ export interface Plan {
   stationCount?: number; // Nur in der Listenansicht gesetzt (ohne vollständiges Laden der Stationen)
   backgroundImage?: string; // Data URL
   masks?: MaskPolygon[];
+  logoOverlay?: LogoOverlay;
+  labelOverlay?: LabelOverlay;
   createdAt?: string;
   updatedAt?: string;
 }

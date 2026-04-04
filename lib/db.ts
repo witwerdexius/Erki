@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Plan, PlanStatus, Station } from './types';
+import { Plan, PlanStatus, Station, LogoOverlay, LabelOverlay } from './types';
 
 // ── Row converters ──────────────────────────────────────────────
 
@@ -12,6 +12,8 @@ function rowToPlan(row: any, stations: Station[]): Plan {
     url: row.url ?? undefined,
     backgroundImage: row.background_image ?? undefined,
     masks: row.masks ?? [],
+    logoOverlay: row.logo_overlay ?? undefined,
+    labelOverlay: row.label_overlay ?? undefined,
     stations,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -124,6 +126,8 @@ export async function savePlanning(plan: Plan): Promise<void> {
       url: plan.url ?? null,
       background_image: plan.backgroundImage ?? null,
       masks: plan.masks ?? [],
+      logo_overlay: plan.logoOverlay ?? null,
+      label_overlay: plan.labelOverlay ?? null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', plan.id);
@@ -188,6 +192,8 @@ export async function importPlannings(plans: Plan[], userId: string): Promise<vo
         url: plan.url ?? null,
         background_image: plan.backgroundImage ?? null,
         masks: plan.masks ?? [],
+        logo_overlay: plan.logoOverlay ?? null,
+        label_overlay: plan.labelOverlay ?? null,
       })
       .select()
       .single();
