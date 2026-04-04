@@ -1,13 +1,15 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Move, Palette, GripVertical, PenLine, Eraser, Image as ImageIcon, Type, ZoomIn, ZoomOut } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Move, Palette, GripVertical, PenLine, Eraser, Image as ImageIcon, Type, ZoomIn, ZoomOut, BookTemplate, Bookmark, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { User } from '@supabase/supabase-js';
-import { Plan, Station, MaskPolygon, LogoOverlay, LabelOverlay } from '@/lib/types';
+import { Plan, Station, MaskPolygon, LogoOverlay, LabelOverlay, StationTemplate } from '@/lib/types';
 import { importPlanFromUrl } from '@/lib/actions';
+import { loadTemplates, createTemplate, updateTemplate, deleteTemplate } from '@/lib/db';
 import { cn } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
+import TemplatePickerDialog from './TemplatePickerDialog';
 
 interface ErkiAppProps {
     plan: Plan;
@@ -16,10 +18,15 @@ interface ErkiAppProps {
     onBack: () => void;
 }
 
-export default function ErkiApp({ plan, onPlanUpdate, onBack }: ErkiAppProps) {
+export default function ErkiApp({ plan, user, onPlanUpdate, onBack }: ErkiAppProps) {
     const [importUrl, setImportUrl] = useState('');
     const [isImporting, setIsImporting] = useState(false);
-    const [activeTab, setActiveTab] = useState<'map' | 'table'>('map');
+    const [activeTab, setActiveTab] = useState<'map' | 'table' | 'templates'>('map');
+    const [templates, setTemplates] = useState<StationTemplate[]>([]);
+    const [templatesLoaded, setTemplatesLoaded] = useState(false);
+    const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+    const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+    const [editingTemplateData, setEditingTemplateData] = useState<Partial<StationTemplate>>({});
     const [aspectRatio, setAspectRatio] = useState<'portrait' | 'landscape'>('landscape');
     const [draggedItem, setDraggedItem] = useState<{ id: string; type: 'bubble' | 'target' } | null>(null);
     const [draggingOverlay, setDraggingOverlay] = useState<'logo' | 'label' | 'logo-resize' | null>(null);
@@ -35,6 +42,101 @@ export default function ErkiApp({ plan, onPlanUpdate, onBack }: ErkiAppProps) {
     const tableRef = useRef<HTMLDivElement>(null);
 
     const activePlan = plan;
+
+    // Templates lazy-laden beim ersten Wechsel zum Vorlagen-Tab oder beim Öffnen des Pickers
+    const ensureTemplatesLoaded = async () => {
+        if (templatesLoaded) return;
+        try {
+            const data = await loadTemplates();
+            setTemplates(data);
+        } catch (e) {
+            console.error('Fehler beim Laden der Vorlagen:', e);
+        }
+        setTemplatesLoaded(true);
+    };
+
+    const handleSaveAsTemplate = async (station: Station) => {
+        try {
+            const t = await createTemplate({
+                name: station.name,
+                description: station.description,
+                material: station.material,
+                instructions: station.instructions,
+                impulses: station.impulses,
+                setupBy: station.setupBy,
+                conductedBy: station.conductedBy,
+            }, user.id);
+            setTemplates(prev => [...prev, t].sort((a, b) => a.name.localeCompare(b.name)));
+            alert(`Vorlage „${t.name}" gespeichert.`);
+        } catch (e) {
+            console.error(e);
+            alert('Fehler beim Speichern der Vorlage.');
+        }
+    };
+
+    const handleApplyTemplate = (t: StationTemplate) => {
+        // Neue Station anlegen mit Template-Werten
+        if (!activePlan) return;
+        const i = activePlan.stations.length;
+        const maxNum = Math.max(0, ...activePlan.stations.map(s => parseInt(s.number) || 0));
+        const side = i % 4, step = (Math.floor(i / 4) * 15) % 80;
+        let x = 5, y = 5;
+        if (side === 0) { x = 10 + step; y = 5; }
+        else if (side === 1) { x = 95; y = 10 + step; }
+        else if (side === 2) { x = 90 - step; y = 95; }
+        else if (side === 3) { x = 5; y = 90 - step; }
+        const newStation: Station = {
+            id: crypto.randomUUID(),
+            number: (maxNum + 1).toString(),
+            name: t.name,
+            description: t.description,
+            material: t.material,
+            instructions: t.instructions,
+            impulses: t.impulses,
+            setupBy: t.setupBy,
+            conductedBy: t.conductedBy,
+            x, y,
+            targetX: 40 + (i % 3) * 10,
+            targetY: 40 + (Math.floor(i / 3) * 10) % 20,
+            isFilled: false,
+            colorVariant: i % 4,
+        };
+        updateActivePlan({ stations: [...activePlan.stations, newStation] });
+        setActiveTab('table');
+    };
+
+    const handleCreateBlankTemplate = async () => {
+        try {
+            const t = await createTemplate({ name: 'Neue Vorlage', description: '', material: '', instructions: '', impulses: [], setupBy: '', conductedBy: '' }, user.id);
+            setTemplates(prev => [...prev, t].sort((a, b) => a.name.localeCompare(b.name)));
+            setEditingTemplateId(t.id);
+            setEditingTemplateData(t);
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const handleSaveTemplateEdit = async () => {
+        if (!editingTemplateId) return;
+        try {
+            await updateTemplate(editingTemplateId, editingTemplateData);
+            setTemplates(prev => prev.map(t => t.id === editingTemplateId ? { ...t, ...editingTemplateData } : t).sort((a, b) => a.name.localeCompare(b.name)));
+            setEditingTemplateId(null);
+            setEditingTemplateData({});
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const handleDeleteTemplate = async (id: string, name: string) => {
+        if (!confirm(`Vorlage „${name}" löschen?`)) return;
+        try {
+            await deleteTemplate(id);
+            setTemplates(prev => prev.filter(t => t.id !== id));
+        } catch (e) {
+            console.error(e);
+        }
+    };
 
     const ZOOM_STEPS = [0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3];
     const currentZoom = activePlan?.bgZoom ?? 1;
@@ -604,6 +706,14 @@ export default function ErkiApp({ plan, onPlanUpdate, onBack }: ErkiAppProps) {
                                     activeTab === 'table' ? "bg-white shadow-sm text-[#6bbfd4]" : "text-gray-500 hover:text-gray-700"
                                 )}>
                                 <List className="w-4 h-4" /> <span className="hidden xs:inline">Tabelle</span>
+                            </button>
+                            <button
+                                onClick={() => { setActiveTab('templates'); ensureTemplatesLoaded(); }}
+                                className={cn(
+                                    "flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-all",
+                                    activeTab === 'templates' ? "bg-white shadow-sm text-[#6bbfd4]" : "text-gray-500 hover:text-gray-700"
+                                )}>
+                                <BookTemplate className="w-4 h-4" /> <span className="hidden xs:inline">Vorlagen</span>
                             </button>
                         </nav>
 
@@ -1210,25 +1320,153 @@ export default function ErkiApp({ plan, onPlanUpdate, onBack }: ErkiAppProps) {
                                                     />
                                                 </td>
                                                 <td className="p-4">
-                                                    <button
-                                                        onClick={() => deleteStation(s.id)}
-                                                        className="text-gray-300 hover:text-red-500 transition-colors"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={() => handleSaveAsTemplate(s)}
+                                                            className="text-gray-300 hover:text-[#6bbfd4] transition-colors opacity-0 group-hover:opacity-100"
+                                                            title="Als Vorlage speichern"
+                                                        >
+                                                            <Bookmark className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => deleteStation(s.id)}
+                                                            className="text-gray-300 hover:text-red-500 transition-colors"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
                                 </div>
-                                <button
-                                    onClick={addStation}
-                                    className="w-full p-6 text-gray-400 hover:text-[#6bbfd4] hover:bg-[#6bbfd4]/10 transition-all flex items-center justify-center gap-2 font-medium"
-                                >
-                                    <Plus className="w-5 h-5" /> Station hinzufügen
-                                </button>
+                                <div className="flex border-t divide-x">
+                                    <button
+                                        onClick={addStation}
+                                        className="flex-1 p-5 text-gray-400 hover:text-[#6bbfd4] hover:bg-[#6bbfd4]/10 transition-all flex items-center justify-center gap-2 font-medium"
+                                    >
+                                        <Plus className="w-5 h-5" /> Station hinzufügen
+                                    </button>
+                                    <button
+                                        onClick={() => { ensureTemplatesLoaded(); setShowTemplatePicker(true); }}
+                                        className="flex-1 p-5 text-gray-400 hover:text-[#6bbfd4] hover:bg-[#6bbfd4]/10 transition-all flex items-center justify-center gap-2 font-medium"
+                                    >
+                                        <BookTemplate className="w-5 h-5" /> Aus Vorlage
+                                    </button>
+                                </div>
                             </motion.div>
+                        </div>
+                    )}
+
+                    {activeTab === 'templates' && (
+                        <div className="flex-1 overflow-auto p-4 sm:p-8">
+                            <div className="max-w-2xl mx-auto">
+                                <div className="flex items-center justify-between mb-6">
+                                    <h2 className="text-lg font-semibold text-gray-900">Vorlagen</h2>
+                                    <button
+                                        onClick={handleCreateBlankTemplate}
+                                        className="flex items-center gap-2 px-4 py-2 bg-[#6bbfd4] text-white rounded-xl text-sm font-medium hover:bg-[#5aaec3] active:scale-[0.98] transition-all"
+                                    >
+                                        <Plus className="w-4 h-4" /> Neue Vorlage
+                                    </button>
+                                </div>
+                                {!templatesLoaded ? (
+                                    <p className="text-center py-12 text-gray-400">Wird geladen…</p>
+                                ) : templates.length === 0 ? (
+                                    <div className="text-center py-12">
+                                        <p className="text-gray-400 mb-4">Noch keine Vorlagen vorhanden.</p>
+                                        <button
+                                            onClick={handleCreateBlankTemplate}
+                                            className="px-5 py-2.5 bg-[#6bbfd4] text-white rounded-xl text-sm font-medium hover:bg-[#5aaec3] transition-all"
+                                        >
+                                            Erste Vorlage erstellen
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {templates.map(t => (
+                                            <div key={t.id} className="bg-white rounded-2xl border p-4 group">
+                                                {editingTemplateId === t.id ? (
+                                                    <div className="space-y-3">
+                                                        <input
+                                                            value={editingTemplateData.name ?? ''}
+                                                            onChange={(e) => setEditingTemplateData(d => ({ ...d, name: e.target.value }))}
+                                                            className="w-full font-semibold border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30"
+                                                            placeholder="Name…"
+                                                        />
+                                                        <textarea
+                                                            value={editingTemplateData.description ?? ''}
+                                                            onChange={(e) => setEditingTemplateData(d => ({ ...d, description: e.target.value }))}
+                                                            className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 resize-none"
+                                                            placeholder="Beschreibung…"
+                                                            rows={2}
+                                                        />
+                                                        <textarea
+                                                            value={editingTemplateData.material ?? ''}
+                                                            onChange={(e) => setEditingTemplateData(d => ({ ...d, material: e.target.value }))}
+                                                            className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 resize-none"
+                                                            placeholder="Material…"
+                                                            rows={2}
+                                                        />
+                                                        <textarea
+                                                            value={(editingTemplateData.impulses ?? []).join('\n')}
+                                                            onChange={(e) => setEditingTemplateData(d => ({ ...d, impulses: e.target.value.split('\n').filter(l => l.trim()) }))}
+                                                            className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 resize-none"
+                                                            placeholder="Gesprächsimpulse (je Zeile ein Impuls)…"
+                                                            rows={3}
+                                                        />
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            <input
+                                                                value={editingTemplateData.setupBy ?? ''}
+                                                                onChange={(e) => setEditingTemplateData(d => ({ ...d, setupBy: e.target.value }))}
+                                                                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30"
+                                                                placeholder="Aufbau…"
+                                                            />
+                                                            <input
+                                                                value={editingTemplateData.conductedBy ?? ''}
+                                                                onChange={(e) => setEditingTemplateData(d => ({ ...d, conductedBy: e.target.value }))}
+                                                                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30"
+                                                                placeholder="Durchführung…"
+                                                            />
+                                                        </div>
+                                                        <div className="flex gap-2 justify-end">
+                                                            <button
+                                                                onClick={() => { setEditingTemplateId(null); setEditingTemplateData({}); }}
+                                                                className="px-3 py-1.5 text-sm text-gray-500 border rounded-lg hover:bg-gray-50"
+                                                            >Abbrechen</button>
+                                                            <button
+                                                                onClick={handleSaveTemplateEdit}
+                                                                className="px-3 py-1.5 text-sm bg-[#6bbfd4] text-white rounded-lg hover:bg-[#5aaec3]"
+                                                            >Speichern</button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="font-semibold text-gray-900 text-sm">{t.name || '(Kein Name)'}</p>
+                                                            {t.description && <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{t.description}</p>}
+                                                            {t.material && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">Material: {t.material}</p>}
+                                                        </div>
+                                                        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button
+                                                                onClick={() => { setEditingTemplateId(t.id); setEditingTemplateData(t); }}
+                                                                className="p-1.5 text-gray-400 hover:text-[#6bbfd4] transition-colors"
+                                                                title="Bearbeiten"
+                                                            ><Pencil className="w-4 h-4" /></button>
+                                                            <button
+                                                                onClick={() => handleDeleteTemplate(t.id, t.name)}
+                                                                className="p-1.5 text-gray-400 hover:text-red-400 transition-colors"
+                                                                title="Löschen"
+                                                            ><Trash2 className="w-4 h-4" /></button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
 
@@ -1261,6 +1499,14 @@ export default function ErkiApp({ plan, onPlanUpdate, onBack }: ErkiAppProps) {
                     </div>
                 </main>
             </div>
+
+            {showTemplatePicker && (
+                <TemplatePickerDialog
+                    templates={templates}
+                    onSelect={handleApplyTemplate}
+                    onClose={() => setShowTemplatePicker(false)}
+                />
+            )}
         </div>
     );
 }

@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Plan, PlanStatus, Station, LogoOverlay, LabelOverlay } from './types';
+import { Plan, PlanStatus, Station, LogoOverlay, LabelOverlay, StationTemplate } from './types';
 
 // ── Row converters ──────────────────────────────────────────────
 
@@ -210,4 +210,73 @@ export async function importPlannings(plans: Plan[], userId: string): Promise<vo
       if (stationsError) throw stationsError;
     }
   }
+}
+
+// ── Templates ───────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToTemplate(row: any): StationTemplate {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    material: row.material,
+    instructions: row.instructions,
+    impulses: row.impulses ?? [],
+    setupBy: row.setup_by,
+    conductedBy: row.conducted_by,
+    createdAt: row.created_at,
+  };
+}
+
+export async function loadTemplates(): Promise<StationTemplate[]> {
+  const { data, error } = await supabase
+    .from('templates')
+    .select('*')
+    .order('name');
+  if (error) throw error;
+  return (data ?? []).map(rowToTemplate);
+}
+
+export async function createTemplate(
+  t: Omit<StationTemplate, 'id' | 'createdAt'>,
+  userId: string,
+): Promise<StationTemplate> {
+  const { data, error } = await supabase
+    .from('templates')
+    .insert({
+      user_id: userId,
+      name: t.name,
+      description: t.description,
+      material: t.material,
+      instructions: t.instructions,
+      impulses: t.impulses,
+      setup_by: t.setupBy,
+      conducted_by: t.conductedBy,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToTemplate(data);
+}
+
+export async function updateTemplate(
+  id: string,
+  updates: Partial<Omit<StationTemplate, 'id' | 'createdAt'>>,
+): Promise<void> {
+  const row: Record<string, unknown> = {};
+  if (updates.name       !== undefined) row.name         = updates.name;
+  if (updates.description !== undefined) row.description  = updates.description;
+  if (updates.material   !== undefined) row.material     = updates.material;
+  if (updates.instructions !== undefined) row.instructions = updates.instructions;
+  if (updates.impulses   !== undefined) row.impulses     = updates.impulses;
+  if (updates.setupBy    !== undefined) row.setup_by     = updates.setupBy;
+  if (updates.conductedBy !== undefined) row.conducted_by = updates.conductedBy;
+  const { error } = await supabase.from('templates').update(row).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteTemplate(id: string): Promise<void> {
+  const { error } = await supabase.from('templates').delete().eq('id', id);
+  if (error) throw error;
 }

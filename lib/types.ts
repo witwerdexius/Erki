@@ -22,6 +22,18 @@ export interface MaskPolygon {
 
 export type PlanStatus = 'draft' | 'active' | 'archive';
 
+export interface StationTemplate {
+  id: string;
+  name: string;
+  description: string;
+  material: string;
+  instructions: string;
+  impulses: string[];
+  setupBy: string;
+  conductedBy: string;
+  createdAt?: string;
+}
+
 export interface LogoOverlay {
   x: number;      // % from left
   y: number;      // % from top
