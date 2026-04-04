@@ -326,7 +326,7 @@ export default function ErkiApp() {
                     s.isFilled ? '✓' : '',
                 ]),
                 styles: { fontSize: 8, cellPadding: 3, overflow: 'linebreak' },
-                headStyles: { fillColor: [249, 115, 22], textColor: 255, fontStyle: 'bold' },
+                headStyles: { fillColor: [107, 191, 212], textColor: 255, fontStyle: 'bold' },
                 columnStyles: {
                     0: { cellWidth: 12 },  // Nr.
                     1: { cellWidth: 30 },  // Station
@@ -528,12 +528,12 @@ export default function ErkiApp() {
     };
 
     return (
-        <div className="flex h-screen w-full flex-col bg-[#fdfdfd] text-[#1a1a1a] font-sans selection:bg-[#ffedd5]">
+        <div className="flex h-screen w-full flex-col bg-[#fdfdfd] text-[#1a1a1a] font-sans selection:bg-[#e8f7fb]">
             {/* Header */}
             <header className="flex flex-col border-b bg-white/80 backdrop-blur-md sticky top-0 z-50">
                 <div className="flex h-14 items-center justify-between px-4 sm:px-8">
                     <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-lg bg-orange-500 flex items-center justify-center text-white font-bold shrink-0">EK</div>
+                        <div className="h-8 w-8 rounded-lg bg-[#6bbfd4] flex items-center justify-center text-white font-bold shrink-0">EK</div>
                         <h1 className="hidden sm:block text-xl font-bold tracking-tight">Erlebnis Kirche Planner</h1>
                     </div>
 
@@ -543,7 +543,7 @@ export default function ErkiApp() {
                                 onClick={() => setActiveTab('map')}
                                 className={cn(
                                     "flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-all",
-                                    activeTab === 'map' ? "bg-white shadow-sm text-orange-600" : "text-gray-500 hover:text-gray-700"
+                                    activeTab === 'map' ? "bg-white shadow-sm text-[#6bbfd4]" : "text-gray-500 hover:text-gray-700"
                                 )}>
                                 <MapIcon className="w-4 h-4" /> <span className="hidden xs:inline">Lageplan</span>
                             </button>
@@ -551,13 +551,13 @@ export default function ErkiApp() {
                                 onClick={() => setActiveTab('table')}
                                 className={cn(
                                     "flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-all",
-                                    activeTab === 'table' ? "bg-white shadow-sm text-orange-600" : "text-gray-500 hover:text-gray-700"
+                                    activeTab === 'table' ? "bg-white shadow-sm text-[#6bbfd4]" : "text-gray-500 hover:text-gray-700"
                                 )}>
                                 <List className="w-4 h-4" /> <span className="hidden xs:inline">Tabelle</span>
                             </button>
                         </nav>
 
-                        <div className="hidden sm:flex items-center bg-gray-100 rounded-full px-3 py-1 border focus-within:ring-2 ring-orange-200 transition-all">
+                        <div className="hidden sm:flex items-center bg-gray-100 rounded-full px-3 py-1 border focus-within:ring-2 ring-[#6bbfd4]/30 transition-all">
                             <Link className="w-4 h-4 text-gray-400 mr-2" />
                             <input
                                 type="text"
@@ -570,7 +570,7 @@ export default function ErkiApp() {
                             <button
                                 onClick={handleImport}
                                 disabled={isImporting}
-                                className="ml-2 bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-semibold hover:bg-orange-600 active:scale-95 transition-all disabled:opacity-50"
+                                className="ml-2 bg-[#6bbfd4] text-white px-3 py-1 rounded-full text-xs font-semibold hover:bg-[#5aaec3] active:scale-95 transition-all disabled:opacity-50"
                             >
                                 {isImporting ? '...' : 'Import'}
                             </button>
@@ -578,7 +578,7 @@ export default function ErkiApp() {
                     </div>
                 </div>
                 {/* Mobile URL import bar */}
-                <div className="sm:hidden flex items-center bg-gray-100 mx-4 mb-2 rounded-full px-3 py-1 border focus-within:ring-2 ring-orange-200 transition-all">
+                <div className="sm:hidden flex items-center bg-gray-100 mx-4 mb-2 rounded-full px-3 py-1 border focus-within:ring-2 ring-[#6bbfd4]/30 transition-all">
                     <Link className="w-4 h-4 text-gray-400 mr-2 shrink-0" />
                     <input
                         type="text"
@@ -591,7 +591,7 @@ export default function ErkiApp() {
                     <button
                         onClick={handleImport}
                         disabled={isImporting}
-                        className="ml-2 bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-semibold hover:bg-orange-600 active:scale-95 transition-all disabled:opacity-50 shrink-0"
+                        className="ml-2 bg-[#6bbfd4] text-white px-3 py-1 rounded-full text-xs font-semibold hover:bg-[#5aaec3] active:scale-95 transition-all disabled:opacity-50 shrink-0"
                     >
                         {isImporting ? '...' : 'Import'}
                     </button>
@@ -606,7 +606,7 @@ export default function ErkiApp() {
                             <div className="absolute top-3 right-3 z-40 flex flex-wrap gap-2 justify-end max-w-[calc(100%-1.5rem)]">
                                 <button
                                     onClick={addStation}
-                                    className="flex items-center gap-2 px-3 py-2 bg-white text-orange-600 rounded-full shadow-lg border border-orange-100 cursor-pointer hover:bg-orange-50 transition-all active:scale-95 text-sm font-medium"
+                                    className="flex items-center gap-2 px-3 py-2 bg-white text-[#6bbfd4] rounded-full shadow-lg border border-[#6bbfd4]/20 cursor-pointer hover:bg-[#6bbfd4]/10 transition-all active:scale-95 text-sm font-medium"
                                 >
                                     <Plus className="w-4 h-4" />
                                     <span className="hidden sm:inline">Station</span>
@@ -629,7 +629,7 @@ export default function ErkiApp() {
                                 </button>
                                 <button
                                     onClick={exportToPDF}
-                                    className="flex items-center gap-2 px-3 py-2 bg-orange-500 text-white rounded-full shadow-lg border-none cursor-pointer hover:bg-orange-600 transition-all active:scale-95 text-sm font-medium"
+                                    className="flex items-center gap-2 px-3 py-2 bg-[#6bbfd4] text-white rounded-full shadow-lg border-none cursor-pointer hover:bg-[#5aaec3] transition-all active:scale-95 text-sm font-medium"
                                 >
                                     <Download className="w-4 h-4" />
                                     <span className="hidden sm:inline">PDF</span>
@@ -649,7 +649,7 @@ export default function ErkiApp() {
                                     }}
                                     className={cn(
                                         "flex items-center gap-2 px-3 py-2 rounded-full shadow-lg border cursor-pointer transition-all active:scale-95 text-sm font-medium",
-                                        maskDrawing ? "bg-orange-500 text-white border-orange-500" : "bg-white text-gray-600 hover:bg-gray-50"
+                                        maskDrawing ? "bg-[#6bbfd4] text-white border-[#6bbfd4]" : "bg-white text-gray-600 hover:bg-gray-50"
                                     )}
                                     title="Weiße Maske zeichnen"
                                 >
@@ -735,12 +735,12 @@ export default function ErkiApp() {
                                             <polyline
                                                 points={[...currentMaskPoints, ...(cursorPos ? [cursorPos] : [])].map(p => `${p.x},${p.y}`).join(' ')}
                                                 fill="none"
-                                                stroke="#f97316"
+                                                stroke="#6bbfd4"
                                                 strokeWidth="0.5"
                                                 strokeDasharray="2 1"
                                             />
                                             {currentMaskPoints.map((p, i) => (
-                                                <circle key={i} cx={p.x} cy={p.y} r="1" fill="#f97316" />
+                                                <circle key={i} cx={p.x} cy={p.y} r="1" fill="#6bbfd4" />
                                             ))}
                                         </svg>
                                     )}
@@ -773,10 +773,10 @@ export default function ErkiApp() {
 
                                             {activePlan.stations.map((s, idx) => {
                                                 const colors = [
-                                                    { style: { borderColor: "#8CD7E5", backgroundColor: "white" }, bg: "#8CD7E5" }, // Cyan
-                                                    { style: { borderColor: "#AAA9E4", backgroundColor: "white" }, bg: "#AAA9E4" }, // Lavender
-                                                    { style: { borderColor: "#A1E9BD", backgroundColor: "white" }, bg: "#A1E9BD" }, // Mint
-                                                    { style: { borderColor: "#EA99C0", backgroundColor: "white" }, bg: "#EA99C0" }, // Pink
+                                                    { style: { borderColor: "#6bbfd4", backgroundColor: "white" }, bg: "#6bbfd4" }, // Türkis
+                                                    { style: { borderColor: "#9b8ec4", backgroundColor: "white" }, bg: "#9b8ec4" }, // Lila
+                                                    { style: { borderColor: "#7bc9a0", backgroundColor: "white" }, bg: "#7bc9a0" }, // Mint
+                                                    { style: { borderColor: "#e07aaa", backgroundColor: "white" }, bg: "#e07aaa" }, // Pink
                                                 ];
                                                 // Use explicit colorVariant if available, otherwise fallback to index/number based
                                                 const colorIndex = s.colorVariant ?? (idx % colors.length);
@@ -854,7 +854,7 @@ export default function ErkiApp() {
                             <div className="flex justify-end mb-4">
                                 <button
                                     onClick={exportTableToPDF}
-                                    className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-full shadow-lg border-none cursor-pointer hover:bg-orange-600 transition-all active:scale-95 text-sm font-medium"
+                                    className="flex items-center gap-2 px-4 py-2 bg-[#6bbfd4] text-white rounded-full shadow-lg border-none cursor-pointer hover:bg-[#5aaec3] transition-all active:scale-95 text-sm font-medium"
                                 >
                                     <Download className="w-4 h-4" />
                                     <span className="hidden sm:inline">Tabelle als PDF</span>
@@ -893,14 +893,14 @@ export default function ErkiApp() {
                                                 className={cn(
                                                     "hover:bg-gray-50/50 transition-colors",
                                                     draggedRowId === s.id && "opacity-40",
-                                                    dragOverRowId === s.id && "border-t-2 border-orange-400"
+                                                    dragOverRowId === s.id && "border-t-2 border-[#6bbfd4]"
                                                 )}
                                             >
                                                 <td className="p-4 w-8 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-400">
                                                     <GripVertical className="w-4 h-4" />
                                                 </td>
                                                 <td className="p-4">
-                                                    <span className="font-medium text-orange-600">{s.number}</span>
+                                                    <span className="font-medium text-[#6bbfd4]">{s.number}</span>
                                                 </td>
                                                 <td className="p-4 align-top">
                                                     <textarea
@@ -975,7 +975,7 @@ export default function ErkiApp() {
                                                         type="checkbox"
                                                         checked={s.isFilled || false}
                                                         onChange={(e) => updateStation(s.id, { isFilled: e.target.checked })}
-                                                        className="rounded text-orange-500 focus:ring-orange-500 border-gray-300"
+                                                        className="rounded text-[#6bbfd4] focus:ring-[#6bbfd4] border-gray-300"
                                                     />
                                                 </td>
                                                 <td className="p-4">
@@ -993,7 +993,7 @@ export default function ErkiApp() {
                                 </div>
                                 <button
                                     onClick={addStation}
-                                    className="w-full p-6 text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-all flex items-center justify-center gap-2 font-medium"
+                                    className="w-full p-6 text-gray-400 hover:text-[#6bbfd4] hover:bg-[#6bbfd4]/10 transition-all flex items-center justify-center gap-2 font-medium"
                                 >
                                     <Plus className="w-5 h-5" /> Station hinzufügen
                                 </button>
