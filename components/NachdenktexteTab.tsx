@@ -189,21 +189,21 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                 {/* Step 1: Instruction text */}
                 <section className="bg-white rounded-2xl shadow border border-gray-100 p-6">
                     <h2 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 text-xs font-bold flex items-center justify-center shrink-0">1</span>
+                        <span className="w-6 h-6 rounded-full bg-[#9b8ec4]/20 text-[#6b5fa0] text-xs font-bold flex items-center justify-center shrink-0">1</span>
                         Instruktionstext
                     </h2>
                     <textarea
                         value={instructionText}
                         onChange={e => setInstructionText(e.target.value)}
                         placeholder="Schreibe hier den Instruktionstext für das KI-Prompt..."
-                        className="w-full border border-gray-200 rounded-xl p-3 text-sm resize-y min-h-[100px] focus:ring-2 focus:ring-orange-200 focus:outline-none"
+                        className="w-full border border-gray-200 rounded-xl p-3 text-sm resize-y min-h-[100px] focus:ring-2 focus:ring-[#9b8ec4]/30 focus:outline-none"
                     />
                 </section>
 
                 {/* Step 2: Prompt generator */}
                 <section className="bg-white rounded-2xl shadow border border-gray-100 p-6">
                     <h2 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 text-xs font-bold flex items-center justify-center shrink-0">2</span>
+                        <span className="w-6 h-6 rounded-full bg-[#9b8ec4]/20 text-[#6b5fa0] text-xs font-bold flex items-center justify-center shrink-0">2</span>
                         Prompt generieren
                     </h2>
                     <div className="bg-gray-50 rounded-xl p-3 text-sm text-gray-600 font-mono whitespace-pre-wrap max-h-48 overflow-auto border border-gray-200 mb-3">
@@ -217,7 +217,7 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                         onClick={copyPrompt}
                         className={cn(
                             'flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all active:scale-95',
-                            copied ? 'bg-green-500 text-white' : 'bg-orange-500 text-white hover:bg-orange-600'
+                            copied ? 'bg-[#7bc9a0] text-white' : 'bg-[#9b8ec4] text-white hover:bg-[#8a7db8]'
                         )}
                     >
                         {copied ? <Check className="w-4 h-4" /> : <Clipboard className="w-4 h-4" />}
@@ -228,7 +228,7 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                 {/* Step 3: Import result */}
                 <section className="bg-white rounded-2xl shadow border border-gray-100 p-6">
                     <h2 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2 flex-wrap">
-                        <span className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 text-xs font-bold flex items-center justify-center shrink-0">3</span>
+                        <span className="w-6 h-6 rounded-full bg-[#9b8ec4]/20 text-[#6b5fa0] text-xs font-bold flex items-center justify-center shrink-0">3</span>
                         Ergebnis importieren
                         <span className="text-xs font-normal text-gray-400">Station;Überschrift;Teil 1;Bibelzitat;Teil 2</span>
                     </h2>
@@ -239,11 +239,11 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                                 value={pasteText}
                                 onChange={e => setPasteText(e.target.value)}
                                 placeholder={'Station 1;Überschrift;Teil eins Text;Bibelzitat;Teil zwei Text'}
-                                className="w-full border border-gray-200 rounded-xl p-3 text-sm font-mono resize-y min-h-[80px] focus:ring-2 focus:ring-orange-200 focus:outline-none"
+                                className="w-full border border-gray-200 rounded-xl p-3 text-sm font-mono resize-y min-h-[80px] focus:ring-2 focus:ring-[#9b8ec4]/30 focus:outline-none"
                             />
                             <button
                                 onClick={handlePasteImport}
-                                className="mt-2 px-4 py-2 bg-orange-500 text-white rounded-full text-sm font-medium hover:bg-orange-600 transition-all active:scale-95"
+                                className="mt-2 px-4 py-2 bg-[#9b8ec4] text-white rounded-full text-sm font-medium hover:bg-[#8a7db8] transition-all active:scale-95"
                             >
                                 Importieren
                             </button>
@@ -254,7 +254,7 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                             <div className="flex-1 h-px bg-gray-200" />
                         </div>
                         <label className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full cursor-pointer hover:bg-gray-50 transition-all w-fit text-sm font-medium text-gray-700">
-                            <Upload className="w-4 h-4 text-blue-500" />
+                            <Upload className="w-4 h-4 text-[#6bbfd4]" />
                             CSV-Datei hochladen (.csv)
                             <input type="file" accept=".csv,.txt" className="hidden" onChange={handleCSVFile} />
                         </label>
@@ -265,7 +265,7 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                 {rows.length > 0 && (
                     <section className="bg-white rounded-2xl shadow border border-gray-100 p-6">
                         <h2 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 text-xs font-bold flex items-center justify-center shrink-0">4</span>
+                            <span className="w-6 h-6 rounded-full bg-[#9b8ec4]/20 text-[#6b5fa0] text-xs font-bold flex items-center justify-center shrink-0">4</span>
                             Vorschau
                             <span className="text-xs font-normal text-gray-400">({rows.length} {rows.length === 1 ? 'Eintrag' : 'Einträge'})</span>
                             <button
@@ -288,7 +288,7 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                                 <tbody className="divide-y">
                                     {rows.map((r, i) => (
                                         <tr key={i} className="hover:bg-gray-50/50">
-                                            <td className="p-3 font-medium text-orange-600 whitespace-nowrap">{r.station}</td>
+                                            <td className="p-3 font-medium text-[#6bbfd4] whitespace-nowrap">{r.station}</td>
                                             <td className="p-3 font-semibold max-w-[160px] truncate">{r.ueberschrift}</td>
                                             <td className="p-3 text-gray-600 max-w-[160px] truncate">{r.teil1}</td>
                                             <td className="p-3 text-gray-500 italic max-w-[160px] truncate">{r.bibelzitat}</td>
@@ -304,7 +304,7 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                 {/* Step 5: Template upload + PDF export */}
                 <section className="bg-white rounded-2xl shadow border border-gray-100 p-6">
                     <h2 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 text-xs font-bold flex items-center justify-center shrink-0">5</span>
+                        <span className="w-6 h-6 rounded-full bg-[#9b8ec4]/20 text-[#6b5fa0] text-xs font-bold flex items-center justify-center shrink-0">5</span>
                         Vorlage &amp; PDF-Export
                     </h2>
                     <div className="flex flex-wrap items-center gap-3">
@@ -312,7 +312,7 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                             className={cn(
                                 'flex items-center gap-2 px-4 py-2 rounded-full cursor-pointer transition-all text-sm font-medium border',
                                 activePlan?.nachdenk_template
-                                    ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
+                                    ? 'bg-[#7bc9a0]/15 border-[#7bc9a0]/40 text-[#2d7a52] hover:bg-[#7bc9a0]/25'
                                     : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
                             )}
                         >
@@ -331,7 +331,7 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                         <button
                             onClick={exportPDF}
                             disabled={rows.length === 0 || isExporting}
-                            className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-full text-sm font-medium hover:bg-orange-600 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex items-center gap-2 px-4 py-2 bg-[#6bbfd4] text-white rounded-full text-sm font-medium hover:bg-[#5aaec3] transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <Download className="w-4 h-4" />
                             {isExporting

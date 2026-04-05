@@ -991,7 +991,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                     <span className="hidden sm:inline">PDF</span>
                                 </button>
                                 <label className="flex items-center gap-2 px-3 py-2 bg-white rounded-full shadow-lg border cursor-pointer hover:bg-gray-50 transition-all active:scale-95 text-sm font-medium">
-                                    <Upload className="w-4 h-4 text-blue-500" />
+                                    <Upload className="w-4 h-4 text-[#6bbfd4]" />
                                     <span className="hidden sm:inline">Lageplan hochladen</span>
                                     <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
                                 </label>
@@ -1021,7 +1021,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                             setMaskDrawing(false);
                                             setCursorPos(null);
                                         }}
-                                        className="flex items-center gap-2 px-3 py-2 bg-green-500 text-white rounded-full shadow-lg border-none cursor-pointer hover:bg-green-600 transition-all active:scale-95 text-sm font-medium"
+                                        className="flex items-center gap-2 px-3 py-2 bg-[#7bc9a0] text-white rounded-full shadow-lg border-none cursor-pointer hover:bg-[#6ab890] transition-all active:scale-95 text-sm font-medium"
                                     >
                                         <span>✓ Fertig</span>
                                     </button>

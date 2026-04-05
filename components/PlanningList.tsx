@@ -16,8 +16,8 @@ const STATUS_LABELS: Record<PlanStatus, string> = {
 
 const STATUS_COLORS: Record<PlanStatus, string> = {
   draft: 'bg-gray-100 text-gray-600',
-  active: 'bg-green-100 text-green-700',
-  archive: 'bg-blue-100 text-blue-600',
+  active: 'bg-[#7bc9a0]/25 text-[#2d7a52]',
+  archive: 'bg-[#6bbfd4]/25 text-[#2a7a8c]',
 };
 
 interface Props {
@@ -183,7 +183,7 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
             <button
               onClick={handleCreate}
               disabled={creating}
-              className="flex items-center gap-2 px-4 py-2 bg-[#6bbfd4] text-white text-sm rounded-xl hover:bg-[#5aaeC3] active:scale-[0.98] transition-all disabled:opacity-50 font-medium"
+              className="flex items-center gap-2 px-4 py-2 bg-[#6bbfd4] text-white text-sm rounded-xl hover:bg-[#5aaec3] active:scale-[0.98] transition-all disabled:opacity-50 font-medium"
             >
               <Plus className="w-4 h-4" />
               Neue Planung
@@ -199,7 +199,7 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
             <button
               onClick={handleCreate}
               disabled={creating}
-              className="px-6 py-3 bg-[#6bbfd4] text-white rounded-xl font-medium hover:bg-[#5aaeC3] active:scale-[0.98] transition-all disabled:opacity-50"
+              className="px-6 py-3 bg-[#6bbfd4] text-white rounded-xl font-medium hover:bg-[#5aaec3] active:scale-[0.98] transition-all disabled:opacity-50"
             >
               Erste Planung erstellen
             </button>
@@ -241,7 +241,7 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
                   </button>
                   <button
                     onClick={() => onOpenPlan(plan.id)}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#6bbfd4] text-white text-sm rounded-xl hover:bg-[#5aaeC3] active:scale-[0.98] transition-all font-medium"
+                    className="flex items-center gap-2 px-4 py-2 bg-[#6bbfd4] text-white text-sm rounded-xl hover:bg-[#5aaec3] active:scale-[0.98] transition-all font-medium"
                   >
                     <FolderOpen className="w-4 h-4" />
                     Öffnen
