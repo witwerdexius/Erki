@@ -21,6 +21,7 @@ export default function ErkiApp() {
     const [maskDrawing, setMaskDrawing] = useState(false);
     const [currentMaskPoints, setCurrentMaskPoints] = useState<{ x: number; y: number }[]>([]);
     const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
+    const [containerWidth, setContainerWidth] = useState(0);
 
     const containerRef = useRef<HTMLDivElement>(null);
     const tableRef = useRef<HTMLDivElement>(null);
@@ -85,6 +86,16 @@ export default function ErkiApp() {
         window.addEventListener('paste', handlePaste);
         return () => window.removeEventListener('paste', handlePaste);
     }, [activePlan, activeTab]);
+
+    // Re-measure containerWidth when switching back to map tab
+    useEffect(() => {
+        if (activeTab !== 'map') return;
+        const timer = setTimeout(() => {
+            const w = containerRef.current?.getBoundingClientRect().width ?? 0;
+            if (w > 0) setContainerWidth(w);
+        }, 50);
+        return () => clearTimeout(timer);
+    }, [activeTab]);
 
     // Auto-resize all textareas in the table when plan or tab changes
     useEffect(() => {
@@ -238,20 +249,73 @@ export default function ErkiApp() {
     const exportToPDF = async () => {
         if (!containerRef.current || !activePlan) return;
 
-        try {
-            const container = containerRef.current;
+        const container = containerRef.current;
+        const restoreList: Array<{ el: HTMLElement; display: string }> = [];
+        let bgWrapper: HTMLElement | null = null;
+        let bgWrapperOrigBg = '';
+        let bgWrapperOrigBgSize = '';
+        let bgWrapperOrigBgRepeat = '';
+        let bgWrapperOrigBgPos = '';
+        let bgWrapperOrigOpacity = '';
+        let bgImg: HTMLElement | null = null;
+        let bgImgOrigDisplay = '';
 
-            console.log('[PDF] Step 1: importing html-to-image');
+        try {
             const { toPng } = await import('html-to-image');
 
-            console.log('[PDF] Step 2: capturing canvas');
+            // 1. Hide all elements marked for PDF hiding (e.g. target dots)
+            container.querySelectorAll('[data-pdf-hide]').forEach(el => {
+                const htmlEl = el as HTMLElement;
+                restoreList.push({ el: htmlEl, display: htmlEl.style.display });
+                htmlEl.style.display = 'none';
+            });
+
+            // 2. Preload background as data URL and set as inline background-image
+            if (activePlan.backgroundImage) {
+                let bgDataUrl = activePlan.backgroundImage;
+                if (!bgDataUrl.startsWith('data:')) {
+                    const res = await fetch(bgDataUrl);
+                    const blob = await res.blob();
+                    bgDataUrl = await new Promise<string>((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result as string);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                    });
+                }
+
+                bgImg = container.querySelector('img[alt="Lageplan Background"]') as HTMLElement | null;
+                bgWrapper = bgImg?.parentElement as HTMLElement | null;
+
+                if (bgWrapper) {
+                    bgWrapperOrigBg = bgWrapper.style.backgroundImage;
+                    bgWrapperOrigBgSize = bgWrapper.style.backgroundSize;
+                    bgWrapperOrigBgRepeat = bgWrapper.style.backgroundRepeat;
+                    bgWrapperOrigBgPos = bgWrapper.style.backgroundPosition;
+                    bgWrapperOrigOpacity = bgWrapper.style.opacity;
+                    bgWrapper.style.backgroundImage = `url(${bgDataUrl})`;
+                    bgWrapper.style.backgroundSize = 'contain';
+                    bgWrapper.style.backgroundRepeat = 'no-repeat';
+                    bgWrapper.style.backgroundPosition = 'center';
+                    bgWrapper.style.opacity = '0.5';
+                }
+                if (bgImg) {
+                    bgImgOrigDisplay = bgImg.style.display;
+                    bgImg.style.display = 'none';
+                }
+            }
+
+            // 3. Wait for DOM to settle
+            await new Promise(r => setTimeout(r, 500));
+
+            // 4. Capture
             const dataUrl = await toPng(container, {
                 pixelRatio: 2,
                 backgroundColor: '#ffffff',
                 cacheBust: true,
             });
 
-            console.log('[PDF] Step 3: creating PDF');
+            // 5. Create PDF
             const img = new Image();
             img.src = dataUrl;
             await new Promise<void>(resolve => { img.onload = () => resolve(); });
@@ -280,14 +344,26 @@ export default function ErkiApp() {
                 .replace(/[^a-z0-9]+/g, '-')
                 .replace(/^-+|-+$/g, '') || 'lageplan';
 
-            console.log('[PDF] Step 4: saving');
             pdf.addImage(dataUrl, 'PNG', offsetX, offsetY, drawW, drawH);
             pdf.save(`${sanitizedTitle}.pdf`);
-            console.log('[PDF] Done');
         } catch (error) {
             const msg = error instanceof Error ? error.message : String(error);
             console.error('[PDF] Export failed:', error);
             alert(`PDF Export fehlgeschlagen:\n${msg}`);
+        } finally {
+            // Restore hidden elements
+            restoreList.forEach(({ el, display }) => { el.style.display = display; });
+            // Restore background wrapper
+            if (bgWrapper) {
+                bgWrapper.style.backgroundImage = bgWrapperOrigBg;
+                bgWrapper.style.backgroundSize = bgWrapperOrigBgSize;
+                bgWrapper.style.backgroundRepeat = bgWrapperOrigBgRepeat;
+                bgWrapper.style.backgroundPosition = bgWrapperOrigBgPos;
+                bgWrapper.style.opacity = bgWrapperOrigOpacity;
+            }
+            if (bgImg) {
+                bgImg.style.display = bgImgOrigDisplay;
+            }
         }
     };
 
@@ -792,9 +868,14 @@ export default function ErkiApp() {
                                                     }
                                                     return lines;
                                                 };
-                                                const availW = 64, availH = 58, charRatio = 0.56, lineH = 1.2;
+                                                const circleSize = containerWidth > 0 ? Math.max(48, Math.round(containerWidth * 0.094)) : 96;
+                                                const halfCircle = Math.round(circleSize / 2);
+                                                const dotSize = Math.max(12, Math.round(circleSize * 0.167));
+                                                const halfDot = Math.round(dotSize / 2);
+                                                const maxFontSize = Math.max(7, Math.round(14 * circleSize / 96));
+                                                const availW = Math.max(20, circleSize - 32), availH = Math.max(10, circleSize - 38), charRatio = 0.56, lineH = 1.2;
                                                 let computedFontSize = 7;
-                                                for (let f = 14; f >= 7; f--) {
+                                                for (let f = maxFontSize; f >= 7; f--) {
                                                     const cpl = Math.floor(availW / (f * charRatio));
                                                     if (cpl < 1) continue;
                                                     if (simulateLines(s.name.toUpperCase(), cpl) * f * lineH <= availH) {
@@ -805,8 +886,9 @@ export default function ErkiApp() {
                                                 return (
                                                     <React.Fragment key={s.id}>
                                                         <div
-                                                            className="absolute w-4 h-4 -ml-2 -mt-2 rounded-full shadow-lg border-2 border-white cursor-move hover:scale-125 transition-transform active:scale-90 z-20"
-                                                            style={{ left: `${s.targetX}%`, top: `${s.targetY}%`, backgroundColor: color.bg }}
+                                                            data-pdf-hide="true"
+                                                            className="absolute rounded-full shadow-lg border-2 border-white cursor-move hover:scale-125 transition-transform active:scale-90 z-20"
+                                                            style={{ left: `${s.targetX}%`, top: `${s.targetY}%`, backgroundColor: color.bg, width: `${dotSize}px`, height: `${dotSize}px`, marginLeft: `-${halfDot}px`, marginTop: `-${halfDot}px` }}
                                                             onMouseDown={(e) => {
                                                                 e.stopPropagation();
                                                                 setDraggedItem({ id: s.id, type: 'target' });
@@ -818,8 +900,8 @@ export default function ErkiApp() {
                                                         />
 
                                                         <div
-                                                            className="absolute w-24 h-24 -ml-12 -mt-12 rounded-full shadow-xl cursor-move transition-all duration-200 hover:ring-2 ring-gray-100 z-30"
-                                                            style={{ left: `${s.x}%`, top: `${s.y}%` }}
+                                                            className="absolute rounded-full shadow-xl cursor-move transition-all duration-200 hover:ring-2 ring-gray-100 z-30"
+                                                            style={{ left: `${s.x}%`, top: `${s.y}%`, width: `${circleSize}px`, height: `${circleSize}px`, marginLeft: `-${halfCircle}px`, marginTop: `-${halfCircle}px` }}
                                                             onMouseDown={(e) => {
                                                                 e.stopPropagation();
                                                                 setDraggedItem({ id: s.id, type: 'bubble' });
