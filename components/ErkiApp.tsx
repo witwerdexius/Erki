@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Move, Palette, GripVertical, PenLine, Eraser, Image as ImageIcon, Type, ZoomIn, ZoomOut, BookTemplate, Bookmark, Pencil, Loader2, BookOpen } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Move, Palette, GripVertical, PenLine, Eraser, Image as ImageIcon, Type, ZoomIn, ZoomOut, BookTemplate, Bookmark, Pencil, Loader2, BookOpen, LayoutGrid } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { User } from '@supabase/supabase-js';
 import { Plan, Station, MaskPolygon, LogoOverlay, LabelOverlay, StationTemplate } from '@/lib/types';
@@ -641,6 +641,63 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
         updateActivePlan({ stations });
     };
 
+    // Auto-place bubble labels around the edges of the map, minimising line crossings.
+    // Each target marker is assigned to the nearest edge; bubbles are distributed evenly
+    // along that edge in the same clockwise order as the markers → crossing-free lines.
+    const computeAutoLayout = (stations: Station[]): Station[] => {
+        if (stations.length === 0) return stations;
+
+        type Side = 'top' | 'right' | 'bottom' | 'left';
+        const assignSide = (s: Station): Side => {
+            const d = {
+                top: s.targetY,
+                right: 100 - s.targetX,
+                bottom: 100 - s.targetY,
+                left: s.targetX,
+            };
+            return (Object.keys(d) as Side[]).reduce((a, b) => d[a] <= d[b] ? a : b);
+        };
+
+        const groups: Record<Side, Station[]> = { top: [], right: [], bottom: [], left: [] };
+        for (const s of stations) groups[assignSide(s)].push(s);
+
+        // Sort clockwise along each edge to match bubble order → no crossings
+        groups.top.sort((a, b) => a.targetX - b.targetX);       // left → right
+        groups.right.sort((a, b) => a.targetY - b.targetY);     // top → bottom
+        groups.bottom.sort((a, b) => b.targetX - a.targetX);    // right → left
+        groups.left.sort((a, b) => b.targetY - a.targetY);      // bottom → top
+
+        const EDGE = 5;   // % distance from container boundary for bubble centres
+        const LO = 8;     // % lower bound along edge
+        const HI = 92;    // % upper bound along edge
+
+        const placeAlongEdge = (group: Station[], side: Side) =>
+            group.map((s, i) => {
+                const t = group.length === 1 ? 0.5 : i / (group.length - 1);
+                const pos = LO + t * (HI - LO);
+                // For bottom/left the clockwise sort already gives ascending i from start
+                // of that edge – we can use pos directly without reversing here.
+                const x = side === 'top' ? pos : side === 'bottom' ? HI - t * (HI - LO) : side === 'right' ? 100 - EDGE : EDGE;
+                const y = side === 'left' ? HI - t * (HI - LO) : side === 'right' ? pos : side === 'top' ? EDGE : 100 - EDGE;
+                return { id: s.id, x, y };
+            });
+
+        const updates = new Map<string, { x: number; y: number }>();
+        (Object.keys(groups) as Side[]).forEach(side => {
+            placeAlongEdge(groups[side], side).forEach(({ id, x, y }) => updates.set(id, { x, y }));
+        });
+
+        return stations.map(s => {
+            const upd = updates.get(s.id);
+            return upd ? { ...s, x: upd.x, y: upd.y } : s;
+        });
+    };
+
+    const handleAutoPlaceBubbles = () => {
+        if (!activePlan) return;
+        updateActivePlan({ stations: computeAutoLayout(activePlan.stations) });
+    };
+
     const handleMouseMove = (e: React.MouseEvent) => {
         if (!draggedItem || !containerRef.current || !activePlan) return;
 
@@ -716,10 +773,9 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
     const handleMouseUp = () => {
         if (draggedItem && activePlan) {
             if (draggedItem.type === 'target') {
-                const updatedStations = resolveColorConflicts(draggedItem.id, activePlan.stations);
-                if (updatedStations !== activePlan.stations) {
-                    updateActivePlan({ stations: updatedStations });
-                }
+                let updated = resolveColorConflicts(draggedItem.id, activePlan.stations);
+                updated = computeAutoLayout(updated);
+                updateActivePlan({ stations: updated });
             }
         }
         setDraggedItem(null);
@@ -952,6 +1008,14 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                 >
                                     <Palette className="w-4 h-4" />
                                     <span className="hidden sm:inline">Farben</span>
+                                </button>
+                                <button
+                                    onClick={handleAutoPlaceBubbles}
+                                    className="flex items-center gap-2 px-3 py-2 bg-white text-gray-600 rounded-full shadow-lg border cursor-pointer hover:bg-gray-50 transition-all active:scale-95 text-sm font-medium"
+                                    title="Labels automatisch am Rand anordnen"
+                                >
+                                    <LayoutGrid className="w-4 h-4" />
+                                    <span className="hidden sm:inline">Labels</span>
                                 </button>
                                 {activePlan?.backgroundImage && (
                                     <div className="flex items-center bg-white rounded-full shadow-lg border overflow-hidden">
