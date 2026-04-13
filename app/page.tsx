@@ -131,7 +131,7 @@ export default function Home() {
   if (loadingPlan) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-[#fdfdfd]">
-        <p className="text-gray-400">Wird geladen…</p>
+        <p className="text-gray-600">Wird geladen…</p>
       </main>
     );
   }

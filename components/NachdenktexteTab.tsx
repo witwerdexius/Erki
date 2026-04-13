@@ -210,7 +210,7 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                         {generatePrompt().trim() ? (
                             generatePrompt()
                         ) : (
-                            <span className="text-gray-400 italic">Instruktionstext eingeben und Stationen importieren...</span>
+                            <span className="text-gray-500 italic">Instruktionstext eingeben und Stationen importieren...</span>
                         )}
                     </div>
                     <button
@@ -230,7 +230,7 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                     <h2 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2 flex-wrap">
                         <span className="w-6 h-6 rounded-full bg-[#9b8ec4]/20 text-[#6b5fa0] text-xs font-bold flex items-center justify-center shrink-0">3</span>
                         Ergebnis importieren
-                        <span className="text-xs font-normal text-gray-400">Station;Überschrift;Teil 1;Bibelzitat;Teil 2</span>
+                        <span className="text-xs font-normal text-gray-500">Station;Überschrift;Teil 1;Bibelzitat;Teil 2</span>
                     </h2>
                     <div className="space-y-4">
                         <div>
@@ -250,7 +250,7 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                         </div>
                         <div className="flex items-center gap-3">
                             <div className="flex-1 h-px bg-gray-200" />
-                            <span className="text-xs text-gray-400">oder</span>
+                            <span className="text-xs text-gray-500">oder</span>
                             <div className="flex-1 h-px bg-gray-200" />
                         </div>
                         <label className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full cursor-pointer hover:bg-gray-50 transition-all w-fit text-sm font-medium text-gray-700">
@@ -267,10 +267,10 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                         <h2 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
                             <span className="w-6 h-6 rounded-full bg-[#9b8ec4]/20 text-[#6b5fa0] text-xs font-bold flex items-center justify-center shrink-0">4</span>
                             Vorschau
-                            <span className="text-xs font-normal text-gray-400">({rows.length} {rows.length === 1 ? 'Eintrag' : 'Einträge'})</span>
+                            <span className="text-xs font-normal text-gray-500">({rows.length} {rows.length === 1 ? 'Eintrag' : 'Einträge'})</span>
                             <button
                                 onClick={() => setRows([])}
-                                className="ml-auto text-gray-300 hover:text-red-500 transition-colors"
+                                className="ml-auto text-gray-500 hover:text-red-500 transition-colors"
                                 title="Alle löschen"
                             >
                                 <Trash2 className="w-4 h-4" />
@@ -281,7 +281,7 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                                 <thead>
                                     <tr className="bg-gray-50 border-b">
                                         {['Station', 'Überschrift', 'Teil 1', 'Bibelzitat', 'Teil 2'].map(h => (
-                                            <th key={h} className="p-3 text-left text-xs font-bold uppercase text-gray-400 tracking-wider">{h}</th>
+                                            <th key={h} className="p-3 text-left text-xs font-bold uppercase text-gray-600 tracking-wider">{h}</th>
                                         ))}
                                     </tr>
                                 </thead>
@@ -323,7 +323,7 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                         {activePlan?.nachdenk_template && (
                             <button
                                 onClick={() => updateActivePlan({ nachdenk_template: undefined })}
-                                className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                                className="text-xs text-gray-500 hover:text-red-500 transition-colors"
                             >
                                 Vorlage entfernen
                             </button>
@@ -340,7 +340,7 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                         </button>
                     </div>
                     {!activePlan?.nachdenk_template && (
-                        <p className="mt-3 text-xs text-gray-400">
+                        <p className="mt-3 text-xs text-gray-500">
                             Ohne Vorlage: Seite 2 hat weißen Hintergrund. Die Vorlage wird einmalig pro Plan gespeichert.
                         </p>
                     )}

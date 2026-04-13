@@ -70,7 +70,7 @@ export default function AdminPanel({ community, currentUserId, onClose }: Props)
             <h2 className="font-semibold text-gray-900">Verwaltung</h2>
             <p className="text-xs text-gray-500 mt-0.5">{community.name}</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -78,12 +78,12 @@ export default function AdminPanel({ community, currentUserId, onClose }: Props)
         {/* User list */}
         <div className="flex-1 overflow-y-auto">
           {loading ? (
-            <p className="text-center text-gray-400 text-sm py-10">Wird geladen…</p>
+            <p className="text-center text-gray-600 text-sm py-10">Wird geladen…</p>
           ) : users.length === 0 ? (
-            <p className="text-center text-gray-400 text-sm py-10">Keine Benutzer gefunden.</p>
+            <p className="text-center text-gray-600 text-sm py-10">Keine Benutzer gefunden.</p>
           ) : (
             <div>
-              <p className="px-5 pt-4 pb-2 text-xs font-medium text-gray-400 uppercase tracking-wider">
+              <p className="px-5 pt-4 pb-2 text-xs font-medium text-gray-600 uppercase tracking-wider">
                 Benutzer ({users.length})
               </p>
               {users.map(u => (
@@ -91,7 +91,7 @@ export default function AdminPanel({ community, currentUserId, onClose }: Props)
                   <div className="w-8 h-8 rounded-full bg-[#6bbfd4]/20 flex items-center justify-center shrink-0">
                     {u.role === 'admin'
                       ? <Shield className="w-4 h-4 text-[#6bbfd4]" />
-                      : <User className="w-4 h-4 text-gray-400" />
+                      : <User className="w-4 h-4 text-gray-500" />
                     }
                   </div>
                   <div className="flex-1 min-w-0">
@@ -131,7 +131,7 @@ export default function AdminPanel({ community, currentUserId, onClose }: Props)
           <p className="text-xs font-medium text-gray-500 mb-2">Einladen per E-Mail</p>
           <form onSubmit={handleInvite} className="flex gap-2">
             <div className="flex-1 flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2">
-              <Mail className="w-4 h-4 text-gray-400 shrink-0" />
+              <Mail className="w-4 h-4 text-gray-500 shrink-0" />
               <input
                 type="email"
                 value={inviteEmail}

@@ -130,14 +130,14 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
             EK
           </div>
           <div className="hidden sm:block">
-            <h1 className="text-base font-bold tracking-tight leading-tight">Erlebnis Kirche Planner</h1>
+            <h1 className="text-base font-bold tracking-tight leading-tight text-gray-900">Erlebnis Kirche Planner</h1>
             {community && (
-              <p className="text-xs text-gray-400 leading-tight">{community.name}</p>
+              <p className="text-xs text-gray-600 leading-tight">{community.name}</p>
             )}
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-400 hidden sm:block">{user.email}</span>
+          <span className="text-sm text-gray-600 hidden sm:block">{user.email}</span>
           {isAdmin && (
             <button
               onClick={() => setShowAdmin(true)}
@@ -162,7 +162,7 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
       {/* Content */}
       <div className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-8 py-8">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold">Planungen</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Planungen</h2>
           <div className="flex gap-2">
             <label
               className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border rounded-xl hover:bg-gray-50 cursor-pointer transition-colors"
@@ -192,10 +192,10 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
         </div>
 
         {loading ? (
-          <div className="text-center py-16 text-gray-400">Wird geladen…</div>
+          <div className="text-center py-16 text-gray-600">Wird geladen…</div>
         ) : plans.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-gray-400 mb-6">Noch keine Planungen vorhanden.</p>
+            <p className="text-gray-600 mb-6">Noch keine Planungen vorhanden.</p>
             <button
               onClick={handleCreate}
               disabled={creating}
@@ -234,7 +234,7 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={() => handleDelete(plan.id, plan.title)}
-                    className="p-2 text-gray-300 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                    className="p-2 text-gray-500 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
                     title="Planung löschen"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -253,7 +253,7 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
         )}
       </div>
 
-      <footer className="text-center py-4 text-xs text-gray-400">
+      <footer className="text-center py-4 text-xs text-gray-500">
         © 2026 Erlebnis Kirche Planner · v{process.env.NEXT_PUBLIC_APP_VERSION}
       </footer>
 

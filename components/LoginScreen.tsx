@@ -205,7 +205,7 @@ export default function LoginScreen() {
 
         <div className="flex items-center gap-3 my-5">
           <div className="flex-1 h-px bg-gray-200" />
-          <span className="text-sm text-gray-400">oder</span>
+          <span className="text-sm text-gray-500">oder</span>
           <div className="flex-1 h-px bg-gray-200" />
         </div>
 
@@ -236,7 +236,7 @@ export default function LoginScreen() {
           {googleLoading ? 'Weiterleitung…' : 'Mit Google anmelden'}
         </button>
 
-        <p className="text-center text-xs text-gray-400 mt-8">
+        <p className="text-center text-xs text-gray-500 mt-8">
           © 2026 Erlebnis Kirche Planner · v{process.env.NEXT_PUBLIC_APP_VERSION}
         </p>
       </div>

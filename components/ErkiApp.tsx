@@ -892,7 +892,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                         </nav>
 
                         <div className="hidden sm:flex items-center bg-gray-100 rounded-full px-3 py-1 border focus-within:ring-2 ring-[#6bbfd4]/30 transition-all">
-                            <Link className="w-4 h-4 text-gray-400 mr-2" />
+                            <Link className="w-4 h-4 text-gray-500 mr-2" />
                             <input
                                 type="text"
                                 placeholder="Import URL (jugendarbeit.online)"
@@ -913,7 +913,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                 </div>
                 {/* Mobile URL import bar */}
                 <div className="sm:hidden flex items-center bg-gray-100 mx-4 mb-2 rounded-full px-3 py-1 border focus-within:ring-2 ring-[#6bbfd4]/30 transition-all">
-                    <Link className="w-4 h-4 text-gray-400 mr-2 shrink-0" />
+                    <Link className="w-4 h-4 text-gray-500 mr-2 shrink-0" />
                     <input
                         type="text"
                         placeholder="Import URL"
@@ -1148,10 +1148,10 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                     </div>
 
                                     {!activePlan?.backgroundImage && (
-                                        <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300 bg-gray-50/50 pointer-events-none">
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500 bg-gray-50/50 pointer-events-none">
                                             <MapIcon className="w-16 h-16 mb-4 opacity-10" />
                                             <p className="text-lg font-medium">Kein Lageplan vorhanden</p>
-                                            <p className="text-sm mt-1">Bild hochladen oder mit <kbd className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-400 font-mono text-xs">⌘V</kbd> aus Zwischenablage einfügen.</p>
+                                            <p className="text-sm mt-1">Bild hochladen oder mit <kbd className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-mono text-xs">⌘V</kbd> aus Zwischenablage einfügen.</p>
                                         </div>
                                     )}
 
@@ -1241,7 +1241,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                                 style={s.isFilled ? { backgroundColor: color.bg, borderColor: color.bg, borderWidth: 6 * mapScale, borderStyle: 'solid', padding: 8 * mapScale } : { ...color.style, borderWidth: 6 * mapScale, borderStyle: 'solid', padding: 8 * mapScale }}
                                                             >
                                                                 <span
-                                                                    className={cn("font-mono font-bold uppercase leading-tight line-clamp-5 tracking-tight w-full", s.isFilled ? "text-white" : "text-gray-300")}
+                                                                    className={cn("font-mono font-bold uppercase leading-tight line-clamp-5 tracking-tight w-full", s.isFilled ? "text-white" : "text-gray-700")}
                                                                     style={{ hyphens: 'auto', WebkitHyphens: 'auto', overflowWrap: 'anywhere', fontSize: `${computedFontSize * mapScale}px` }}
                                                                 >
                                                                     {s.name}
@@ -1376,14 +1376,14 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                     <thead>
                                         <tr className="bg-gray-50 border-b">
                                             <th className="p-4 w-8"></th>
-                                            <th className="p-4 w-10 text-xs font-bold uppercase text-gray-400 tracking-wider">Nr.</th>
-                                            <th className="p-4 w-32 text-xs font-bold uppercase text-gray-400 tracking-wider">Station</th>
-                                            <th className="p-4 w-48 text-xs font-bold uppercase text-gray-400 tracking-wider">Beschreibung</th>
-                                            <th className="p-4 w-96 text-xs font-bold uppercase text-gray-400 tracking-wider">Material</th>
-                                            <th className="p-4 w-40 text-xs font-bold uppercase text-gray-400 tracking-wider">Gesprächsimpulse</th>
-                                            <th className="p-4 w-28 text-xs font-bold uppercase text-gray-400 tracking-wider">Aufbau</th>
-                                            <th className="p-4 w-28 text-xs font-bold uppercase text-gray-400 tracking-wider">Durchführung</th>
-                                            <th className="p-4 w-12 text-xs font-bold uppercase text-gray-400 tracking-wider">Stempelfeld</th>
+                                            <th className="p-4 w-10 text-xs font-bold uppercase text-gray-600 tracking-wider">Nr.</th>
+                                            <th className="p-4 w-32 text-xs font-bold uppercase text-gray-600 tracking-wider">Station</th>
+                                            <th className="p-4 w-48 text-xs font-bold uppercase text-gray-600 tracking-wider">Beschreibung</th>
+                                            <th className="p-4 w-96 text-xs font-bold uppercase text-gray-600 tracking-wider">Material</th>
+                                            <th className="p-4 w-40 text-xs font-bold uppercase text-gray-600 tracking-wider">Gesprächsimpulse</th>
+                                            <th className="p-4 w-28 text-xs font-bold uppercase text-gray-600 tracking-wider">Aufbau</th>
+                                            <th className="p-4 w-28 text-xs font-bold uppercase text-gray-600 tracking-wider">Durchführung</th>
+                                            <th className="p-4 w-12 text-xs font-bold uppercase text-gray-600 tracking-wider">Stempelfeld</th>
                                             <th className="p-4 w-10"></th>
                                         </tr>
                                     </thead>
@@ -1402,7 +1402,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                     dragOverRowId === s.id && "border-t-2 border-[#6bbfd4]"
                                                 )}
                                             >
-                                                <td className="p-4 w-8 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-400">
+                                                <td className="p-4 w-8 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600">
                                                     <GripVertical className="w-4 h-4" />
                                                 </td>
                                                 <td className="p-4">
@@ -1524,14 +1524,14 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                     <div className="flex items-center gap-2">
                                                         <button
                                                             onClick={() => handleSaveAsTemplate(s)}
-                                                            className="p-2 -m-2 text-gray-300 hover:text-[#6bbfd4] transition-colors opacity-0 group-hover:opacity-100"
+                                                            className="p-2 -m-2 text-gray-500 hover:text-[#6bbfd4] transition-colors opacity-0 group-hover:opacity-100"
                                                             title="Als Vorlage speichern"
                                                         >
                                                             <Bookmark className="w-4 h-4" />
                                                         </button>
                                                         <button
                                                             onClick={() => deleteStation(s.id)}
-                                                            className="p-2 -m-2 text-gray-300 hover:text-red-500 transition-colors"
+                                                            className="p-2 -m-2 text-gray-500 hover:text-red-500 transition-colors"
                                                         >
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>
@@ -1545,13 +1545,13 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                 <div className="flex border-t divide-x">
                                     <button
                                         onClick={addStation}
-                                        className="flex-1 p-5 text-gray-400 hover:text-[#6bbfd4] hover:bg-[#6bbfd4]/10 transition-all flex items-center justify-center gap-2 font-medium"
+                                        className="flex-1 p-5 text-gray-600 hover:text-[#6bbfd4] hover:bg-[#6bbfd4]/10 transition-all flex items-center justify-center gap-2 font-medium"
                                     >
                                         <Plus className="w-5 h-5" /> Station hinzufügen
                                     </button>
                                     <button
                                         onClick={() => { ensureTemplatesLoaded(); setShowTemplatePicker(true); }}
-                                        className="flex-1 p-5 text-gray-400 hover:text-[#6bbfd4] hover:bg-[#6bbfd4]/10 transition-all flex items-center justify-center gap-2 font-medium"
+                                        className="flex-1 p-5 text-gray-600 hover:text-[#6bbfd4] hover:bg-[#6bbfd4]/10 transition-all flex items-center justify-center gap-2 font-medium"
                                     >
                                         <BookTemplate className="w-5 h-5" /> Aus Vorlage
                                     </button>
@@ -1573,10 +1573,10 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                     </button>
                                 </div>
                                 {!templatesLoaded ? (
-                                    <p className="text-center py-12 text-gray-400">Wird geladen…</p>
+                                    <p className="text-center py-12 text-gray-600">Wird geladen…</p>
                                 ) : templates.length === 0 ? (
                                     <div className="text-center py-12">
-                                        <p className="text-gray-400 mb-4">Noch keine Vorlagen vorhanden.</p>
+                                        <p className="text-gray-600 mb-4">Noch keine Vorlagen vorhanden.</p>
                                         <button
                                             onClick={handleCreateBlankTemplate}
                                             className="px-5 py-2.5 bg-[#6bbfd4] text-white rounded-xl text-sm font-medium hover:bg-[#5aaec3] transition-all"
@@ -1647,17 +1647,17 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                         <div className="flex-1 min-w-0">
                                                             <p className="font-semibold text-gray-900 text-sm">{t.name || '(Kein Name)'}</p>
                                                             {t.description && <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{t.description}</p>}
-                                                            {t.material && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">Material: {t.material}</p>}
+                                                            {t.material && <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">Material: {t.material}</p>}
                                                         </div>
                                                         <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                                                             <button
                                                                 onClick={() => { setEditingTemplateId(t.id); setEditingTemplateData(t); }}
-                                                                className="p-1.5 text-gray-400 hover:text-[#6bbfd4] transition-colors"
+                                                                className="p-1.5 text-gray-500 hover:text-[#6bbfd4] transition-colors"
                                                                 title="Bearbeiten"
                                                             ><Pencil className="w-4 h-4" /></button>
                                                             <button
                                                                 onClick={() => handleDeleteTemplate(t.id, t.name)}
-                                                                className="p-1.5 text-gray-400 hover:text-red-400 transition-colors"
+                                                                className="p-1.5 text-gray-500 hover:text-red-400 transition-colors"
                                                                 title="Löschen"
                                                             ><Trash2 className="w-4 h-4" /></button>
                                                         </div>
@@ -1671,7 +1671,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                         </div>
                     )}
 
-                    <div className="px-4 sm:px-8 py-4 bg-white border-t flex items-center justify-between text-xs text-gray-400">
+                    <div className="px-4 sm:px-8 py-4 bg-white border-t flex items-center justify-between text-xs text-gray-500">
                         <p>© 2026 Erlebnis Kirche Planner · v{process.env.NEXT_PUBLIC_APP_VERSION}</p>
                         <div className="flex gap-4">
                             <label className="hover:text-gray-600 transition-colors cursor-pointer flex items-center gap-1" title="Backup laden (.rki)">
