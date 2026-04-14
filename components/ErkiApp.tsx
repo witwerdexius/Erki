@@ -897,7 +897,8 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
             }
             // Pick the first color not used by neighbors
             let color = 0;
-            while (usedByNeighbors.has(color)) color = (color + 1) % 4;
+            let attempts = 0;
+            while (usedByNeighbors.has(color) && attempts < 8) { color = (color + 1) % 4; attempts++; }
             stations[i].colorVariant = color;
         }
         updateActivePlan({ stations });
