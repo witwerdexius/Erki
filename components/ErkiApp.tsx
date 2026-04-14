@@ -641,54 +641,157 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
         updateActivePlan({ stations });
     };
 
-    // Auto-place bubble labels around the edges of the map, minimising line crossings.
-    // Each target marker is assigned to the nearest edge; bubbles are distributed evenly
-    // along that edge in the same clockwise order as the markers → crossing-free lines.
+    // Auto-place bubble labels around the edges of the map.
+    // Guarantees: crossing-free lines, no overlap between bubbles, avoids overlay
+    // no-go zones (logo, label), and keeps all bubbles fully inside the container.
     const computeAutoLayout = (stations: Station[]): Station[] => {
         if (stations.length === 0) return stations;
 
+        // Bubble radius in % of container dimensions
+        const cw = containerWidth > 0 ? containerWidth : 800;
+        const ch = cw * (aspectRatio === 'landscape' ? 210 / 297 : 297 / 210);
+        const rW = (48 / cw) * 100;   // radius as % of width  (~6% at 800px)
+        const rH = (48 / ch) * 100;   // radius as % of height (~8.5% landscape)
+
+        // Safe range for bubble centres (fully inside container)
+        const minX = rW, maxX = 100 - rW;
+        const minY = rH, maxY = 100 - rH;
+
+        // No-go zones (pre-expanded by bubble radius so we just test centre point)
+        const noGoZones: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
+        if (activePlan?.logoOverlay) {
+            const lo = activePlan.logoOverlay;
+            const logoH = lo.size * (cw / ch); // assume roughly square logo
+            noGoZones.push({ x1: lo.x - rW, y1: lo.y - rH, x2: lo.x + lo.size + rW, y2: lo.y + logoH + rH });
+        }
+        if (activePlan?.labelOverlay) {
+            const lb = activePlan.labelOverlay;
+            const tw = (lb.text.length * lb.fontSize * 0.6 / cw) * 100;
+            const th = (lb.fontSize * 1.5 / ch) * 100;
+            noGoZones.push({ x1: lb.x - rW, y1: lb.y - rH, x2: lb.x + tw + rW, y2: lb.y + th + rH });
+        }
+
         type Side = 'top' | 'right' | 'bottom' | 'left';
         const assignSide = (s: Station): Side => {
-            const d = {
-                top: s.targetY,
-                right: 100 - s.targetX,
-                bottom: 100 - s.targetY,
-                left: s.targetX,
-            };
+            const d = { top: s.targetY, right: 100 - s.targetX, bottom: 100 - s.targetY, left: s.targetX };
             return (Object.keys(d) as Side[]).reduce((a, b) => d[a] <= d[b] ? a : b);
         };
 
         const groups: Record<Side, Station[]> = { top: [], right: [], bottom: [], left: [] };
         for (const s of stations) groups[assignSide(s)].push(s);
 
-        // Sort clockwise along each edge to match bubble order → no crossings
+        // Sort clockwise along each edge → same order for markers and bubbles → no crossings
         groups.top.sort((a, b) => a.targetX - b.targetX);       // left → right
         groups.right.sort((a, b) => a.targetY - b.targetY);     // top → bottom
         groups.bottom.sort((a, b) => b.targetX - a.targetX);    // right → left
         groups.left.sort((a, b) => b.targetY - a.targetY);      // bottom → top
 
-        const EDGE = 5;   // % distance from container boundary for bubble centres
-        const LO = 8;     // % lower bound along edge
-        const HI = 92;    // % upper bound along edge
+        // Fixed position perpendicular to each edge
+        const edgeFixed: Record<Side, { x?: number; y?: number }> = {
+            top:    { y: minY },
+            right:  { x: maxX },
+            bottom: { y: maxY },
+            left:   { x: minX },
+        };
 
-        const placeAlongEdge = (group: Station[], side: Side) =>
-            group.map((s, i) => {
-                const t = group.length === 1 ? 0.5 : i / (group.length - 1);
-                const pos = LO + t * (HI - LO);
-                // For bottom/left the clockwise sort already gives ascending i from start
-                // of that edge – we can use pos directly without reversing here.
-                const x = side === 'top' ? pos : side === 'bottom' ? HI - t * (HI - LO) : side === 'right' ? 100 - EDGE : EDGE;
-                const y = side === 'left' ? HI - t * (HI - LO) : side === 'right' ? pos : side === 'top' ? EDGE : 100 - EDGE;
-                return { id: s.id, x, y };
-            });
+        // Initial even distribution along each edge
+        const positions = new Map<string, { x: number; y: number }>();
+        const sideOf = new Map<string, Side>();
 
-        const updates = new Map<string, { x: number; y: number }>();
         (Object.keys(groups) as Side[]).forEach(side => {
-            placeAlongEdge(groups[side], side).forEach(({ id, x, y }) => updates.set(id, { x, y }));
+            const group = groups[side];
+            const isHoriz = side === 'top' || side === 'bottom';
+            const LO = isHoriz ? minX : minY;
+            const HI = isHoriz ? maxX : maxY;
+            const fixed = edgeFixed[side];
+
+            group.forEach((s, i) => {
+                const t = group.length === 1 ? 0.5 : i / (group.length - 1);
+                // bottom/left run in reverse along their axis (clockwise)
+                const pos = (side === 'bottom' || side === 'left') ? HI - t * (HI - LO) : LO + t * (HI - LO);
+                positions.set(s.id, isHoriz
+                    ? { x: pos, y: fixed.y! }
+                    : { x: fixed.x!, y: pos });
+                sideOf.set(s.id, side);
+            });
         });
 
+        // Push a bubble's movable axis away from any no-go zone it overlaps
+        const pushOutOfNoGo = (id: string) => {
+            const p = positions.get(id)!;
+            const side = sideOf.get(id)!;
+            const isHoriz = side === 'top' || side === 'bottom';
+            for (const z of noGoZones) {
+                if (p.x <= z.x1 || p.x >= z.x2 || p.y <= z.y1 || p.y >= z.y2) continue;
+                if (isHoriz) {
+                    // push left or right, whichever is closer
+                    p.x = (p.x - z.x1 < z.x2 - p.x) ? z.x1 : z.x2;
+                } else {
+                    p.y = (p.y - z.y1 < z.y2 - p.y) ? z.y1 : z.y2;
+                }
+            }
+        };
+
+        // Resolve overlaps between bubbles on the same edge (1-D spring pass)
+        const resolveEdgeCollisions = (side: Side) => {
+            const group = groups[side];
+            if (group.length < 2) return;
+            const isHoriz = side === 'top' || side === 'bottom';
+            const minGap = isHoriz ? rW * 2 : rH * 2; // bubble diameter along edge
+            const LO = isHoriz ? minX : minY;
+            const HI = isHoriz ? maxX : maxY;
+
+            // Sort by current position
+            const sorted = [...group].sort((a, b) => {
+                const pa = positions.get(a.id)!;
+                const pb = positions.get(b.id)!;
+                return isHoriz ? pa.x - pb.x : pa.y - pb.y;
+            });
+
+            for (let pass = 0; pass < 30; pass++) {
+                let moved = false;
+                for (let i = 1; i < sorted.length; i++) {
+                    const pA = positions.get(sorted[i - 1].id)!;
+                    const pB = positions.get(sorted[i].id)!;
+                    const delta = isHoriz ? pB.x - pA.x : pB.y - pA.y;
+                    if (delta < minGap) {
+                        const push = (minGap - delta) / 2;
+                        if (isHoriz) { pA.x -= push; pB.x += push; }
+                        else         { pA.y -= push; pB.y += push; }
+                        moved = true;
+                    }
+                }
+                if (!moved) break;
+            }
+
+            // Shift whole group into [LO, HI] if pushed out of bounds
+            const posArr = sorted.map(s => isHoriz ? positions.get(s.id)!.x : positions.get(s.id)!.y);
+            const lo = Math.min(...posArr), hi = Math.max(...posArr);
+            let shift = 0;
+            if (lo < LO) shift = LO - lo;
+            else if (hi > HI) shift = HI - hi;
+            if (shift !== 0) {
+                for (const s of sorted) {
+                    const p = positions.get(s.id)!;
+                    if (isHoriz) p.x += shift; else p.y += shift;
+                }
+            }
+        };
+
+        // Iterative: push from no-go zones, then resolve inter-bubble collisions
+        for (let iter = 0; iter < 6; iter++) {
+            for (const id of positions.keys()) pushOutOfNoGo(id);
+            (Object.keys(groups) as Side[]).forEach(side => resolveEdgeCollisions(side));
+        }
+
+        // Final clamp: ensure every bubble centre is inside the container
+        for (const p of positions.values()) {
+            p.x = Math.max(minX, Math.min(maxX, p.x));
+            p.y = Math.max(minY, Math.min(maxY, p.y));
+        }
+
         return stations.map(s => {
-            const upd = updates.get(s.id);
+            const upd = positions.get(s.id);
             return upd ? { ...s, x: upd.x, y: upd.y } : s;
         });
     };
