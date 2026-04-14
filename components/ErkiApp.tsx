@@ -194,7 +194,49 @@ function computeAutoLayout(
         if (!anyMoved) break;
     }
 
-    // ── Schritt 7: Hard-Clamp + Zuordnung ───────────────────────────────────
+    // ── Schritt 7: Kreuzungs-Prüfschleife ──────────────────────────────────
+    // Prüfe alle Linienpaare (marker→slot). Bei Kreuzung: Slots tauschen.
+    // Jeder Swap eliminiert genau eine Kreuzung und erzeugt keine neue
+    // (da die Gesamtlinienlänge sinkt). Max 50 Iterationen.
+    const markerById: Record<string, { x: number; y: number }> = {};
+    for (const m of markers) markerById[m.id] = { x: m.x, y: m.y };
+
+    const segsCross = (
+        ax: number, ay: number, bx: number, by: number,
+        cx: number, cy: number, dx: number, dy: number,
+    ): boolean => {
+        const ccw = (px: number, py: number, qx: number, qy: number, rx: number, ry: number) =>
+            (qx - px) * (ry - py) - (qy - py) * (rx - px);
+        const d1 = ccw(ax, ay, bx, by, cx, cy);
+        const d2 = ccw(ax, ay, bx, by, dx, dy);
+        const d3 = ccw(cx, cy, dx, dy, ax, ay);
+        const d4 = ccw(cx, cy, dx, dy, bx, by);
+        if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+            ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) return true;
+        return false;
+    };
+
+    for (let iter = 0; iter < 50; iter++) {
+        let swapped = false;
+        for (let i = 0; i < N; i++) {
+            const mi = markerById[items[i].id];
+            const si = sToPoint(items[i].s);
+            for (let j = i + 1; j < N; j++) {
+                const mj = markerById[items[j].id];
+                const sj = sToPoint(items[j].s);
+                if (segsCross(mi.x, mi.y, si.x, si.y, mj.x, mj.y, sj.x, sj.y)) {
+                    // Slots tauschen
+                    const tmp = items[i].s;
+                    items[i].s = items[j].s;
+                    items[j].s = tmp;
+                    swapped = true;
+                }
+            }
+        }
+        if (!swapped) break;
+    }
+
+    // ── Schritt 8: Hard-Clamp + Zuordnung ───────────────────────────────────
     const idToSlot: Record<string, { x: number; y: number }> = {};
     for (const item of items) {
         const pt = sToPoint(item.s);
