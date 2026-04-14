@@ -641,160 +641,184 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
         updateActivePlan({ stations });
     };
 
-    // Auto-place bubble labels around the edges of the map.
-    // Guarantees: crossing-free lines, no overlap between bubbles, avoids overlay
-    // no-go zones (logo, label), and keeps all bubbles fully inside the container.
+    // ─────────────────────────────────────────────────────────────────────────
+    // Auto-Label-Placement  (angle-based, perimeter path, 1-D overlap resolver)
+    //
+    // Guarantees:
+    //   • Crossing-free lines  (clockwise marker order = clockwise label order)
+    //   • No label-label overlap (1-D sweep + centering on free path)
+    //   • No-go zones avoided  (LAGEPLAN label, Erki logo cut from path)
+    //   • Labels fully inside container (centres kept ≥ radius from all edges)
+    // ─────────────────────────────────────────────────────────────────────────
     const computeAutoLayout = (stations: Station[]): Station[] => {
         if (stations.length === 0) return stations;
+        const n = stations.length;
 
-        // Bubble radius in % of container dimensions
-        const cw = containerWidth > 0 ? containerWidth : 800;
+        // Physical pixel dimensions of the container
+        const cw = Math.max(containerWidth > 0 ? containerWidth : 800, 200);
         const ch = cw * (aspectRatio === 'landscape' ? 210 / 297 : 297 / 210);
-        const rW = (48 / cw) * 100;   // radius as % of width  (~6% at 800px)
-        const rH = (48 / ch) * 100;   // radius as % of height (~8.5% landscape)
+        const r = 48; // bubble radius in px (diameter = 96 px)
 
-        // Safe range for bubble centres (fully inside container)
-        const minX = rW, maxX = 100 - rW;
-        const minY = rH, maxY = 100 - rH;
+        // ── 1. Sort markers by clockwise angle from centroid ─────────────────
+        //   Screen coords: y↓, so atan2(dy, dx) with dy positive = southward.
+        //   We remap to: North = 0, clockwise increases → [0, 2π).
+        const mcx = stations.reduce((s, st) => s + st.targetX, 0) / n;
+        const mcy = stations.reduce((s, st) => s + st.targetY, 0) / n;
 
-        // No-go zones (pre-expanded by bubble radius so we just test centre point)
-        const noGoZones: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
+        const cwAngle = (s: Station) =>
+            ((Math.atan2(s.targetY - mcy, s.targetX - mcx) + 2.5 * Math.PI) % (2 * Math.PI));
+
+        const sorted = [...stations].sort((a, b) => cwAngle(a) - cwAngle(b));
+        const angles = sorted.map(cwAngle);
+
+        // Rotate the sorted array so that it starts just after the largest angular
+        // gap. This aligns the "seam" of the label path with the empty sector of
+        // the plan, minimising average line length and avoiding crossings.
+        let biggestGap = angles[0] + 2 * Math.PI - angles[n - 1]; // wrap-around
+        let gapIdx = 0;
+        for (let i = 1; i < n; i++) {
+            const g = angles[i] - angles[i - 1];
+            if (g > biggestGap) { biggestGap = g; gapIdx = i; }
+        }
+        const ordered = [...sorted.slice(gapIdx), ...sorted.slice(0, gapIdx)];
+
+        // ── 2. Inner perimeter path (bubble centres live here) ───────────────
+        //   We use a rectangle inset by r so bubbles are never clipped.
+        //   Parameterisation clockwise from top-left:
+        //     Top    [0,   T1):  y = r,    x: r → cw-r
+        //     Right  [T1,  T2):  x = cw-r, y: r → ch-r
+        //     Bottom [T2,  T3):  y = ch-r, x: cw-r → r
+        //     Left   [T3,  P):   x = r,    y: ch-r → r
+        const Ltop = cw - 2 * r, Lrt = ch - 2 * r;
+        const T1 = Ltop, T2 = T1 + Lrt, T3 = T2 + Ltop;
+        const P = 2 * (Ltop + Lrt);
+
+        const perimToXY = (t: number) => {
+            const tt = ((t % P) + P) % P;
+            if (tt <= T1) return { x: r + tt,             y: r };
+            if (tt <= T2) return { x: cw - r,             y: r + (tt - T1) };
+            if (tt <= T3) return { x: cw - r - (tt - T2), y: ch - r };
+            return              { x: r,                    y: ch - r - (tt - T3) };
+        };
+
+        // ── 3. Blocked perimeter intervals from overlay no-go zones ──────────
+        //   For each axis-aligned rectangle, find the t-intervals where the
+        //   perimeter path passes through the rectangle expanded by r.
+        const getBlocked = (bx1: number, by1: number, bx2: number, by2: number) => {
+            const x1 = bx1 - r, y1 = by1 - r, x2 = bx2 + r, y2 = by2 + r;
+            const res: Array<[number, number]> = [];
+            // top edge: y = r
+            if (y1 <= r && r <= y2) {
+                const lo = Math.max(r, x1) - r, hi = Math.min(cw - r, x2) - r;
+                if (lo < hi) res.push([lo, hi]);
+            }
+            // right edge: x = cw-r
+            if (x1 <= cw - r && cw - r <= x2) {
+                const lo = T1 + Math.max(r, y1) - r, hi = T1 + Math.min(ch - r, y2) - r;
+                if (lo < hi) res.push([lo, hi]);
+            }
+            // bottom edge: y = ch-r  (x runs right→left)
+            if (y1 <= ch - r && ch - r <= y2) {
+                const xlo = Math.max(r, x1), xhi = Math.min(cw - r, x2);
+                if (xlo < xhi) res.push([T2 + (cw - r - xhi), T2 + (cw - r - xlo)]);
+            }
+            // left edge: x = r  (y runs bottom→top)
+            if (x1 <= r && r <= x2) {
+                const ylo = Math.max(r, y1), yhi = Math.min(ch - r, y2);
+                if (ylo < yhi) res.push([T3 + (ch - r - yhi), T3 + (ch - r - ylo)]);
+            }
+            return res;
+        };
+
+        const rawBlocked: Array<[number, number]> = [];
         if (activePlan?.logoOverlay) {
             const lo = activePlan.logoOverlay;
-            const logoH = lo.size * (cw / ch); // assume roughly square logo
-            noGoZones.push({ x1: lo.x - rW, y1: lo.y - rH, x2: lo.x + lo.size + rW, y2: lo.y + logoH + rH });
+            const x1 = lo.x / 100 * cw, y1 = lo.y / 100 * ch;
+            const w = lo.size / 100 * cw;
+            rawBlocked.push(...getBlocked(x1, y1, x1 + w, y1 + w)); // square logo approx.
         }
         if (activePlan?.labelOverlay) {
             const lb = activePlan.labelOverlay;
-            const tw = (lb.text.length * lb.fontSize * 0.6 / cw) * 100;
-            const th = (lb.fontSize * 1.5 / ch) * 100;
-            noGoZones.push({ x1: lb.x - rW, y1: lb.y - rH, x2: lb.x + tw + rW, y2: lb.y + th + rH });
+            const x1 = lb.x / 100 * cw, y1 = lb.y / 100 * ch;
+            const scale = cw / 800;
+            const w = lb.text.length * lb.fontSize * scale * 0.6;
+            const h = lb.fontSize * scale * 1.5;
+            rawBlocked.push(...getBlocked(x1, y1, x1 + w, y1 + h));
         }
 
-        type Side = 'top' | 'right' | 'bottom' | 'left';
-        const assignSide = (s: Station): Side => {
-            const d = { top: s.targetY, right: 100 - s.targetX, bottom: 100 - s.targetY, left: s.targetX };
-            return (Object.keys(d) as Side[]).reduce((a, b) => d[a] <= d[b] ? a : b);
+        // Merge overlapping intervals, clamped to [0, P]
+        rawBlocked.sort((a, b) => a[0] - b[0]);
+        const blocked: Array<[number, number]> = [];
+        for (const [a, b] of rawBlocked) {
+            const ca = Math.max(0, a), cb = Math.min(P, b);
+            if (ca >= cb) continue;
+            if (blocked.length && ca <= blocked[blocked.length - 1][1])
+                blocked[blocked.length - 1][1] = Math.max(blocked[blocked.length - 1][1], cb);
+            else blocked.push([ca, cb]);
+        }
+
+        // Free segments (complement of blocked intervals within [0, P])
+        const free: Array<[number, number]> = [];
+        let cur = 0;
+        for (const [a, b] of blocked) { if (cur < a) free.push([cur, a]); cur = Math.max(cur, b); }
+        if (cur < P) free.push([cur, P]);
+        if (free.length === 0) free.push([0, P]); // fallback: ignore no-go zones
+
+        const freeLen = free.reduce((s, [a, b]) => s + b - a, 0);
+
+        // Map free-space coordinate [0, freeLen] → perimeter t
+        const freeToPerim = (tf: number): number => {
+            let rem = Math.max(0, Math.min(freeLen, tf));
+            for (const [a, b] of free) {
+                const len = b - a;
+                if (rem <= len) return a + rem;
+                rem -= len;
+            }
+            return free[free.length - 1][1];
         };
 
-        const groups: Record<Side, Station[]> = { top: [], right: [], bottom: [], left: [] };
-        for (const s of stations) groups[assignSide(s)].push(s);
+        // ── 4. Initial placement: evenly spaced on free path ─────────────────
+        //   minStep = bubble diameter + 4 px gap, but never larger than equal spacing.
+        const minStep = n > 1 ? Math.min(2 * r + 4, freeLen / (n - 1)) : freeLen;
+        const tFree: number[] = ordered.map((_, i) =>
+            n === 1 ? freeLen / 2 : (i / (n - 1)) * freeLen
+        );
 
-        // Sort clockwise along each edge → same order for markers and bubbles → no crossings
-        groups.top.sort((a, b) => a.targetX - b.targetX);       // left → right
-        groups.right.sort((a, b) => a.targetY - b.targetY);     // top → bottom
-        groups.bottom.sort((a, b) => b.targetX - a.targetX);    // right → left
-        groups.left.sort((a, b) => b.targetY - a.targetY);      // bottom → top
-
-        // Fixed position perpendicular to each edge
-        const edgeFixed: Record<Side, { x?: number; y?: number }> = {
-            top:    { y: minY },
-            right:  { x: maxX },
-            bottom: { y: maxY },
-            left:   { x: minX },
+        // ── 5. 1-D Overlap resolution: sweep + re-centre ─────────────────────
+        //   Forward pass pushes labels right when too close; backward pass pulls
+        //   them left. Repeating both until stable avoids cascade drift.
+        //   Finally the whole cluster is centred around freeLen/2.
+        const sweep = () => {
+            for (let i = 1; i < n; i++)
+                if (tFree[i] - tFree[i - 1] < minStep) tFree[i] = tFree[i - 1] + minStep;
+            for (let i = n - 2; i >= 0; i--)
+                if (tFree[i + 1] - tFree[i] < minStep) tFree[i] = tFree[i + 1] - minStep;
         };
+        for (let p = 0; p < 30; p++) sweep();
 
-        // Initial even distribution along each edge
-        const positions = new Map<string, { x: number; y: number }>();
-        const sideOf = new Map<string, Side>();
+        // Clamp into [0, freeLen]
+        for (let i = 0; i < n; i++) tFree[i] = Math.max(0, Math.min(freeLen, tFree[i]));
 
-        (Object.keys(groups) as Side[]).forEach(side => {
-            const group = groups[side];
-            const isHoriz = side === 'top' || side === 'bottom';
-            const LO = isHoriz ? minX : minY;
-            const HI = isHoriz ? maxX : maxY;
-            const fixed = edgeFixed[side];
+        // Centre the cluster (prevents drift to one end)
+        if (n > 1) {
+            const lo = tFree[0], hi = tFree[n - 1];
+            const shift = Math.max(-lo, Math.min(freeLen - hi, freeLen / 2 - (lo + hi) / 2));
+            for (let i = 0; i < n; i++) tFree[i] = Math.max(0, Math.min(freeLen, tFree[i] + shift));
+        }
 
-            group.forEach((s, i) => {
-                const t = group.length === 1 ? 0.5 : i / (group.length - 1);
-                // bottom/left run in reverse along their axis (clockwise)
-                const pos = (side === 'bottom' || side === 'left') ? HI - t * (HI - LO) : LO + t * (HI - LO);
-                positions.set(s.id, isHoriz
-                    ? { x: pos, y: fixed.y! }
-                    : { x: fixed.x!, y: pos });
-                sideOf.set(s.id, side);
-            });
+        // ── 6. Convert to percentage positions and return ─────────────────────
+        const result = new Map<string, { x: number; y: number }>();
+        ordered.forEach((s, i) => {
+            const { x, y } = perimToXY(freeToPerim(tFree[i]));
+            result.set(s.id, { x: x / cw * 100, y: y / ch * 100 });
         });
 
-        // Push a bubble's movable axis away from any no-go zone it overlaps
-        const pushOutOfNoGo = (id: string) => {
-            const p = positions.get(id)!;
-            const side = sideOf.get(id)!;
-            const isHoriz = side === 'top' || side === 'bottom';
-            for (const z of noGoZones) {
-                if (p.x <= z.x1 || p.x >= z.x2 || p.y <= z.y1 || p.y >= z.y2) continue;
-                if (isHoriz) {
-                    // push left or right, whichever is closer
-                    p.x = (p.x - z.x1 < z.x2 - p.x) ? z.x1 : z.x2;
-                } else {
-                    p.y = (p.y - z.y1 < z.y2 - p.y) ? z.y1 : z.y2;
-                }
-            }
-        };
-
-        // Resolve overlaps between bubbles on the same edge (1-D spring pass)
-        const resolveEdgeCollisions = (side: Side) => {
-            const group = groups[side];
-            if (group.length < 2) return;
-            const isHoriz = side === 'top' || side === 'bottom';
-            const minGap = isHoriz ? rW * 2 : rH * 2; // bubble diameter along edge
-            const LO = isHoriz ? minX : minY;
-            const HI = isHoriz ? maxX : maxY;
-
-            // Sort by current position
-            const sorted = [...group].sort((a, b) => {
-                const pa = positions.get(a.id)!;
-                const pb = positions.get(b.id)!;
-                return isHoriz ? pa.x - pb.x : pa.y - pb.y;
-            });
-
-            for (let pass = 0; pass < 30; pass++) {
-                let moved = false;
-                for (let i = 1; i < sorted.length; i++) {
-                    const pA = positions.get(sorted[i - 1].id)!;
-                    const pB = positions.get(sorted[i].id)!;
-                    const delta = isHoriz ? pB.x - pA.x : pB.y - pA.y;
-                    if (delta < minGap) {
-                        const push = (minGap - delta) / 2;
-                        if (isHoriz) { pA.x -= push; pB.x += push; }
-                        else         { pA.y -= push; pB.y += push; }
-                        moved = true;
-                    }
-                }
-                if (!moved) break;
-            }
-
-            // Shift whole group into [LO, HI] if pushed out of bounds
-            const posArr = sorted.map(s => isHoriz ? positions.get(s.id)!.x : positions.get(s.id)!.y);
-            const lo = Math.min(...posArr), hi = Math.max(...posArr);
-            let shift = 0;
-            if (lo < LO) shift = LO - lo;
-            else if (hi > HI) shift = HI - hi;
-            if (shift !== 0) {
-                for (const s of sorted) {
-                    const p = positions.get(s.id)!;
-                    if (isHoriz) p.x += shift; else p.y += shift;
-                }
-            }
-        };
-
-        // Iterative: push from no-go zones, then resolve inter-bubble collisions
-        for (let iter = 0; iter < 6; iter++) {
-            for (const id of positions.keys()) pushOutOfNoGo(id);
-            (Object.keys(groups) as Side[]).forEach(side => resolveEdgeCollisions(side));
-        }
-
-        // Final clamp: ensure every bubble centre is inside the container
-        for (const p of positions.values()) {
-            p.x = Math.max(minX, Math.min(maxX, p.x));
-            p.y = Math.max(minY, Math.min(maxY, p.y));
-        }
-
         return stations.map(s => {
-            const upd = positions.get(s.id);
+            const upd = result.get(s.id);
             return upd ? { ...s, x: upd.x, y: upd.y } : s;
         });
     };
+
 
     const handleAutoPlaceBubbles = () => {
         if (!activePlan) return;
