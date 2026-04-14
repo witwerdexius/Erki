@@ -170,7 +170,29 @@ function computeAutoLayout(
         }
     }
 
-    // ── Schritt 6: Hard-Clamp + Zuordnung ───────────────────────────────────
+    // ── Schritt 6: 2D-Overlap-Prüfschleife ────────────────────────────────────
+    // Nach Sperrzonen-Verschiebung können Slots in 2D zu nah beieinander sein
+    // (z.B. benachbarte Kanten nahe einer Ecke). Iterativ auflösen.
+    const minDist2D = 2 * bubbleRadius + 5;
+    for (let iter = 0; iter < 20; iter++) {
+        let anyMoved = false;
+        for (let i = 0; i < N; i++) {
+            const ptI = sToPoint(items[i].s);
+            for (let j = i + 1; j < N; j++) {
+                const ptJ = sToPoint(items[j].s);
+                const dx = ptI.x - ptJ.x, dy = ptI.y - ptJ.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < minDist2D) {
+                    // j entlang Perimeter nach vorne schieben
+                    items[j].s = wrap(items[j].s + (minDist2D - dist));
+                    anyMoved = true;
+                }
+            }
+        }
+        if (!anyMoved) break;
+    }
+
+    // ── Schritt 7: Hard-Clamp + Zuordnung ───────────────────────────────────
     const idToSlot: Record<string, { x: number; y: number }> = {};
     for (const item of items) {
         const pt = sToPoint(item.s);
