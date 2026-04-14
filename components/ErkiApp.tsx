@@ -155,12 +155,13 @@ function computeAutoLayout(
         if (labelOverlay) {
             const lx = (labelOverlay.x / 100) * containerWidth;
             const ly = (labelOverlay.y / 100) * containerHeight;
-            // Rendering: fontSize * mapScale, font-bold uppercase tracking-widest (0.1em)
+            // Rendering: fontSize * mapScale, font-bold uppercase tracking-widest (0.1em letter-spacing)
             const renderedFontSize = labelOverlay.fontSize * mapScale;
-            const approxW = labelOverlay.text.length * renderedFontSize * 0.85;
-            const approxH = renderedFontSize * 1.3;
-            if (px >= lx - bubbleRadius && px <= lx + approxW + bubbleRadius &&
-                py >= ly - bubbleRadius && py <= ly + approxH + bubbleRadius) return true;
+            const approxW = labelOverlay.text.length * renderedFontSize * 1.0;
+            const approxH = renderedFontSize * 1.6;
+            const pad = bubbleRadius * 1.5;
+            if (px >= lx - pad && px <= lx + approxW + pad &&
+                py >= ly - pad && py <= ly + approxH + pad) return true;
         }
         return false;
     };
