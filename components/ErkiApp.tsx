@@ -12,6 +12,225 @@ import { jsPDF } from 'jspdf';
 import TemplatePickerDialog from './TemplatePickerDialog';
 import NachdenktexteTab from '@/components/NachdenktexteTab';
 
+// ── computeAutoLayout ──────────────────────────────────────────────────────
+// Verteilt Beschriftungs-Blasen (s.x / s.y) kreuzungsfrei auf dem Perimeter
+// des Canvas, basierend auf den Marker-Positionen (s.targetX / s.targetY).
+//
+// Koordinatensystem: Pixel (0,0) = oben-links.
+// Stationen speichern Positionen in Prozent (0–100); Konversion erfolgt hier.
+function computeAutoLayout(
+    stations: Station[],
+    containerWidth: number,
+    containerHeight: number,
+    logoOverlay?: LogoOverlay,
+    labelOverlay?: LabelOverlay,
+): Station[] {
+    const N = stations.length;
+    if (N === 0 || containerWidth === 0 || containerHeight === 0) return stations;
+
+    const mapScale = containerWidth / 800;
+    const bubbleRadius = 48 * mapScale; // Pixel
+    const R = bubbleRadius + 10;        // Abstand vom Rand
+
+    // Inneres Rechteck: Slots-Mittelpunkte müssen innerhalb liegen
+    const minX = R, maxX = containerWidth - R;
+    const minY = R, maxY = containerHeight - R;
+    const Wr = maxX - minX, Hr = maxY - minY;
+    const perimLen = 2 * (Wr + Hr);
+
+    // ── Perimeter-Parametrisierung (s ∈ [0, perimLen), Uhrzeigersinn) ──────
+    // Oben:   s ∈ [0,      Wr)         y = minY, x = minX + s
+    // Rechts: s ∈ [Wr,     Wr+Hr)      x = maxX, y = minY + (s-Wr)
+    // Unten:  s ∈ [Wr+Hr,  2Wr+Hr)     y = maxY, x = maxX - (s-Wr-Hr)
+    // Links:  s ∈ [2Wr+Hr, 2(Wr+Hr))   x = minX, y = maxY - (s-2Wr-Hr)
+    const sToPoint = (s: number): { x: number; y: number } => {
+        s = ((s % perimLen) + perimLen) % perimLen;
+        if (s < Wr)          return { x: minX + s,             y: minY };
+        s -= Wr;
+        if (s < Hr)          return { x: maxX,                 y: minY + s };
+        s -= Hr;
+        if (s < Wr)          return { x: maxX - s,             y: maxY };
+        s -= Wr;
+        return               { x: minX,                        y: maxY - s };
+    };
+
+    // Winkel eines Punkts von einem Ursprung aus
+    const angleFrom = (pt: { x: number; y: number }, origin: { x: number; y: number }) =>
+        Math.atan2(pt.y - origin.y, pt.x - origin.x);
+
+    // Perimeter-Parameter s für einen Rechteck-Randpunkt berechnen
+    const pointToS = (px: number, py: number): number => {
+        px = Math.max(minX, Math.min(maxX, px));
+        py = Math.max(minY, Math.min(maxY, py));
+        // Welche Kante?
+        const dTop    = Math.abs(py - minY);
+        const dRight  = Math.abs(px - maxX);
+        const dBottom = Math.abs(py - maxY);
+        const dLeft   = Math.abs(px - minX);
+        const minD    = Math.min(dTop, dRight, dBottom, dLeft);
+        if (minD === dTop)    return px - minX;
+        if (minD === dRight)  return Wr + (py - minY);
+        if (minD === dBottom) return Wr + Hr + (maxX - px);
+        return Wr + Hr + Wr + (maxY - py);
+    };
+
+    // ── Schritt 1: Centroid der Marker ───────────────────────────────────────
+    const markers = stations.map(s => ({
+        id: s.id,
+        x: (s.targetX / 100) * containerWidth,
+        y: (s.targetY / 100) * containerHeight,
+    }));
+    const centroid = {
+        x: markers.reduce((sum, m) => sum + m.x, 0) / N,
+        y: markers.reduce((sum, m) => sum + m.y, 0) / N,
+    };
+
+    // ── Schritt 2: Marker nach Winkel sortieren ──────────────────────────────
+    const sortedMarkers = markers
+        .map(m => ({ ...m, angle: angleFrom(m, centroid) }))
+        .sort((a, b) => a.angle - b.angle);
+
+    // ── Schritt 3: Startposition = Mitte des größten Winkel-Gaps ────────────
+    let largestGap = -Infinity;
+    let startAngle = 0;
+    if (N === 1) {
+        startAngle = sortedMarkers[0].angle + Math.PI;
+    } else {
+        for (let i = 0; i < N; i++) {
+            const next = (i + 1) % N;
+            let gap = sortedMarkers[next].angle - sortedMarkers[i].angle;
+            if (gap <= 0) gap += 2 * Math.PI;
+            if (gap > largestGap) {
+                largestGap = gap;
+                startAngle = sortedMarkers[i].angle + gap / 2;
+            }
+        }
+    }
+
+    // Startwinkel → Perimeter-Punkt (Strahl vom Centroid)
+    const cos0 = Math.cos(startAngle), sin0 = Math.sin(startAngle);
+    let s_start = 0;
+    {
+        let bestT = Infinity;
+        let bestPx = minX, bestPy = minY;
+        const tryEdge = (t: number, ex: number, ey: number) => {
+            if (t > 1e-9 && t < bestT &&
+                ex >= minX - 0.5 && ex <= maxX + 0.5 &&
+                ey >= minY - 0.5 && ey <= maxY + 0.5) {
+                bestT = t; bestPx = ex; bestPy = ey;
+            }
+        };
+        if (Math.abs(cos0) > 1e-9) {
+            const tR = (maxX - centroid.x) / cos0;
+            tryEdge(tR, maxX, centroid.y + sin0 * tR);
+            const tL = (minX - centroid.x) / cos0;
+            tryEdge(tL, minX, centroid.y + sin0 * tL);
+        }
+        if (Math.abs(sin0) > 1e-9) {
+            const tB = (maxY - centroid.y) / sin0;
+            tryEdge(tB, centroid.x + cos0 * tB, maxY);
+            const tT = (minY - centroid.y) / sin0;
+            tryEdge(tT, centroid.x + cos0 * tT, minY);
+        }
+        s_start = pointToS(bestPx, bestPy);
+    }
+
+    // ── Schritt 3b: N gleichmäßige Slots auf Perimeter ─────────────────────
+    const slots: { x: number; y: number; angle: number; s: number }[] = [];
+    for (let i = 0; i < N; i++) {
+        const s = (s_start + (i / N) * perimLen + perimLen) % perimLen;
+        const pt = sToPoint(s);
+        slots.push({ ...pt, angle: angleFrom(pt, centroid), s });
+    }
+    // Nach Winkel sortieren (≡ nach s sortieren, da Perimeter konvex)
+    slots.sort((a, b) => a.angle - b.angle);
+
+    // ── Schritt 5: Overlap-Resolution (1D entlang Perimeter) ────────────────
+    const minDist = 2 * bubbleRadius + 5;
+    // Slots nach s-Wert sortieren für sweep (Winkel- und s-Reihenfolge sind identisch)
+    slots.sort((a, b) => a.s - b.s);
+
+    for (let iter = 0; iter < 20; iter++) {
+        let moved = false;
+        // Forward-sweep
+        for (let i = 1; i < N; i++) {
+            const gap = slots[i].s - slots[i - 1].s;
+            if (gap < minDist) {
+                slots[i].s = Math.min(slots[i].s + (minDist - gap), perimLen - 0.01);
+                const pt = sToPoint(slots[i].s);
+                slots[i].x = pt.x; slots[i].y = pt.y;
+                slots[i].angle = angleFrom(pt, centroid);
+                moved = true;
+            }
+        }
+        // Backward-sweep
+        for (let i = N - 2; i >= 0; i--) {
+            const gap = slots[i + 1].s - slots[i].s;
+            if (gap < minDist) {
+                slots[i].s = Math.max(slots[i].s - (minDist - gap), 0);
+                const pt = sToPoint(slots[i].s);
+                slots[i].x = pt.x; slots[i].y = pt.y;
+                slots[i].angle = angleFrom(pt, centroid);
+                moved = true;
+            }
+        }
+        if (!moved) break;
+    }
+
+    // ── Schritt 6: Sperrzonen (Logo + Überschrift) ──────────────────────────
+    const isBlocked = (pt: { x: number; y: number }): boolean => {
+        if (logoOverlay) {
+            const lx = (logoOverlay.x / 100) * containerWidth;
+            const ly = (logoOverlay.y / 100) * containerHeight;
+            const lw = (logoOverlay.size / 100) * containerWidth;
+            if (pt.x >= lx - bubbleRadius && pt.x <= lx + lw + bubbleRadius &&
+                pt.y >= ly - bubbleRadius && pt.y <= ly + lw * 0.4 + bubbleRadius) return true;
+        }
+        if (labelOverlay) {
+            const lx = (labelOverlay.x / 100) * containerWidth;
+            const ly = (labelOverlay.y / 100) * containerHeight;
+            const approxW = labelOverlay.text.length * labelOverlay.fontSize * 0.65;
+            if (pt.x >= lx - bubbleRadius && pt.x <= lx + approxW + bubbleRadius &&
+                pt.y >= ly - bubbleRadius && pt.y <= ly + labelOverlay.fontSize + bubbleRadius) return true;
+        }
+        return false;
+    };
+    for (const slot of slots) {
+        for (let attempt = 0; attempt < 120 && isBlocked(slot); attempt++) {
+            slot.s = (slot.s + 5) % perimLen;
+            const pt = sToPoint(slot.s);
+            slot.x = pt.x; slot.y = pt.y;
+            slot.angle = angleFrom(pt, centroid);
+        }
+    }
+
+    // ── Schritt 7: Hard-Clamp ───────────────────────────────────────────────
+    for (const slot of slots) {
+        slot.x = Math.max(bubbleRadius, Math.min(containerWidth - bubbleRadius, slot.x));
+        slot.y = Math.max(bubbleRadius, Math.min(containerHeight - bubbleRadius, slot.y));
+    }
+
+    // ── Schritt 4: Zuordnung (beide nach Winkel sortiert = kreuzungsfrei) ───
+    // Neu sortieren nach Winkel nach overlap-resolution
+    slots.sort((a, b) => a.angle - b.angle);
+    sortedMarkers.sort((a, b) => a.angle - b.angle);
+
+    const idToSlot: Record<string, { x: number; y: number }> = {};
+    for (let i = 0; i < N; i++) {
+        idToSlot[sortedMarkers[i].id] = slots[i % slots.length];
+    }
+
+    return stations.map(s => {
+        const slot = idToSlot[s.id];
+        if (!slot) return s;
+        return {
+            ...s,
+            x: Math.max(0, Math.min(100, (slot.x / containerWidth) * 100)),
+            y: Math.max(0, Math.min(100, (slot.y / containerHeight) * 100)),
+        };
+    });
+}
+
 interface ErkiAppProps {
     plan: Plan;
     user: User;
@@ -618,6 +837,22 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
         return currentStations;
     };
 
+    const handleAutoLayout = () => {
+        if (!activePlan || containerWidth === 0) return;
+        // containerHeight aus aspectRatio ableiten
+        const containerHeight = aspectRatio === 'landscape'
+            ? containerWidth * (210 / 297)
+            : containerWidth * (297 / 210);
+        const updated = computeAutoLayout(
+            activePlan.stations,
+            containerWidth,
+            containerHeight,
+            activePlan.logoOverlay,
+            activePlan.labelOverlay,
+        );
+        updateActivePlan({ stations: updated });
+    };
+
     const handleDistributeColors = () => {
         if (!activePlan) return;
         const THRESHOLD = 20; // % distance – stations closer than this are "neighbors"
@@ -1126,6 +1361,14 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                 >
                                     <Plus className="w-4 h-4" />
                                     <span className="hidden sm:inline">Station</span>
+                                </button>
+                                <button
+                                    onClick={handleAutoLayout}
+                                    className="flex items-center gap-2 px-3 py-2 bg-white text-gray-600 rounded-full shadow-lg border cursor-pointer hover:bg-gray-50 transition-all active:scale-95 text-sm font-medium"
+                                    title="Beschriftungen automatisch anordnen"
+                                >
+                                    <Move className="w-4 h-4" />
+                                    <span className="hidden sm:inline">Anordnen</span>
                                 </button>
                                 <button
                                     onClick={handleDistributeColors}
