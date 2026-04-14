@@ -160,7 +160,7 @@ function computeAutoLayout(
             const approxW = labelOverlay.text.length * renderedFontSize * 1.0;
             const approxH = renderedFontSize * 1.6;
             const pad = bubbleRadius * 1.5;
-            if (px >= lx - pad && px <= lx + approxW + pad &&
+            if (px >= lx - bubbleRadius && px <= lx + approxW + pad &&
                 py >= ly - pad && py <= ly + approxH + pad) return true;
         }
         return false;
