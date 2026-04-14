@@ -900,8 +900,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
     const handleMouseUp = () => {
         if (draggedItem && activePlan) {
             if (draggedItem.type === 'target') {
-                let updated = resolveColorConflicts(draggedItem.id, activePlan.stations);
-                updated = computeAutoLayout(updated);
+                const updated = resolveColorConflicts(draggedItem.id, activePlan.stations);
                 updateActivePlan({ stations: updated });
             }
         }
