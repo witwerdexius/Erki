@@ -598,7 +598,8 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
 
         const hiddenEls: { el: HTMLElement; prev: string }[] = [];
         const shadowEls: { el: HTMLElement; prev: string }[] = [];
-        let bgStylePrev: string | null = null;
+        let bgImg: HTMLImageElement | null = null;
+        let originalSrc = '';
 
         try {
             const container = containerRef.current;
@@ -620,44 +621,41 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                 }
             });
 
-            // Hintergrundbild als base64 direkt auf den Container setzen, damit Mobile Safari es rendert
-            if (activePlan.backgroundImage) {
-                bgStylePrev = container.style.backgroundImage;
-                // Bild vorladen und auf complete warten
-                const preload = new Image();
-                preload.src = activePlan.backgroundImage;
-                if (!(preload.complete && preload.naturalHeight !== 0)) {
-                    await new Promise<void>(resolve => {
-                        preload.onload = () => resolve();
-                        preload.onerror = () => resolve();
-                        setTimeout(resolve, 2000);
+            // Hintergrundbild als data URL inlinen, damit html-to-image es rendern kann
+            bgImg = container.querySelector<HTMLImageElement>('img[alt="Lageplan Background"]');
+            if (bgImg && bgImg.src && !bgImg.src.startsWith('data:')) {
+                originalSrc = bgImg.src;
+                try {
+                    const resp = await fetch(bgImg.src);
+                    const blob = await resp.blob();
+                    const dataUrlInlined = await new Promise<string>((res) => {
+                        const r = new FileReader(); r.onloadend = () => res(r.result as string); r.readAsDataURL(blob);
                     });
-                }
-                // Sicherstellen dass das <img>-Element im DOM das Bild hat
-                const bgImg = container.querySelector<HTMLImageElement>('img[alt="Lageplan Background"]');
-                if (bgImg) bgImg.src = activePlan.backgroundImage;
+                    bgImg.src = dataUrlInlined;
+                    await new Promise(r => setTimeout(r, 200));
+                } catch {}
             }
 
-            // Wartezeit für Mobile Safari Re-Render
-            await new Promise<void>(resolve => setTimeout(resolve, 500));
+            // Wartezeit für Re-Render
+            await new Promise<void>(resolve => setTimeout(resolve, 300));
 
             // box-shadow vor dem Capture entfernen
             const prevBoxShadow = container.style.boxShadow;
             container.style.boxShadow = 'none';
 
-            console.log('[PDF] Step 1: importing html2canvas');
-            const html2canvas = (await import('html2canvas')).default;
+            console.log('[PDF] Step 1: importing html-to-image');
+            const { toPng } = await import('html-to-image');
 
-            console.log('[PDF] Step 2: capturing canvas');
-            const canvas = await html2canvas(container, {
-                useCORS: true,
-                allowTaint: true,
-                scale: 2,
+            console.log('[PDF] Step 2: capturing image');
+            const dataUrl = await toPng(container, {
+                width: container.offsetWidth,
+                height: container.offsetHeight,
+                style: { overflow: 'hidden' },
+                pixelRatio: 2,
                 backgroundColor: '#ffffff',
             });
             container.style.boxShadow = prevBoxShadow;
-            const dataUrl = canvas.toDataURL('image/png');
-            const imgAspect = canvas.width / canvas.height;
+            const imgAspect = container.offsetWidth / container.offsetHeight;
 
             console.log('[PDF] Step 3: creating PDF');
 
@@ -697,7 +695,8 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
             hiddenEls.forEach(({ el, prev }) => { el.style.display = prev; });
             // Box-shadow wiederherstellen
             shadowEls.forEach(({ el, prev }) => { el.style.boxShadow = prev; });
-            if (bgStylePrev !== null && containerRef.current) containerRef.current.style.backgroundImage = bgStylePrev;
+            // Background image src wiederherstellen
+            if (bgImg && originalSrc) bgImg.src = originalSrc;
             setIsExporting(false);
         }
     };
@@ -1441,7 +1440,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
 
                                     {activePlan && (
                                         <div className="absolute inset-0 select-none">
-                                            <svg data-export-hidden className="absolute inset-0 w-full h-full overflow-visible pointer-events-none z-20">
+                                            <svg className="absolute inset-0 w-full h-full overflow-visible pointer-events-none z-20">
                                                 {activePlan.stations.map(s => (
                                                     <line
                                                         key={s.id}
