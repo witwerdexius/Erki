@@ -6,25 +6,26 @@ import { Profile, Community, UserRole } from '@/lib/types';
 import { loadCommunityUsers, updateUserRole, sendInvite } from '@/lib/db';
 
 interface Props {
-  community: Community;
+  community: Community | null;
   currentUserId: string;
   onClose: () => void;
 }
 
 export default function AdminPanel({ community, currentUserId, onClose }: Props) {
   const [users, setUsers] = useState<Profile[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!!community);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviting, setSending] = useState(false);
   const [inviteMsg, setInviteMsg] = useState('');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!community) return;
     loadCommunityUsers(community.id)
       .then(setUsers)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [community.id]);
+  }, [community?.id]);
 
   const handleRoleToggle = async (user: Profile) => {
     const newRole: UserRole = user.role === 'admin' ? 'user' : 'admin';
@@ -68,7 +69,7 @@ export default function AdminPanel({ community, currentUserId, onClose }: Props)
         <div className="flex items-center justify-between px-5 py-4 border-b">
           <div>
             <h2 className="font-semibold text-gray-900">Verwaltung</h2>
-            <p className="text-xs text-gray-500 mt-0.5">{community.name}</p>
+            {community && <p className="text-xs text-gray-500 mt-0.5">{community.name}</p>}
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700 transition-colors">
             <X className="w-5 h-5" />
@@ -77,7 +78,9 @@ export default function AdminPanel({ community, currentUserId, onClose }: Props)
 
         {/* User list */}
         <div className="flex-1 overflow-y-auto">
-          {loading ? (
+          {!community ? (
+            <p className="text-center text-gray-600 text-sm py-10">Kein Community zugewiesen.</p>
+          ) : loading ? (
             <p className="text-center text-gray-600 text-sm py-10">Wird geladen…</p>
           ) : users.length === 0 ? (
             <p className="text-center text-gray-600 text-sm py-10">Keine Benutzer gefunden.</p>
