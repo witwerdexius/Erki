@@ -645,19 +645,23 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
             const prevBoxShadow = container.style.boxShadow;
             container.style.boxShadow = 'none';
 
-            console.log('[PDF] Step 1: importing html2canvas');
-            const html2canvas = (await import('html2canvas')).default;
+            console.log('[PDF] Step 1: importing html-to-image');
+            const { toPng } = await import('html-to-image');
 
-            console.log('[PDF] Step 2: capturing canvas');
-            const canvas = await html2canvas(container, {
-                useCORS: true,
-                allowTaint: true,
-                scale: 2,
+            console.log('[PDF] Step 2: capturing image');
+            const dataUrl = await toPng(container, {
+                cacheBust: true,
+                pixelRatio: 2,
                 backgroundColor: '#ffffff',
             });
             container.style.boxShadow = prevBoxShadow;
-            const dataUrl = canvas.toDataURL('image/png');
-            const imgAspect = canvas.width / canvas.height;
+            const img = new Image();
+            await new Promise<void>((resolve, reject) => {
+                img.onload = () => resolve();
+                img.onerror = reject;
+                img.src = dataUrl;
+            });
+            const imgAspect = img.width / img.height;
 
             console.log('[PDF] Step 3: creating PDF');
 
