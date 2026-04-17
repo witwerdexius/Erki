@@ -80,7 +80,7 @@ export default function LoginScreen() {
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight">Erlebnis Kirche Planner</h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-700">
               {mode === 'login' ? 'Anmelden, um fortzufahren' : 'Neues Konto erstellen'}
             </p>
           </div>
@@ -125,7 +125,7 @@ export default function LoginScreen() {
               {loading ? 'Wird angemeldet…' : 'Anmelden'}
             </button>
 
-            <p className="text-center text-sm text-gray-500 pt-1">
+            <p className="text-center text-sm text-gray-700 pt-1">
               Noch kein Konto?{' '}
               <button
                 type="button"
@@ -190,7 +190,7 @@ export default function LoginScreen() {
               {loading ? 'Wird registriert…' : 'Konto erstellen'}
             </button>
 
-            <p className="text-center text-sm text-gray-500 pt-1">
+            <p className="text-center text-sm text-gray-700 pt-1">
               Bereits ein Konto?{' '}
               <button
                 type="button"

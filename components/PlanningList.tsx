@@ -225,7 +225,7 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
                       ))}
                     </select>
                   </div>
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="text-xs text-gray-600 mt-0.5">
                     {plan.stationCount ?? plan.stations.length} Station{(plan.stationCount ?? plan.stations.length) !== 1 ? 'en' : ''}
                     {plan.updatedAt ? ` · ${formatDate(plan.updatedAt)}` : ''}
                   </p>
@@ -234,7 +234,7 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={() => handleDelete(plan.id, plan.title)}
-                    className="p-2 text-gray-500 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                    className="p-2 text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
                     title="Planung löschen"
                   >
                     <Trash2 className="w-4 h-4" />
