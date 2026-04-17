@@ -641,6 +641,10 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
             // Wartezeit für Mobile Safari Re-Render
             await new Promise<void>(resolve => setTimeout(resolve, 500));
 
+            // box-shadow vor dem Capture entfernen
+            const prevBoxShadow = container.style.boxShadow;
+            container.style.boxShadow = 'none';
+
             console.log('[PDF] Step 1: importing html2canvas');
             const html2canvas = (await import('html2canvas')).default;
 
@@ -651,6 +655,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                 scale: 2,
                 backgroundColor: '#ffffff',
             });
+            container.style.boxShadow = prevBoxShadow;
             const dataUrl = canvas.toDataURL('image/png');
             const imgAspect = canvas.width / canvas.height;
 
