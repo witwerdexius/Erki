@@ -900,7 +900,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                 const dx = stations[i].targetX - stations[j].targetX;
                 const dy = stations[i].targetY - stations[j].targetY;
                 if (Math.sqrt(dx * dx + dy * dy) < THRESHOLD) {
-                    usedByNeighbors.add(stations[j].colorVariant ?? 0);
+                    usedByNeighbors.add(stations[j].colorVariant ?? (j % 4));
                 }
             }
             // Pick the first color not used by neighbors
