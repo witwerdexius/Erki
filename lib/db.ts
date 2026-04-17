@@ -288,7 +288,7 @@ function rowToProfile(row: any): Profile {
   return {
     id: row.id,
     communityId: row.community_id,
-    role: row.role as UserRole,
+    role: (row.role as UserRole) ?? 'user',
     displayName: row.display_name ?? undefined,
     email: row.email ?? undefined,
     createdAt: row.created_at,
@@ -302,7 +302,11 @@ export async function loadProfile(userId: string): Promise<Profile | null> {
     .eq('id', userId)
     .maybeSingle();
   if (error) throw error;
-  return data ? rowToProfile(data) : null;
+  if (!data) {
+    console.warn('[loadProfile] Kein Profil gefunden für userId:', userId, '– Prüfe RLS-Policies und ob die profiles-Zeile existiert.');
+    return null;
+  }
+  return rowToProfile(data);
 }
 
 export async function loadCommunity(communityId: string): Promise<Community | null> {

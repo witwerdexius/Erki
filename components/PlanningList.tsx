@@ -257,7 +257,7 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
         © 2026 Erlebnis Kirche Planner · v{process.env.NEXT_PUBLIC_APP_VERSION}
       </footer>
 
-      {showAdmin && community && (
+      {showAdmin && (
         <AdminPanel
           community={community}
           currentUserId={user.id}
