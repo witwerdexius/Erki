@@ -269,7 +269,7 @@ interface ErkiAppProps {
 export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = false }: ErkiAppProps) {
     const [importUrl, setImportUrl] = useState('');
     const [isImporting, setIsImporting] = useState(false);
-    const [activeTab, setActiveTab] = useState<'map' | 'table' | 'templates' | 'nachdenk'>('map');
+    const [activeTab, setActiveTab] = useState<'map' | 'table' | 'templates' | 'nachdenk'>('table');
     const [templates, setTemplates] = useState<StationTemplate[]>([]);
     const [templatesLoaded, setTemplatesLoaded] = useState(false);
     const [showTemplatePicker, setShowTemplatePicker] = useState(false);
@@ -1122,6 +1122,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                             onChange={(e) => updateActivePlan({ title: e.target.value })}
                             className="text-lg font-bold tracking-tight bg-transparent border-none outline-none focus:bg-gray-50 rounded px-1 min-w-0 w-full"
                             title="Titel bearbeiten"
+                            maxLength={100}
                         />
                     </div>
 
