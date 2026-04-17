@@ -597,6 +597,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
         if (!containerRef.current || !activePlan) return;
 
         const hiddenEls: { el: HTMLElement; prev: string }[] = [];
+        const shadowEls: { el: HTMLElement; prev: string }[] = [];
         let bgStylePrev: string | null = null;
 
         try {
@@ -608,6 +609,15 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
             container.querySelectorAll<HTMLElement>('[data-export-hidden]').forEach(el => {
                 hiddenEls.push({ el, prev: el.style.display });
                 el.style.display = 'none';
+            });
+
+            // Box-shadow vor Export entfernen
+            container.querySelectorAll<HTMLElement>('*').forEach(el => {
+                const cs = window.getComputedStyle(el);
+                if (cs.boxShadow && cs.boxShadow !== 'none') {
+                    shadowEls.push({ el, prev: el.style.boxShadow });
+                    el.style.boxShadow = 'none';
+                }
             });
 
             // Hintergrundbild als base64 direkt auf den Container setzen, damit Mobile Safari es rendert
@@ -631,24 +641,20 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
             // Wartezeit für Mobile Safari Re-Render
             await new Promise<void>(resolve => setTimeout(resolve, 500));
 
-            console.log('[PDF] Step 1: importing html-to-image');
-            const { toPng } = await import('html-to-image');
+            console.log('[PDF] Step 1: importing html2canvas');
+            const html2canvas = (await import('html2canvas')).default;
 
             console.log('[PDF] Step 2: capturing canvas');
-            const dataUrl = await toPng(container, {
-                pixelRatio: 2,
+            const canvas = await html2canvas(container, {
+                useCORS: true,
+                allowTaint: true,
+                scale: 2,
                 backgroundColor: '#ffffff',
-                cacheBust: true,
-                skipFonts: false,
-                includeQueryParams: true,
-                fetchRequestInit: { cache: 'force-cache' },
             });
+            const dataUrl = canvas.toDataURL('image/png');
+            const imgAspect = canvas.width / canvas.height;
 
             console.log('[PDF] Step 3: creating PDF');
-            const img = new Image();
-            img.src = dataUrl;
-            await new Promise<void>(resolve => { img.onload = () => resolve(); });
-            const imgAspect = img.naturalWidth / img.naturalHeight;
 
             const pdf = new jsPDF({
                 orientation: aspectRatio,
@@ -684,6 +690,8 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
         } finally {
             // Alle ausgeblendeten Elemente wiederherstellen
             hiddenEls.forEach(({ el, prev }) => { el.style.display = prev; });
+            // Box-shadow wiederherstellen
+            shadowEls.forEach(({ el, prev }) => { el.style.boxShadow = prev; });
             if (bgStylePrev !== null && containerRef.current) containerRef.current.style.backgroundImage = bgStylePrev;
             setIsExporting(false);
         }
