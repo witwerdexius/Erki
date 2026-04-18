@@ -645,18 +645,22 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
 
             console.log('[PDF] Step 1: importing html-to-image');
             const { toPng } = await import('html-to-image');
+            const W = container.offsetWidth;
+            const H = container.offsetHeight;
 
             console.log('[PDF] Step 2: capturing image');
             const dataUrl = await toPng(container, {
                 cacheBust: true,
-                width: container.offsetWidth,
-                height: container.offsetHeight,
-                style: { overflow: 'hidden' },
                 pixelRatio: 2,
                 backgroundColor: '#ffffff',
+                width: W,
+                height: H,
+                style: { width: W + 'px', height: H + 'px', overflow: 'hidden' },
             });
             container.style.boxShadow = prevBoxShadow;
-            const imgAspect = container.offsetWidth / container.offsetHeight;
+            const probeImg = new Image();
+            await new Promise<void>(r => { probeImg.onload = () => r(); probeImg.src = dataUrl; });
+            const imgAspect = probeImg.width / probeImg.height;
 
             console.log('[PDF] Step 3: creating PDF');
 
