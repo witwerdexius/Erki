@@ -594,125 +594,241 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
     };
 
     const exportToPDF = async () => {
-        if (!containerRef.current || !activePlan) return;
+        if (!activePlan) return;
 
-        const hiddenEls: { el: HTMLElement; prev: string }[] = [];
-        const shadowEls: { el: HTMLElement; prev: string }[] = [];
-        let bgImg: HTMLImageElement | null = null;
-        let originalSrc = '';
+        setEditingLabel(false);
+        setIsExporting(true);
 
         try {
-            const container = containerRef.current;
-            setEditingLabel(false);
-            setIsExporting(true);
+            // ── 1. Draw Lageplan onto an offscreen canvas (no html2canvas / CSS) ──
+            console.log('[PDF] Step 1: building canvas');
 
-            // Direkt per style ausblenden (Mobile Safari ignoriert CSS-Klassen zuverlässig nicht)
-            container.querySelectorAll<HTMLElement>('[data-export-hidden]').forEach(el => {
-                hiddenEls.push({ el, prev: el.style.display });
-                el.style.display = 'none';
-            });
+            const isLandscape = aspectRatio === 'landscape';
+            const W = isLandscape ? 2480 : 1754;
+            const H = isLandscape ? 1754 : 2480;
 
-            // Box-shadow vor Export entfernen
-            container.querySelectorAll<HTMLElement>('*').forEach(el => {
-                const cs = window.getComputedStyle(el);
-                if (cs.boxShadow && cs.boxShadow !== 'none') {
-                    shadowEls.push({ el, prev: el.style.boxShadow });
-                    el.style.boxShadow = 'none';
+            const canvas = document.createElement('canvas');
+            canvas.width = W;
+            canvas.height = H;
+            const ctx = canvas.getContext('2d')!;
+            const mapScale = W / 800;
+
+            // White background
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, W, H);
+
+            // Background image — fetched as blob to avoid CORS, drawn at 50% opacity with zoom
+            if (activePlan.backgroundImage) {
+                const blob = await fetch(activePlan.backgroundImage).then(r => r.blob());
+                const objUrl = URL.createObjectURL(blob);
+                const bgImg = await new Promise<HTMLImageElement>(resolve => {
+                    const img = new Image();
+                    img.onload = () => resolve(img);
+                    img.onerror = () => resolve(img);
+                    img.src = objUrl;
+                });
+                URL.revokeObjectURL(objUrl);
+
+                if (bgImg.naturalWidth > 0) {
+                    // object-contain: fit within W×H preserving aspect ratio
+                    const imgAspect = bgImg.naturalWidth / bgImg.naturalHeight;
+                    const containerAspect = W / H;
+                    let dw: number, dh: number;
+                    if (imgAspect > containerAspect) { dw = W; dh = W / imgAspect; }
+                    else { dh = H; dw = H * imgAspect; }
+                    const dx = (W - dw) / 2;
+                    const dy = (H - dh) / 2;
+                    const zoom = activePlan.bgZoom ?? 1;
+
+                    ctx.save();
+                    ctx.translate(W / 2, H / 2);
+                    ctx.scale(zoom, zoom);
+                    ctx.translate(-W / 2, -H / 2);
+                    ctx.globalAlpha = 0.5;
+                    ctx.drawImage(bgImg, dx, dy, dw, dh);
+                    ctx.restore();
                 }
-            });
-
-            // Hintergrundbild als data URL inlinen, damit html-to-image es rendern kann
-            bgImg = container.querySelector<HTMLImageElement>('img[alt="Lageplan Background"]');
-            if (bgImg && bgImg.src && !bgImg.src.startsWith('data:')) {
-                originalSrc = bgImg.src;
-                try {
-                    const resp = await fetch(bgImg.src);
-                    const blob = await resp.blob();
-                    const dataUrlInlined = await new Promise<string>((res) => {
-                        const r = new FileReader(); r.onloadend = () => res(r.result as string); r.readAsDataURL(blob);
-                    });
-                    bgImg.src = dataUrlInlined;
-                    await new Promise(r => setTimeout(r, 200));
-                } catch {}
             }
 
-            // Wartezeit für Re-Render
-            await new Promise<void>(resolve => setTimeout(resolve, 300));
-
-            // box-shadow vor dem Capture entfernen
-            const prevBoxShadow = container.style.boxShadow;
-            container.style.boxShadow = 'none';
-
-            // Disable all external stylesheets so html2canvas never sees lab()/oklch()
-            // while keeping computed rgb() colors by inlining them first
-            const allEls = Array.from(container.querySelectorAll('*')) as HTMLElement[];
-            const COLOR_PROPS = ['color', 'background-color', 'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color'];
-            const savedColors: Array<{el: HTMLElement, prop: string, prev: string}> = [];
-            allEls.forEach(el => {
-                const cs = window.getComputedStyle(el);
-                COLOR_PROPS.forEach(prop => {
-                    const val = cs.getPropertyValue(prop);
-                    if (val && val !== 'rgba(0, 0, 0, 0)') {
-                        savedColors.push({ el, prop, prev: el.style.getPropertyValue(prop) });
-                        el.style.setProperty(prop, val, 'important');
+            // Masks (inverted white polygons, same zoom as background)
+            if (activePlan.masks && activePlan.masks.length > 0) {
+                const zoom = activePlan.bgZoom ?? 1;
+                for (const mask of activePlan.masks) {
+                    ctx.save();
+                    ctx.translate(W / 2, H / 2);
+                    ctx.scale(zoom, zoom);
+                    ctx.translate(-W / 2, -H / 2);
+                    ctx.beginPath();
+                    ctx.rect(0, 0, W, H);
+                    if (mask.points.length > 0) {
+                        ctx.moveTo((mask.points[0].x / 100) * W, (mask.points[0].y / 100) * H);
+                        for (let i = 1; i < mask.points.length; i++) {
+                            ctx.lineTo((mask.points[i].x / 100) * W, (mask.points[i].y / 100) * H);
+                        }
+                        ctx.closePath();
                     }
-                });
-            });
+                    ctx.fillStyle = 'white';
+                    ctx.fill('evenodd');
+                    ctx.restore();
+                }
+            }
 
-            // Disable stylesheets so html2canvas can't parse lab()/oklch()
-            const linkEls = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'));
-            const styleEls = Array.from(document.querySelectorAll<HTMLStyleElement>('style:not([data-pdf-safe])'));
-            const prevLinkMedia = linkEls.map(l => l.media);
-            const prevStyleDisabled = styleEls.map(s => s.disabled);
-            linkEls.forEach(l => { l.media = 'not all'; });
-            styleEls.forEach(s => { s.disabled = true; });
+            // ── Station helpers ──────────────────────────────────────────────────
+            const COLORS = ['#6bbfd4', '#9b8ec4', '#7bc9a0', '#e07aaa'];
+            const bubbleR = 48 * mapScale;
+            const borderW = 6 * mapScale;
+            const targetR = 8 * mapScale;
 
-            // Small wait for browser to process style changes
-            await new Promise<void>(r => setTimeout(r, 100));
+            // Mirrors the JSX font-size estimation (same constants as rendering)
+            const simulateLines = (text: string, cpl: number): number => {
+                const segs = text.split(/(?<=[-\s])/);
+                let lines = 1, lc = 0;
+                for (const seg of segs) {
+                    if (lc + seg.length > cpl && lc > 0) { lines++; lc = seg.length; }
+                    else { lc += seg.length; }
+                    while (lc > cpl) { lines++; lc -= cpl; }
+                }
+                return lines;
+            };
 
+            // Connecting lines (dashed, black, 40% opacity)
+            ctx.save();
+            ctx.globalAlpha = 0.4;
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 1.5 * mapScale;
+            ctx.setLineDash([4 * mapScale, 4 * mapScale]);
+            for (const s of activePlan.stations) {
+                ctx.beginPath();
+                ctx.moveTo((s.targetX / 100) * W, (s.targetY / 100) * H);
+                ctx.lineTo((s.x / 100) * W, (s.y / 100) * H);
+                ctx.stroke();
+            }
+            ctx.restore();
 
-            console.log('[PDF] Step 1: importing html2canvas');
-            const html2canvas = (await import('html2canvas')).default;
+            // Target dots + label bubbles
+            for (const [idx, s] of activePlan.stations.entries()) {
+                const colorHex = COLORS[(s.colorVariant ?? idx) % 4];
+                const tx = (s.targetX / 100) * W;
+                const ty = (s.targetY / 100) * H;
+                const bx = (s.x / 100) * W;
+                const by = (s.y / 100) * H;
 
-            console.log('[PDF] Step 2: capturing canvas');
-            const canvas = await html2canvas(container, {
-                useCORS: true,
-                allowTaint: true,
-                scale: 2,
-                backgroundColor: '#ffffff',
-            });
+                // Target dot (small filled circle at marker position)
+                ctx.setLineDash([]);
+                ctx.beginPath();
+                ctx.arc(tx, ty, targetR, 0, Math.PI * 2);
+                ctx.fillStyle = colorHex;
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2 * mapScale;
+                ctx.stroke();
 
-            // Restore stylesheets
-            linkEls.forEach((l, i) => { l.media = prevLinkMedia[i]; });
-            styleEls.forEach((s, i) => { s.disabled = prevStyleDisabled[i]; });
+                // Bubble drop shadow
+                ctx.save();
+                ctx.shadowColor = 'rgba(0,0,0,0.18)';
+                ctx.shadowBlur = 18 * mapScale;
+                ctx.shadowOffsetY = 5 * mapScale;
+                ctx.beginPath();
+                ctx.arc(bx, by, bubbleR, 0, Math.PI * 2);
+                ctx.fillStyle = colorHex;
+                ctx.fill();
+                ctx.restore();
 
-            // Restore inline color overrides
-            savedColors.forEach(({ el, prop, prev }) => {
-                if (prev) el.style.setProperty(prop, prev);
-                else el.style.removeProperty(prop);
-            });
+                // Outer ring (= border color)
+                ctx.beginPath();
+                ctx.arc(bx, by, bubbleR, 0, Math.PI * 2);
+                ctx.fillStyle = colorHex;
+                ctx.fill();
 
-            container.style.boxShadow = prevBoxShadow;
+                // Inner fill (white when not filled, colorHex when filled)
+                ctx.beginPath();
+                ctx.arc(bx, by, bubbleR - borderW, 0, Math.PI * 2);
+                ctx.fillStyle = s.isFilled ? colorHex : '#ffffff';
+                ctx.fill();
+
+                // Station name — same font-size algorithm as JSX rendering
+                const textColor = s.isFilled ? '#ffffff' : '#374151';
+                const name = s.name.toUpperCase();
+                const availW = 64, availH = 58, charRatio = 0.56, lineH = 1.2;
+                let computedFontSize = 7;
+                for (let f = 14; f >= 7; f--) {
+                    const cpl = Math.floor(availW / (f * charRatio));
+                    if (cpl < 1) continue;
+                    if (simulateLines(name, cpl) * f * lineH <= availH) { computedFontSize = f; break; }
+                }
+                const fontPx = computedFontSize * mapScale;
+                ctx.font = `bold ${fontPx}px monospace`;
+                ctx.fillStyle = textColor;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                // Clip to inner circle, then draw word-wrapped lines
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(bx, by, bubbleR - borderW - mapScale, 0, Math.PI * 2);
+                ctx.clip();
+
+                const maxTw = (availW - 4) * mapScale;
+                const lines: string[] = [];
+                let cur = '';
+                for (const word of name.split(/\s+/)) {
+                    const test = cur ? `${cur} ${word}` : word;
+                    if (!cur || ctx.measureText(test).width <= maxTw) { cur = test; }
+                    else { lines.push(cur); cur = word; }
+                }
+                if (cur) lines.push(cur);
+
+                const totalH = lines.length * fontPx * lineH;
+                const startY = by - totalH / 2 + fontPx * lineH / 2;
+                lines.forEach((line, i) => ctx.fillText(line, bx, startY + i * fontPx * lineH));
+                ctx.restore();
+            }
+
+            // Logo overlay
+            if (activePlan.logoOverlay) {
+                const lo = activePlan.logoOverlay;
+                try {
+                    const blob = await fetch('/logo.jpeg').then(r => r.blob());
+                    const objUrl = URL.createObjectURL(blob);
+                    const logoImg = await new Promise<HTMLImageElement>(resolve => {
+                        const img = new Image();
+                        img.onload = () => resolve(img);
+                        img.onerror = () => resolve(img);
+                        img.src = objUrl;
+                    });
+                    URL.revokeObjectURL(objUrl);
+                    if (logoImg.naturalWidth > 0) {
+                        const lx = (lo.x / 100) * W;
+                        const ly = (lo.y / 100) * H;
+                        const lw = (lo.size / 100) * W;
+                        const lh = lw * (logoImg.naturalHeight / logoImg.naturalWidth);
+                        ctx.drawImage(logoImg, lx, ly, lw, lh);
+                    }
+                } catch { /* ignore logo load failures */ }
+            }
+
+            // Label overlay
+            if (activePlan.labelOverlay) {
+                const lb = activePlan.labelOverlay;
+                ctx.font = `bold ${lb.fontSize * mapScale}px sans-serif`;
+                ctx.fillStyle = '#1a1a1a';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+                ctx.setLineDash([]);
+                ctx.fillText(lb.text.toUpperCase(), (lb.x / 100) * W, (lb.y / 100) * H);
+            }
+
+            // ── 2. Build PDF ─────────────────────────────────────────────────────
+            console.log('[PDF] Step 2: creating PDF');
             const dataUrl = canvas.toDataURL('image/png');
-            const imgAspect = canvas.width / canvas.height;
+            const imgAspect = W / H;
 
-            console.log('[PDF] Step 3: creating PDF');
-
-            const pdf = new jsPDF({
-                orientation: aspectRatio,
-                unit: 'mm',
-                format: 'a4'
-            });
-
+            const pdf = new jsPDF({ orientation: aspectRatio, unit: 'mm', format: 'a4' });
             const pdfWidth = pdf.internal.pageSize.getWidth();
             const pdfHeight = pdf.internal.pageSize.getHeight();
-
             let drawW = pdfWidth;
             let drawH = pdfWidth / imgAspect;
-            if (drawH > pdfHeight) {
-                drawH = pdfHeight;
-                drawW = pdfHeight * imgAspect;
-            }
+            if (drawH > pdfHeight) { drawH = pdfHeight; drawW = pdfHeight * imgAspect; }
             const offsetX = (pdfWidth - drawW) / 2;
             const offsetY = (pdfHeight - drawH) / 2;
 
@@ -721,7 +837,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                 .replace(/[^a-z0-9]+/g, '-')
                 .replace(/^-+|-+$/g, '') || 'lageplan';
 
-            console.log('[PDF] Step 4: saving');
+            console.log('[PDF] Step 3: saving');
             pdf.addImage(dataUrl, 'PNG', offsetX, offsetY, drawW, drawH);
             pdf.save(`${sanitizedTitle}.pdf`);
             console.log('[PDF] Done');
@@ -730,12 +846,6 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
             console.error('[PDF] Export failed:', error);
             alert(`PDF Export fehlgeschlagen:\n${msg}`);
         } finally {
-            // Alle ausgeblendeten Elemente wiederherstellen
-            hiddenEls.forEach(({ el, prev }) => { el.style.display = prev; });
-            // Box-shadow wiederherstellen
-            shadowEls.forEach(({ el, prev }) => { el.style.boxShadow = prev; });
-            // Background image src wiederherstellen
-            if (bgImg && originalSrc) bgImg.src = originalSrc;
             setIsExporting(false);
         }
     };
