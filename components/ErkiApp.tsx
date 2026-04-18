@@ -764,7 +764,12 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                     if (simulateLines(name, cpl) * f * lineH <= availH) { computedFontSize = f; break; }
                 }
                 const fontPx = computedFontSize * mapScale;
-                ctx.font = `bold ${fontPx}px monospace`;
+                // Match JSX font-mono exactly: Tailwind's ui-monospace stack (SF Mono on macOS,
+                // not bare "monospace" which resolves to Courier New — a different glyph width)
+                const FONT_MONO = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+                ctx.font = `bold ${fontPx}px ${FONT_MONO}`;
+                // Match JSX tracking-tight (-0.025em); ctx.letterSpacing is supported in modern browsers
+                (ctx as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing = `${(-0.025 * fontPx).toFixed(2)}px`;
                 ctx.fillStyle = textColor;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
