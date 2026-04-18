@@ -768,19 +768,40 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                 ctx.arc(bx, by, bubbleR - borderW - mapScale, 0, Math.PI * 2);
                 ctx.clip();
 
-                const maxTw = (availW - 4) * mapScale;
+                // maxTw matches CSS content width: 96 - 2×border(6) - 2×padding(8) ≈ availW * mapScale
+                const maxTw = availW * mapScale;
+                // renderLineH matches CSS leading-tight (1.25), distinct from the estimation constant lineH
+                const renderLineH = 1.25;
                 const lines: string[] = [];
                 let cur = '';
                 for (const word of name.split(/\s+/)) {
+                    if (!word) continue;
                     const test = cur ? `${cur} ${word}` : word;
-                    if (!cur || ctx.measureText(test).width <= maxTw) { cur = test; }
-                    else { lines.push(cur); cur = word; }
+                    if (!cur || ctx.measureText(test).width <= maxTw) {
+                        cur = test;
+                    } else {
+                        if (cur) lines.push(cur);
+                        if (ctx.measureText(word).width <= maxTw) {
+                            cur = word;
+                        } else {
+                            // Word too long — break at character boundary (CSS overflowWrap: 'anywhere')
+                            cur = '';
+                            let rest = word;
+                            while (rest.length > 0) {
+                                let breakAt = 1;
+                                while (breakAt < rest.length && ctx.measureText(rest.slice(0, breakAt + 1)).width <= maxTw) breakAt++;
+                                const chunk = rest.slice(0, breakAt);
+                                rest = rest.slice(breakAt);
+                                if (rest.length > 0) { lines.push(chunk); } else { cur = chunk; }
+                            }
+                        }
+                    }
                 }
                 if (cur) lines.push(cur);
 
-                const totalH = lines.length * fontPx * lineH;
-                const startY = by - totalH / 2 + fontPx * lineH / 2;
-                lines.forEach((line, i) => ctx.fillText(line, bx, startY + i * fontPx * lineH));
+                const totalH = lines.length * fontPx * renderLineH;
+                const startY = by - totalH / 2 + fontPx * renderLineH / 2;
+                lines.forEach((line, i) => ctx.fillText(line, bx, startY + i * fontPx * renderLineH));
                 ctx.restore();
             }
 
