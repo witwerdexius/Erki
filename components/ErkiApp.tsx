@@ -643,24 +643,41 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
             const prevBoxShadow = container.style.boxShadow;
             container.style.boxShadow = 'none';
 
-            console.log('[PDF] Step 1: importing html-to-image');
-            const { toPng } = await import('html-to-image');
-            const W = container.offsetWidth;
-            const H = container.offsetHeight;
-
-            console.log('[PDF] Step 2: capturing image');
-            const dataUrl = await toPng(container, {
-                cacheBust: true,
-                pixelRatio: 2,
-                backgroundColor: '#ffffff',
-                width: W,
-                height: H,
-                style: { width: W + 'px', height: H + 'px', overflow: 'hidden' },
+            // Normalize all CSS colors to rgb() so html2canvas doesn't choke on lab()/oklch()
+            const allEls = Array.from(container.querySelectorAll('*')) as HTMLElement[];
+            const COLOR_PROPS = ['color', 'background-color', 'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color'];
+            const savedColors: Array<{el: HTMLElement, prop: string, prev: string}> = [];
+            allEls.forEach(el => {
+                const cs = window.getComputedStyle(el);
+                COLOR_PROPS.forEach(prop => {
+                    const val = cs.getPropertyValue(prop);
+                    if (val && val.trim() !== '' && val !== 'rgba(0, 0, 0, 0)') {
+                        savedColors.push({ el, prop, prev: el.style.getPropertyValue(prop) });
+                        el.style.setProperty(prop, val, 'important');
+                    }
+                });
             });
+
+            console.log('[PDF] Step 1: importing html2canvas');
+            const html2canvas = (await import('html2canvas')).default;
+
+            console.log('[PDF] Step 2: capturing canvas');
+            const canvas = await html2canvas(container, {
+                useCORS: true,
+                allowTaint: true,
+                scale: 2,
+                backgroundColor: '#ffffff',
+            });
+
+            // Restore colors
+            savedColors.forEach(({ el, prop, prev }) => {
+                if (prev) el.style.setProperty(prop, prev);
+                else el.style.removeProperty(prop);
+            });
+
             container.style.boxShadow = prevBoxShadow;
-            const probeImg = new Image();
-            await new Promise<void>(r => { probeImg.onload = () => r(); probeImg.src = dataUrl; });
-            const imgAspect = probeImg.width / probeImg.height;
+            const dataUrl = canvas.toDataURL('image/png');
+            const imgAspect = canvas.width / canvas.height;
 
             console.log('[PDF] Step 3: creating PDF');
 
