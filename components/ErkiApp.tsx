@@ -1337,7 +1337,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                             onChange={(e) => updateActivePlan({ title: e.target.value })}
                             className="text-lg font-bold tracking-tight bg-transparent border-none outline-none focus:bg-gray-50 rounded px-1 min-w-0 w-full"
                             title="Titel bearbeiten"
-                            maxLength={100}
+                            maxLength={200}
                         />
                     </div>
 
