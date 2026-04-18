@@ -795,14 +795,18 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                         const syl = syllables[si];
                         const isLast = si === syllables.length - 1;
                         const candidate = chunk + syl;
-                        // For non-last syllables reserve space for the trailing '-'
-                        const measureStr = isLast ? candidate : candidate + '-';
+                        // Reserve space for trailing '-' only when the candidate doesn't already end with one
+                        // (a syllable from a word like "Klein-Kind" may carry the literal hyphen)
+                        const needsHyphen = !isLast && !candidate.endsWith('-');
+                        const measureStr = needsHyphen ? candidate + '-' : candidate;
                         if (!chunk || ctx.measureText(measureStr).width <= maxTw) {
                             chunk = candidate;
                         } else {
-                            lines.push(chunk + '-');
-                            // Edge case: single syllable wider than maxTw → character break
-                            if (ctx.measureText(syl + (isLast ? '' : '-')).width > maxTw) {
+                            // Flush current chunk — avoid double hyphen if chunk already ends with '-'
+                            lines.push(chunk.endsWith('-') ? chunk : chunk + '-');
+                            // Edge case: single syllable wider than maxTw → character break (no '-' added)
+                            const sylNeedsHyphen = !isLast && !syl.endsWith('-');
+                            if (ctx.measureText(sylNeedsHyphen ? syl + '-' : syl).width > maxTw) {
                                 let rest = syl;
                                 while (rest.length > 0) {
                                     let breakAt = 1;
