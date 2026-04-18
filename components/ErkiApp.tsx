@@ -643,7 +643,8 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
             const prevBoxShadow = container.style.boxShadow;
             container.style.boxShadow = 'none';
 
-            // Normalize all CSS colors to rgb() so html2canvas doesn't choke on lab()/oklch()
+            // Disable all external stylesheets so html2canvas never sees lab()/oklch()
+            // while keeping computed rgb() colors by inlining them first
             const allEls = Array.from(container.querySelectorAll('*')) as HTMLElement[];
             const COLOR_PROPS = ['color', 'background-color', 'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color'];
             const savedColors: Array<{el: HTMLElement, prop: string, prev: string}> = [];
@@ -651,12 +652,24 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                 const cs = window.getComputedStyle(el);
                 COLOR_PROPS.forEach(prop => {
                     const val = cs.getPropertyValue(prop);
-                    if (val && val.trim() !== '' && val !== 'rgba(0, 0, 0, 0)') {
+                    if (val && val !== 'rgba(0, 0, 0, 0)') {
                         savedColors.push({ el, prop, prev: el.style.getPropertyValue(prop) });
                         el.style.setProperty(prop, val, 'important');
                     }
                 });
             });
+
+            // Disable stylesheets so html2canvas can't parse lab()/oklch()
+            const linkEls = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'));
+            const styleEls = Array.from(document.querySelectorAll<HTMLStyleElement>('style:not([data-pdf-safe])'));
+            const prevLinkMedia = linkEls.map(l => l.media);
+            const prevStyleDisabled = styleEls.map(s => s.disabled);
+            linkEls.forEach(l => { l.media = 'not all'; });
+            styleEls.forEach(s => { s.disabled = true; });
+
+            // Small wait for browser to process style changes
+            await new Promise<void>(r => setTimeout(r, 100));
+
 
             console.log('[PDF] Step 1: importing html2canvas');
             const html2canvas = (await import('html2canvas')).default;
@@ -669,7 +682,11 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                 backgroundColor: '#ffffff',
             });
 
-            // Restore colors
+            // Restore stylesheets
+            linkEls.forEach((l, i) => { l.media = prevLinkMedia[i]; });
+            styleEls.forEach((s, i) => { s.disabled = prevStyleDisabled[i]; });
+
+            // Restore inline color overrides
             savedColors.forEach(({ el, prop, prev }) => {
                 if (prev) el.style.setProperty(prop, prev);
                 else el.style.removeProperty(prop);
