@@ -679,6 +679,13 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
             const borderW = 6 * mapScale;
             const targetR = 8 * mapScale;
 
+            // German syllable hyphenation (same package as table export)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const createHyphenator = ((await import('hyphen')) as any).default ?? (await import('hyphen'));
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const dePatterns = ((await import('hyphen/patterns/de-1996')) as any).default ?? (await import('hyphen/patterns/de-1996'));
+            const hyphenate: (word: string) => string = createHyphenator(dePatterns);
+
             // Mirrors the JSX font-size estimation (same constants as rendering)
             const simulateLines = (text: string, cpl: number): number => {
                 const segs = text.split(/(?<=[-\s])/);
@@ -774,16 +781,37 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                 const renderLineH = 1.25;
                 const lines: string[] = [];
                 let cur = '';
-                // Break a single word across lines when it exceeds maxTw (CSS overflowWrap: 'anywhere')
+                // Break a single word across lines using German syllable boundaries.
+                // Falls back to character-level breaking if a syllable itself is too wide.
                 const breakWord = (w: string) => {
-                    let rest = w;
-                    while (rest.length > 0) {
-                        let breakAt = 1;
-                        while (breakAt < rest.length && ctx.measureText(rest.slice(0, breakAt + 1)).width <= maxTw) breakAt++;
-                        const chunk = rest.slice(0, breakAt);
-                        rest = rest.slice(breakAt);
-                        if (rest.length > 0) { lines.push(chunk); } else { cur = chunk; }
+                    const syllables = hyphenate(w).split('\u00AD'); // soft hyphens mark syllable breaks
+                    let chunk = '';
+                    for (let si = 0; si < syllables.length; si++) {
+                        const syl = syllables[si];
+                        const isLast = si === syllables.length - 1;
+                        const candidate = chunk + syl;
+                        // For non-last syllables reserve space for the trailing '-'
+                        const measureStr = isLast ? candidate : candidate + '-';
+                        if (!chunk || ctx.measureText(measureStr).width <= maxTw) {
+                            chunk = candidate;
+                        } else {
+                            lines.push(chunk + '-');
+                            // Edge case: single syllable wider than maxTw → character break
+                            if (ctx.measureText(syl + (isLast ? '' : '-')).width > maxTw) {
+                                let rest = syl;
+                                while (rest.length > 0) {
+                                    let breakAt = 1;
+                                    while (breakAt < rest.length && ctx.measureText(rest.slice(0, breakAt + 1)).width <= maxTw) breakAt++;
+                                    const ch = rest.slice(0, breakAt);
+                                    rest = rest.slice(breakAt);
+                                    if (rest.length > 0) { lines.push(ch); } else { chunk = ch; }
+                                }
+                            } else {
+                                chunk = syl;
+                            }
+                        }
                     }
+                    cur = chunk;
                 };
                 for (const word of name.split(/\s+/)) {
                     if (!word) continue;
