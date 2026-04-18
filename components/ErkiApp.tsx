@@ -774,26 +774,30 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                 const renderLineH = 1.25;
                 const lines: string[] = [];
                 let cur = '';
+                // Break a single word across lines when it exceeds maxTw (CSS overflowWrap: 'anywhere')
+                const breakWord = (w: string) => {
+                    let rest = w;
+                    while (rest.length > 0) {
+                        let breakAt = 1;
+                        while (breakAt < rest.length && ctx.measureText(rest.slice(0, breakAt + 1)).width <= maxTw) breakAt++;
+                        const chunk = rest.slice(0, breakAt);
+                        rest = rest.slice(breakAt);
+                        if (rest.length > 0) { lines.push(chunk); } else { cur = chunk; }
+                    }
+                };
                 for (const word of name.split(/\s+/)) {
                     if (!word) continue;
-                    const test = cur ? `${cur} ${word}` : word;
-                    if (!cur || ctx.measureText(test).width <= maxTw) {
-                        cur = test;
+                    const wordW = ctx.measureText(word).width;
+                    if (!cur) {
+                        // Starting a new line — must still check if the word fits
+                        if (wordW <= maxTw) { cur = word; } else { breakWord(word); }
                     } else {
-                        if (cur) lines.push(cur);
-                        if (ctx.measureText(word).width <= maxTw) {
-                            cur = word;
+                        const testW = ctx.measureText(`${cur} ${word}`).width;
+                        if (testW <= maxTw) {
+                            cur = `${cur} ${word}`;
                         } else {
-                            // Word too long — break at character boundary (CSS overflowWrap: 'anywhere')
-                            cur = '';
-                            let rest = word;
-                            while (rest.length > 0) {
-                                let breakAt = 1;
-                                while (breakAt < rest.length && ctx.measureText(rest.slice(0, breakAt + 1)).width <= maxTw) breakAt++;
-                                const chunk = rest.slice(0, breakAt);
-                                rest = rest.slice(breakAt);
-                                if (rest.length > 0) { lines.push(chunk); } else { cur = chunk; }
-                            }
+                            lines.push(cur);
+                            if (wordW <= maxTw) { cur = word; } else { cur = ''; breakWord(word); }
                         }
                     }
                 }
