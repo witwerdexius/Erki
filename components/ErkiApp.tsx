@@ -2055,9 +2055,9 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                                 <textarea
                                                                     value={s.description}
                                                                     onChange={(e) => updateStation(s.id, { description: e.target.value })}
-                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm h-auto min-h-[2rem] resize-none overflow-hidden text-gray-700"
+                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-[1rem] resize-none text-gray-700"
                                                                     style={{ touchAction: 'pan-y' }}
-                                                                    onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }}
+                                                                    rows={Math.max(1, (s.description || '').split('\n').length)}
                                                                 />
                                                             </div>
                                                         ) : null}
@@ -2067,9 +2067,9 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                                 <textarea
                                                                     value={s.material}
                                                                     onChange={(e) => updateStation(s.id, { material: e.target.value })}
-                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm h-auto min-h-[2rem] resize-none overflow-hidden text-gray-700"
+                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-[1rem] resize-none text-gray-700"
                                                                     style={{ touchAction: 'pan-y' }}
-                                                                    onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }}
+                                                                    rows={Math.max(1, (s.material || '').split('\n').length)}
                                                                 />
                                                             </div>
                                                         ) : null}
@@ -2079,9 +2079,9 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                                 <textarea
                                                                     value={(s.impulses || []).join('\n')}
                                                                     onChange={(e) => updateStation(s.id, { impulses: e.target.value.split('\n').filter(l => l.trim()) })}
-                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm h-auto min-h-[2rem] resize-none overflow-hidden text-gray-700"
+                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-[1rem] resize-none text-gray-700"
                                                                     style={{ touchAction: 'pan-y' }}
-                                                                    onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }}
+                                                                    rows={Math.max(1, (s.impulses || []).length)}
                                                                 />
                                                             </div>
                                                         ) : null}
@@ -2091,10 +2091,9 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                                 <textarea
                                                                     value={s.setupBy}
                                                                     onChange={(e) => updateStation(s.id, { setupBy: e.target.value })}
-                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm h-auto resize-none overflow-hidden text-gray-700"
+                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-[1rem] resize-none text-gray-700"
                                                                     style={{ touchAction: 'pan-y' }}
-                                                                    rows={1}
-                                                                    onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }}
+                                                                    rows={Math.max(1, (s.setupBy || '').split('\n').length)}
                                                                 />
                                                             </div>
                                                         ) : null}
@@ -2104,10 +2103,9 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                                 <textarea
                                                                     value={s.conductedBy}
                                                                     onChange={(e) => updateStation(s.id, { conductedBy: e.target.value })}
-                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm h-auto resize-none overflow-hidden text-gray-700"
+                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-[1rem] resize-none text-gray-700"
                                                                     style={{ touchAction: 'pan-y' }}
-                                                                    rows={1}
-                                                                    onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }}
+                                                                    rows={Math.max(1, (s.conductedBy || '').split('\n').length)}
                                                                 />
                                                             </div>
                                                         ) : null}
