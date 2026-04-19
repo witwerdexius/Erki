@@ -66,18 +66,16 @@ export interface Profile {
 
 export interface TimeBlock {
   label: string;
-  time: string;
   description: string;
 }
 
 export interface ExplanationData {
-  title: string;
-  churchLogoUrl?: string;
+  timeBlocks: [TimeBlock, TimeBlock, TimeBlock];
+  nextDates: string[];
   churchLogo1Url?: string;
   churchLogo2Url?: string;
   qrCodeUrl?: string;
-  timeBlocks: [TimeBlock, TimeBlock, TimeBlock];
-  nextDates: string[];
+  feedbackText?: string;
 }
 
 export interface Plan {
