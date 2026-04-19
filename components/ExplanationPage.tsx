@@ -1,7 +1,11 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Download, Plus, Trash2, Loader2, Upload } from 'lucide-react';
+import { Download, Plus, Trash2, Loader2 } from 'lucide-react';
+
+const LOGO1_SRC = '/logo1.jpg';
+const LOGO2_SRC = '/logo2.jpg';
+const QR_SRC = '/qr3.jpg';
 import { Plan, ExplanationData, TimeBlock } from '@/lib/types';
 import { jsPDF } from 'jspdf';
 import { cn } from '@/lib/utils';
@@ -127,57 +131,6 @@ function EditableTextarea({
       style={style}
     >
       {value || <em className="text-gray-300 not-italic">{placeholder}</em>}
-    </div>
-  );
-}
-
-// --- Logo slot ---
-
-function LogoSlot({ url, onUpload, onRemove }: { url?: string; onUpload: (url: string) => void; onRemove: () => void }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => onUpload(reader.result as string);
-    reader.readAsDataURL(file);
-  };
-
-  if (url) {
-    return (
-      <div style={{ position: 'relative', height: 64, display: 'flex', alignItems: 'center' }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={url} alt="Logo" style={{ height: 64, maxWidth: 100, objectFit: 'contain' }} />
-        <button
-          data-export-hidden
-          onClick={onRemove}
-          style={{
-            position: 'absolute', top: -6, right: -6,
-            background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%',
-            width: 18, height: 18, cursor: 'pointer', fontSize: 11,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-          title="Logo entfernen"
-        >×</button>
-      </div>
-    );
-  }
-
-  return (
-    <div data-export-hidden>
-      <input ref={inputRef} type="file" accept="image/*" onChange={handleChange} style={{ display: 'none' }} />
-      <button
-        onClick={() => inputRef.current?.click()}
-        style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          gap: 4, width: 64, height: 64, border: '2px dashed #d1d5db', borderRadius: 8,
-          cursor: 'pointer', background: 'none', color: '#9ca3af', fontSize: 10,
-        }}
-      >
-        <Upload size={14} />
-        <span>Logo</span>
-      </button>
     </div>
   );
 }
@@ -317,16 +270,34 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
 
             {/* Right: Two church logos, right-aligned */}
             <div style={{ flex: '0 0 50%', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
-              <LogoSlot
-                url={data.churchLogo1Url}
-                onUpload={(url) => update({ churchLogo1Url: url })}
-                onRemove={() => update({ churchLogo1Url: undefined })}
-              />
-              <LogoSlot
-                url={data.churchLogo2Url}
-                onUpload={(url) => update({ churchLogo2Url: url })}
-                onRemove={() => update({ churchLogo2Url: undefined })}
-              />
+              {/* Logo 1 */}
+              <div style={{ position: 'relative', height: 64, display: 'flex', alignItems: 'center' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={data.churchLogo1Url ?? LOGO1_SRC} alt="Logo 1" style={{ height: 64, maxWidth: 100, objectFit: 'contain' }} />
+                <input
+                  data-export-hidden
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  id="logo1-override"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = () => update({ churchLogo1Url: r.result as string }); r.readAsDataURL(f); }}
+                />
+                <label data-export-hidden htmlFor="logo1-override" style={{ position: 'absolute', bottom: -2, right: -2, background: '#6b7280', color: '#fff', borderRadius: 4, padding: '1px 4px', fontSize: 9, cursor: 'pointer' }}>▲</label>
+              </div>
+              {/* Logo 2 */}
+              <div style={{ position: 'relative', height: 64, display: 'flex', alignItems: 'center' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={data.churchLogo2Url ?? LOGO2_SRC} alt="Logo 2" style={{ height: 64, maxWidth: 100, objectFit: 'contain' }} />
+                <input
+                  data-export-hidden
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  id="logo2-override"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = () => update({ churchLogo2Url: r.result as string }); r.readAsDataURL(f); }}
+                />
+                <label data-export-hidden htmlFor="logo2-override" style={{ position: 'absolute', bottom: -2, right: -2, background: '#6b7280', color: '#fff', borderRadius: 4, padding: '1px 4px', fontSize: 9, cursor: 'pointer' }}>▲</label>
+              </div>
             </div>
           </div>
 
@@ -423,38 +394,23 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
                 onChange={(v) => update({ feedbackText: v })}
                 style={{ fontSize: 14, color: '#111827', textAlign: 'center', lineHeight: 1.5, width: '100%' }}
               />
-              {data.qrCodeUrl ? (
-                <div style={{ position: 'relative' }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={data.qrCodeUrl} alt="QR Code" style={{ height: 80, width: 'auto', objectFit: 'contain' }} />
-                  <button
-                    data-export-hidden
-                    onClick={() => update({ qrCodeUrl: undefined })}
-                    style={{
-                      position: 'absolute', top: -6, right: -6,
-                      background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%',
-                      width: 18, height: 18, cursor: 'pointer', fontSize: 11,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}
-                    title="QR-Code entfernen"
-                  >×</button>
-                </div>
-              ) : (
-                <div data-export-hidden>
-                  <input ref={qrInputRef} type="file" accept="image/*" onChange={handleQrUpload} style={{ display: 'none' }} />
-                  <button
-                    onClick={() => qrInputRef.current?.click()}
-                    style={{
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                      gap: 4, width: 80, height: 80, border: '2px dashed #d1d5db', borderRadius: 8,
-                      cursor: 'pointer', background: 'none', color: '#9ca3af', fontSize: 10,
-                    }}
-                  >
-                    <Upload size={16} />
-                    <span>QR-Code hochladen</span>
-                  </button>
-                </div>
-              )}
+              <div style={{ position: 'relative' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={data.qrCodeUrl ?? QR_SRC} alt="QR Code" style={{ height: 80, width: 'auto', objectFit: 'contain' }} />
+                <input
+                  data-export-hidden
+                  ref={qrInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={handleQrUpload}
+                />
+                <label
+                  data-export-hidden
+                  onClick={() => qrInputRef.current?.click()}
+                  style={{ position: 'absolute', bottom: -2, right: -2, background: '#6b7280', color: '#fff', borderRadius: 4, padding: '1px 4px', fontSize: 9, cursor: 'pointer' }}
+                >▲</label>
+              </div>
             </div>
           </div>
         </div>

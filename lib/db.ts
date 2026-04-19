@@ -132,6 +132,7 @@ export async function savePlanning(plan: Plan): Promise<void> {
         logo_overlay: plan.logoOverlay ?? null,
         label_overlay: plan.labelOverlay ?? null,
         bg_zoom: plan.bgZoom ?? 1,
+        explanation_data: plan.explanationData ?? null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', plan.id),
