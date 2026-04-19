@@ -126,8 +126,20 @@ function EditableTextarea({
 
 export default function ExplanationPage({ activePlan, updateActivePlan }: Props) {
   const pageRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const churchLogoInputRef = useRef<HTMLInputElement>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [paperScale, setPaperScale] = useState(1);
+
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const update = () => setPaperScale(Math.min(1, el.offsetWidth / 559));
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   if (!activePlan) return null;
 
@@ -210,6 +222,11 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
         </button>
       </div>
 
+      {/* Scale wrapper: shrinks A5 paper on narrow viewports */}
+      <div
+        ref={wrapperRef}
+        style={{ maxWidth: 559, width: '100%', margin: '0 auto', height: Math.round(794 * paperScale), overflow: 'hidden' }}
+      >
       {/* A5 Portrait Paper — 559 × 794px ≈ 148:210 */}
       <div
         ref={pageRef}
@@ -217,7 +234,6 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
           width: 559,
           height: 794,
           backgroundColor: '#ffffff',
-          margin: '0 auto',
           padding: '28px 32px 24px',
           boxShadow: '0 4px 32px rgba(0,0,0,0.15)',
           display: 'flex',
@@ -225,6 +241,8 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
           fontFamily: 'system-ui, -apple-system, sans-serif',
           boxSizing: 'border-box',
           overflow: 'visible',
+          transformOrigin: 'top left',
+          transform: paperScale < 1 ? `scale(${paperScale})` : undefined,
         }}
       >
         {/* ── HEADER ── */}
@@ -443,6 +461,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
           </span>
         </div>
       </div>
+      </div>{/* /scale wrapper */}
     </div>
   );
 }
