@@ -16,12 +16,12 @@ interface Props {
 }
 
 const DEFAULT_TIME_BLOCKS: [TimeBlock, TimeBlock, TimeBlock] = [
-  { label: 'Ab 15:30 Uhr', description: 'Mitmach-Stationen zum Thema \u201eSternstunden\u201c im Gemeindehaus und in den R\u00e4umen des Kindergartens nebenan' },
-  { label: 'danach\n(ca. 16:45 Uhr)', description: 'gemeinsame Feierzeit mit Liedern & Gebet im gro\u00dfen Saal des Gemeindehauses' },
-  { label: 'zum Schluss', description: 'gemeinsames Essen im gro\u00dfen Saal des Gemeindehauses' },
+  { label: 'Ab 15:30 Uhr', description: 'Mitmach-Stationen zum Thema „Sternstunden" im Gemeindehaus und in den Räumen des Kindergartens nebenan' },
+  { label: 'danach\n(ca. 16:45 Uhr)', description: 'gemeinsame Feierzeit mit Liedern & Gebet im großen Saal des Gemeindehauses' },
+  { label: 'zum Schluss', description: 'gemeinsames Essen im großen Saal des Gemeindehauses' },
 ];
 
-const DEFAULT_NEXT_DATES = ['08. M\u00e4rz 2026', '14. Juni 2026', '18. Oktober 2026'];
+const DEFAULT_NEXT_DATES = ['08. März 2026', '14. Juni 2026', '18. Oktober 2026'];
 const DEFAULT_FEEDBACK_TEXT = 'Feedback? Gerne!\nEinfach ansprechen oder\nQR-Code scannen!';
 
 // --- Inline-editable helpers ---
@@ -31,7 +31,7 @@ function EditableText({
   onChange,
   className,
   style,
-  placeholder = 'Klicken zum Bearbeiten \u2026',
+  placeholder = 'Klicken zum Bearbeiten …',
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -80,7 +80,7 @@ function EditableTextarea({
   onChange,
   className,
   style,
-  placeholder = 'Klicken zum Bearbeiten \u2026',
+  placeholder = 'Klicken zum Bearbeiten …',
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -311,7 +311,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
                   <EditableTextarea
                     value={data.timeBlocks[i].label}
                     onChange={(v) => updateTimeBlock(i, { label: v })}
-                    placeholder="Zeit \u2026"
+                    placeholder="Zeit …"
                     style={{ fontSize: 20, fontWeight: 400, color: '#111827', lineHeight: 1.3, width: '100%' }}
                   />
                 </div>
@@ -321,7 +321,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
                   <EditableTextarea
                     value={data.timeBlocks[i].description}
                     onChange={(v) => updateTimeBlock(i, { description: v })}
-                    placeholder="Beschreibung \u2026"
+                    placeholder="Beschreibung …"
                     style={{ fontSize: 22, fontWeight: 400, color: '#111827', textAlign: 'center', lineHeight: 1.4, width: '100%' }}
                   />
                 </div>
@@ -346,11 +346,11 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
               }}
             >
               <p style={{ fontWeight: 700, fontSize: 14, color: '#1c1917', textDecoration: 'underline', margin: '0 0 8px 0' }}>
-                N\u00e4chste Termine:
+                Nächste Termine:
               </p>
               {data.nextDates.map((date, idx) => (
                 <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-                  <span style={{ color: '#1c1917', fontSize: 14, flexShrink: 0 }}>\u2022</span>
+                  <span style={{ color: '#1c1917', fontSize: 14, flexShrink: 0 }}>•</span>
                   <EditableText
                     value={date}
                     onChange={(v) => {
@@ -358,7 +358,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
                       arr[idx] = v;
                       update({ nextDates: arr });
                     }}
-                    placeholder="Datum \u2026"
+                    placeholder="Datum …"
                     style={{ fontSize: 14, color: '#1c1917', flex: 1, minWidth: 0, fontFamily: "'Patrick Hand', cursive" }}
                   />
                   <button
@@ -381,7 +381,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
                   fontFamily: "'Patrick Hand', cursive",
                 }}
               >
-                <Plus size={11} /> Termin hinzuf\u00fcgen
+                <Plus size={11} /> Termin hinzufügen
               </button>
             </div>
 
