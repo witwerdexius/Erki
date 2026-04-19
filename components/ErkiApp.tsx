@@ -455,20 +455,13 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
         return () => clearTimeout(t);
     }, [activeTab]);
 
-    // Auto-resize all textareas in the table when plan or tab changes.
-    // requestAnimationFrame defers until after framer-motion's initial paint so
-    // scrollHeight is correct even on first render.
+    // Auto-resize remaining textareas (name + accordion) on tab/plan change
     useEffect(() => {
         if (activeTab !== 'table' || !tableRef.current) return;
-        const resize = () => {
-            tableRef.current?.querySelectorAll('textarea').forEach(ta => {
-                ta.style.height = 'auto';
-                ta.style.height = ta.scrollHeight + 'px';
-            });
-        };
-        resize();
-        const id = requestAnimationFrame(resize);
-        return () => cancelAnimationFrame(id);
+        tableRef.current.querySelectorAll('textarea').forEach(ta => {
+            ta.style.height = 'auto';
+            ta.style.height = ta.scrollHeight + 'px';
+        });
     }, [activeTab, plan.id, activePlan?.stations]);
 
     const handleImport = async () => {
@@ -1967,81 +1960,53 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                     />
                                                 </td>
                                                 <td className="hidden sm:table-cell p-4 align-top">
-                                                    <textarea
-                                                        value={s.description}
-                                                        onChange={(e) => updateStation(s.id, { description: e.target.value })}
-                                                        className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm h-auto min-h-[4rem] resize-none overflow-hidden"
+                                                    <div
+                                                        ref={(el) => { if (el && el !== document.activeElement) el.textContent = s.description || ''; }}
+                                                        contentEditable
+                                                        suppressContentEditableWarning
+                                                        className="w-full text-sm whitespace-pre-wrap outline-none min-h-[4rem] cursor-text"
                                                         style={{ touchAction: 'pan-y' }}
-                                                        placeholder="Keine Beschreibung..."
-                                                        onInput={(e) => {
-                                                            const target = e.target as HTMLTextAreaElement;
-                                                            target.style.height = 'auto';
-                                                            target.style.height = target.scrollHeight + 'px';
-                                                        }}
+                                                        onBlur={(e) => updateStation(s.id, { description: e.currentTarget.innerText })}
                                                     />
                                                 </td>
                                                 <td className="hidden sm:table-cell p-4 align-top">
-                                                    <textarea
-                                                        value={s.material}
-                                                        onChange={(e) => updateStation(s.id, { material: e.target.value })}
-                                                        className="w-full bg-transparent border-none p-0 focus:ring-0 text-xs h-auto min-h-[4rem] resize-none overflow-hidden text-gray-500"
+                                                    <div
+                                                        ref={(el) => { if (el && el !== document.activeElement) el.textContent = s.material || ''; }}
+                                                        contentEditable
+                                                        suppressContentEditableWarning
+                                                        className="w-full text-xs whitespace-pre-wrap outline-none min-h-[4rem] cursor-text text-gray-500"
                                                         style={{ touchAction: 'pan-y' }}
-                                                        placeholder="Kein Material..."
-                                                        onInput={(e) => {
-                                                            const target = e.target as HTMLTextAreaElement;
-                                                            target.style.height = 'auto';
-                                                            target.style.height = target.scrollHeight + 'px';
-                                                        }}
+                                                        onBlur={(e) => updateStation(s.id, { material: e.currentTarget.innerText })}
                                                     />
                                                 </td>
                                                 <td className="hidden sm:table-cell p-4 align-top">
-                                                    <textarea
-                                                        value={(s.impulses || []).join('\n')}
-                                                        onChange={(e) => updateStation(s.id, { impulses: e.target.value.split('\n').filter(l => l.trim()) })}
-                                                        className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm h-auto min-h-[4rem] resize-none overflow-hidden text-gray-500"
+                                                    <div
+                                                        ref={(el) => { if (el && el !== document.activeElement) el.textContent = (s.impulses || []).join('\n'); }}
+                                                        contentEditable
+                                                        suppressContentEditableWarning
+                                                        className="w-full text-sm whitespace-pre-wrap outline-none min-h-[4rem] cursor-text text-gray-500"
                                                         style={{ touchAction: 'pan-y' }}
-                                                        placeholder="Keine Impulse..."
-                                                        onInput={(e) => {
-                                                            const target = e.target as HTMLTextAreaElement;
-                                                            target.style.height = 'auto';
-                                                            target.style.height = target.scrollHeight + 'px';
-                                                        }}
+                                                        onBlur={(e) => updateStation(s.id, { impulses: e.currentTarget.innerText.split('\n').filter(l => l.trim()) })}
                                                     />
                                                 </td>
                                                 <td className="hidden sm:table-cell p-4">
-                                                    <textarea
-                                                        value={s.setupBy}
-                                                        onChange={(e) => {
-                                                            updateStation(s.id, { setupBy: e.target.value });
-                                                            e.target.style.height = 'auto';
-                                                            e.target.style.height = e.target.scrollHeight + 'px';
-                                                        }}
-                                                        onInput={(e) => {
-                                                            const t = e.target as HTMLTextAreaElement;
-                                                            t.style.height = 'auto';
-                                                            t.style.height = t.scrollHeight + 'px';
-                                                        }}
-                                                        className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm resize-none overflow-hidden"
-                                                        placeholder="Name..."
-                                                        rows={1}
+                                                    <div
+                                                        ref={(el) => { if (el && el !== document.activeElement) el.textContent = s.setupBy || ''; }}
+                                                        contentEditable
+                                                        suppressContentEditableWarning
+                                                        className="w-full text-sm whitespace-pre-wrap outline-none cursor-text"
+                                                        style={{ touchAction: 'pan-y' }}
+                                                        onBlur={(e) => updateStation(s.id, { setupBy: e.currentTarget.innerText })}
                                                     />
                                                 </td>
                                                 <td className="hidden sm:table-cell p-4">
-                                                    <textarea
-                                                        value={s.conductedBy}
-                                                        onChange={(e) => {
-                                                            updateStation(s.id, { conductedBy: e.target.value });
-                                                            e.target.style.height = 'auto';
-                                                            e.target.style.height = e.target.scrollHeight + 'px';
-                                                        }}
-                                                        onInput={(e) => {
-                                                            const t = e.target as HTMLTextAreaElement;
-                                                            t.style.height = 'auto';
-                                                            t.style.height = t.scrollHeight + 'px';
-                                                        }}
-                                                        className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm resize-none overflow-hidden"
-                                                        placeholder="Name..."
-                                                        rows={1}
+                                                    <div
+                                                        ref={(el) => { if (el && el !== document.activeElement) el.textContent = s.conductedBy || ''; }}
+                                                        contentEditable
+                                                        suppressContentEditableWarning
+                                                        className="w-full text-sm whitespace-pre-wrap outline-none cursor-text"
+                                                        style={{ touchAction: 'pan-y' }}
+                                                        onBlur={(e) => updateStation(s.id, { conductedBy: e.currentTarget.innerText })}
                                                     />
                                                 </td>
                                                 <td className="hidden sm:table-cell p-4">
