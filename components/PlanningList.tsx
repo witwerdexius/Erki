@@ -213,7 +213,7 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-gray-900 truncate">{plan.title}</span>
+                    <span className="font-semibold text-gray-900 break-words">{plan.title}</span>
                     <select
                       value={plan.status}
                       onChange={(e) => handleStatusChange(plan.id, e.target.value as PlanStatus)}
