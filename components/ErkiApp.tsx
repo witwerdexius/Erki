@@ -2077,20 +2077,78 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                             </tr>
                                             {expandedRows.has(s.id) && (
                                                 <tr className="sm:hidden bg-gray-50/80">
-                                                    <td colSpan={3} className="px-4 pb-4 pt-2">
-                                                        <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Beschreibung</p>
-                                                        <textarea
-                                                            value={s.description}
-                                                            onChange={(e) => updateStation(s.id, { description: e.target.value })}
-                                                            className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm h-auto min-h-[3rem] resize-none overflow-hidden text-gray-600"
-                                                            style={{ touchAction: 'pan-y' }}
-                                                            placeholder="Keine Beschreibung..."
-                                                            onInput={(e) => {
-                                                                const target = e.target as HTMLTextAreaElement;
-                                                                target.style.height = 'auto';
-                                                                target.style.height = target.scrollHeight + 'px';
-                                                            }}
-                                                        />
+                                                    <td colSpan={3} className="px-4 pb-4 pt-2 space-y-3">
+                                                        {s.description ? (
+                                                            <div>
+                                                                <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Beschreibung</p>
+                                                                <textarea
+                                                                    value={s.description}
+                                                                    onChange={(e) => updateStation(s.id, { description: e.target.value })}
+                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm h-auto min-h-[2rem] resize-none overflow-hidden text-gray-700"
+                                                                    style={{ touchAction: 'pan-y' }}
+                                                                    onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }}
+                                                                />
+                                                            </div>
+                                                        ) : null}
+                                                        {s.material ? (
+                                                            <div>
+                                                                <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Material</p>
+                                                                <textarea
+                                                                    value={s.material}
+                                                                    onChange={(e) => updateStation(s.id, { material: e.target.value })}
+                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm h-auto min-h-[2rem] resize-none overflow-hidden text-gray-700"
+                                                                    style={{ touchAction: 'pan-y' }}
+                                                                    onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }}
+                                                                />
+                                                            </div>
+                                                        ) : null}
+                                                        {(s.impulses || []).length > 0 ? (
+                                                            <div>
+                                                                <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Gesprächsimpulse</p>
+                                                                <textarea
+                                                                    value={(s.impulses || []).join('\n')}
+                                                                    onChange={(e) => updateStation(s.id, { impulses: e.target.value.split('\n').filter(l => l.trim()) })}
+                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm h-auto min-h-[2rem] resize-none overflow-hidden text-gray-700"
+                                                                    style={{ touchAction: 'pan-y' }}
+                                                                    onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }}
+                                                                />
+                                                            </div>
+                                                        ) : null}
+                                                        {s.setupBy ? (
+                                                            <div>
+                                                                <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Aufbau</p>
+                                                                <textarea
+                                                                    value={s.setupBy}
+                                                                    onChange={(e) => updateStation(s.id, { setupBy: e.target.value })}
+                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm h-auto resize-none overflow-hidden text-gray-700"
+                                                                    style={{ touchAction: 'pan-y' }}
+                                                                    rows={1}
+                                                                    onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }}
+                                                                />
+                                                            </div>
+                                                        ) : null}
+                                                        {s.conductedBy ? (
+                                                            <div>
+                                                                <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Durchführung</p>
+                                                                <textarea
+                                                                    value={s.conductedBy}
+                                                                    onChange={(e) => updateStation(s.id, { conductedBy: e.target.value })}
+                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm h-auto resize-none overflow-hidden text-gray-700"
+                                                                    style={{ touchAction: 'pan-y' }}
+                                                                    rows={1}
+                                                                    onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }}
+                                                                />
+                                                            </div>
+                                                        ) : null}
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="text-xs font-bold uppercase text-gray-400 tracking-wider">Stempelfeld</p>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={s.isFilled || false}
+                                                                onChange={(e) => updateStation(s.id, { isFilled: e.target.checked })}
+                                                                className="rounded text-[#6bbfd4] focus:ring-[#6bbfd4] border-gray-300"
+                                                            />
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             )}
