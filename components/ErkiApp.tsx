@@ -2055,7 +2055,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                                 <textarea
                                                                     value={s.description}
                                                                     onChange={(e) => updateStation(s.id, { description: e.target.value })}
-                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-[1rem] resize-none text-gray-700"
+                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-0 resize-none text-gray-700"
                                                                     style={{ touchAction: 'pan-y' }}
                                                                     rows={Math.max(1, (s.description || '').split('\n').length)}
                                                                 />
@@ -2067,7 +2067,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                                 <textarea
                                                                     value={s.material}
                                                                     onChange={(e) => updateStation(s.id, { material: e.target.value })}
-                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-[1rem] resize-none text-gray-700"
+                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-0 resize-none text-gray-700"
                                                                     style={{ touchAction: 'pan-y' }}
                                                                     rows={Math.max(1, (s.material || '').split('\n').length)}
                                                                 />
@@ -2079,7 +2079,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                                 <textarea
                                                                     value={(s.impulses || []).join('\n')}
                                                                     onChange={(e) => updateStation(s.id, { impulses: e.target.value.split('\n').filter(l => l.trim()) })}
-                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-[1rem] resize-none text-gray-700"
+                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-0 resize-none text-gray-700"
                                                                     style={{ touchAction: 'pan-y' }}
                                                                     rows={Math.max(1, (s.impulses || []).length)}
                                                                 />
@@ -2091,7 +2091,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                                 <textarea
                                                                     value={s.setupBy}
                                                                     onChange={(e) => updateStation(s.id, { setupBy: e.target.value })}
-                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-[1rem] resize-none text-gray-700"
+                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-0 resize-none text-gray-700"
                                                                     style={{ touchAction: 'pan-y' }}
                                                                     rows={Math.max(1, (s.setupBy || '').split('\n').length)}
                                                                 />
@@ -2103,7 +2103,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                                 <textarea
                                                                     value={s.conductedBy}
                                                                     onChange={(e) => updateStation(s.id, { conductedBy: e.target.value })}
-                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-[1rem] resize-none text-gray-700"
+                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-0 resize-none text-gray-700"
                                                                     style={{ touchAction: 'pan-y' }}
                                                                     rows={Math.max(1, (s.conductedBy || '').split('\n').length)}
                                                                 />
