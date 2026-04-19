@@ -1335,7 +1335,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                         <input
                             value={plan.title}
                             onChange={(e) => updateActivePlan({ title: e.target.value })}
-                            className="text-lg font-bold tracking-tight bg-transparent border-none outline-none focus:bg-gray-50 rounded px-1 min-w-0 w-full"
+                            className="hidden sm:block text-lg font-bold tracking-tight bg-transparent border-none outline-none focus:bg-gray-50 rounded px-1 min-w-0 w-full"
                             title="Titel bearbeiten"
                             maxLength={200}
                         />
@@ -1396,6 +1396,16 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                             </button>
                         </div>
                     </div>
+                </div>
+                {/* Mobile title row */}
+                <div className="sm:hidden px-4 pb-1">
+                    <input
+                        value={plan.title}
+                        onChange={(e) => updateActivePlan({ title: e.target.value })}
+                        className="text-base font-bold tracking-tight bg-transparent border-none outline-none focus:bg-gray-50 rounded px-1 w-full"
+                        title="Titel bearbeiten"
+                        maxLength={200}
+                    />
                 </div>
                 {/* Mobile URL import bar */}
                 <div className="sm:hidden flex items-center bg-gray-100 mx-4 mb-2 rounded-full px-3 py-1 border focus-within:ring-2 ring-[#6bbfd4]/30 transition-all">
