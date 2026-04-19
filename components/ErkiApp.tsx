@@ -1893,22 +1893,22 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                             <motion.div
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-200"
+                                className="bg-white rounded-3xl shadow-xl border border-gray-200"
                             >
                                 <div className="overflow-x-auto" style={{ overscrollBehavior: 'contain' }}>
                                 <table className="w-full text-left border-collapse sm:min-w-[700px]">
                                     <thead>
                                         <tr className="bg-gray-50 border-b">
-                                            <th className="hidden sm:table-cell p-4 w-8"></th>
+                                            <th className="max-sm:hidden sm:table-cell p-4 w-8"></th>
                                             <th className="p-4 w-10 text-xs font-bold uppercase text-gray-600 tracking-wider">Nr.</th>
                                             <th className="p-4 w-32 text-xs font-bold uppercase text-gray-600 tracking-wider">Station</th>
-                                            <th className="hidden sm:table-cell p-4 w-48 text-xs font-bold uppercase text-gray-600 tracking-wider">Beschreibung</th>
-                                            <th className="hidden sm:table-cell p-4 w-96 text-xs font-bold uppercase text-gray-600 tracking-wider">Material</th>
-                                            <th className="hidden sm:table-cell p-4 w-40 text-xs font-bold uppercase text-gray-600 tracking-wider">Gesprächsimpulse</th>
-                                            <th className="hidden sm:table-cell p-4 w-28 text-xs font-bold uppercase text-gray-600 tracking-wider">Aufbau</th>
-                                            <th className="hidden sm:table-cell p-4 w-28 text-xs font-bold uppercase text-gray-600 tracking-wider">Durchführung</th>
-                                            <th className="hidden sm:table-cell p-4 w-12 text-xs font-bold uppercase text-gray-600 tracking-wider">Stempelfeld</th>
-                                            <th className="hidden sm:table-cell p-4 w-10"></th>
+                                            <th className="max-sm:hidden sm:table-cell p-4 w-48 text-xs font-bold uppercase text-gray-600 tracking-wider">Beschreibung</th>
+                                            <th className="max-sm:hidden sm:table-cell p-4 w-96 text-xs font-bold uppercase text-gray-600 tracking-wider">Material</th>
+                                            <th className="max-sm:hidden sm:table-cell p-4 w-40 text-xs font-bold uppercase text-gray-600 tracking-wider">Gesprächsimpulse</th>
+                                            <th className="max-sm:hidden sm:table-cell p-4 w-28 text-xs font-bold uppercase text-gray-600 tracking-wider">Aufbau</th>
+                                            <th className="max-sm:hidden sm:table-cell p-4 w-28 text-xs font-bold uppercase text-gray-600 tracking-wider">Durchführung</th>
+                                            <th className="max-sm:hidden sm:table-cell p-4 w-12 text-xs font-bold uppercase text-gray-600 tracking-wider">Stempelfeld</th>
+                                            <th className="max-sm:hidden sm:table-cell p-4 w-10"></th>
                                             <th className="sm:hidden p-4 w-10"></th>
                                         </tr>
                                     </thead>
@@ -1927,7 +1927,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                     dragOverRowId === s.id && "border-t-2 border-[#6bbfd4]"
                                                 )}
                                             >
-                                                <td className="hidden sm:table-cell p-4 w-8 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600">
+                                                <td className="max-sm:hidden sm:table-cell p-4 w-8 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600">
                                                     <GripVertical className="w-4 h-4" />
                                                 </td>
                                                 <td className="p-4">
@@ -1959,7 +1959,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                         }}
                                                     />
                                                 </td>
-                                                <td className="hidden sm:table-cell p-4 align-top">
+                                                <td className="max-sm:hidden sm:table-cell p-4 align-top">
                                                     <div
                                                         ref={(el) => { if (el && el !== document.activeElement) el.textContent = s.description || ''; }}
                                                         contentEditable
@@ -1969,7 +1969,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                         onBlur={(e) => updateStation(s.id, { description: e.currentTarget.innerText })}
                                                     />
                                                 </td>
-                                                <td className="hidden sm:table-cell p-4 align-top">
+                                                <td className="max-sm:hidden sm:table-cell p-4 align-top">
                                                     <div
                                                         ref={(el) => { if (el && el !== document.activeElement) el.textContent = s.material || ''; }}
                                                         contentEditable
@@ -1979,7 +1979,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                         onBlur={(e) => updateStation(s.id, { material: e.currentTarget.innerText })}
                                                     />
                                                 </td>
-                                                <td className="hidden sm:table-cell p-4 align-top">
+                                                <td className="max-sm:hidden sm:table-cell p-4 align-top">
                                                     <div
                                                         ref={(el) => { if (el && el !== document.activeElement) el.textContent = (s.impulses || []).join('\n'); }}
                                                         contentEditable
@@ -1989,7 +1989,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                         onBlur={(e) => updateStation(s.id, { impulses: e.currentTarget.innerText.split('\n').filter(l => l.trim()) })}
                                                     />
                                                 </td>
-                                                <td className="hidden sm:table-cell p-4">
+                                                <td className="max-sm:hidden sm:table-cell p-4">
                                                     <div
                                                         ref={(el) => { if (el && el !== document.activeElement) el.textContent = s.setupBy || ''; }}
                                                         contentEditable
@@ -1999,7 +1999,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                         onBlur={(e) => updateStation(s.id, { setupBy: e.currentTarget.innerText })}
                                                     />
                                                 </td>
-                                                <td className="hidden sm:table-cell p-4">
+                                                <td className="max-sm:hidden sm:table-cell p-4">
                                                     <div
                                                         ref={(el) => { if (el && el !== document.activeElement) el.textContent = s.conductedBy || ''; }}
                                                         contentEditable
@@ -2009,7 +2009,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                         onBlur={(e) => updateStation(s.id, { conductedBy: e.currentTarget.innerText })}
                                                     />
                                                 </td>
-                                                <td className="hidden sm:table-cell p-4">
+                                                <td className="max-sm:hidden sm:table-cell p-4">
                                                     <input
                                                         type="checkbox"
                                                         checked={s.isFilled || false}
@@ -2017,7 +2017,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                         className="rounded text-[#6bbfd4] focus:ring-[#6bbfd4] border-gray-300"
                                                     />
                                                 </td>
-                                                <td className="hidden sm:table-cell p-4">
+                                                <td className="max-sm:hidden sm:table-cell p-4">
                                                     <div className="flex items-center gap-2">
                                                         <button
                                                             onClick={() => handleSaveAsTemplate(s)}
