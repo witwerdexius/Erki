@@ -64,6 +64,19 @@ export interface Profile {
   createdAt?: string;
 }
 
+export interface TimeBlock {
+  label: string;
+  time: string;
+  description: string;
+}
+
+export interface ExplanationData {
+  title: string;
+  churchLogoUrl?: string;
+  timeBlocks: [TimeBlock, TimeBlock, TimeBlock];
+  nextDates: string[];
+}
+
 export interface Plan {
   id: string;
   title: string;
@@ -79,4 +92,5 @@ export interface Plan {
   createdAt?: string;
   updatedAt?: string;
   nachdenk_template?: string; // base64 data URL of vorlage.pdf
+  explanationData?: ExplanationData;
 }
