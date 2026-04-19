@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Move, Palette, GripVertical, PenLine, Eraser, Image as ImageIcon, Type, ZoomIn, ZoomOut, BookTemplate, Bookmark, Pencil, Loader2, BookOpen, FileText } from 'lucide-react';
+import { ChevronDown, ChevronUp, ChevronLeft, Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Move, Palette, GripVertical, PenLine, Eraser, Image as ImageIcon, Type, ZoomIn, ZoomOut, BookTemplate, Bookmark, Pencil, Loader2, BookOpen, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { User } from '@supabase/supabase-js';
 import { Plan, Station, MaskPolygon, LogoOverlay, LabelOverlay, StationTemplate } from '@/lib/types';
@@ -284,6 +284,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
     const overlayDragStart = useRef<{ mouseX: number; mouseY: number; elemX: number; elemY: number; size?: number; fontSize?: number } | null>(null);
     const [draggedRowId, setDraggedRowId] = useState<string | null>(null);
     const [dragOverRowId, setDragOverRowId] = useState<string | null>(null);
+    const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
     const [maskDrawing, setMaskDrawing] = useState(false);
     const [currentMaskPoints, setCurrentMaskPoints] = useState<{ x: number; y: number }[]>([]);
     const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
@@ -1157,6 +1158,15 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
         }
     };
 
+    const toggleExpandedRow = (id: string) => {
+        setExpandedRows(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
     const handleRowDragStart = (id: string) => setDraggedRowId(id);
 
     const handleRowDragOver = (e: React.DragEvent, id: string) => {
@@ -1887,25 +1897,26 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                 className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-200"
                             >
                                 <div className="overflow-x-auto" style={{ overscrollBehavior: 'contain' }}>
-                                <table className="w-full text-left border-collapse min-w-[700px]">
+                                <table className="w-full text-left border-collapse sm:min-w-[700px]">
                                     <thead>
                                         <tr className="bg-gray-50 border-b">
-                                            <th className="p-4 w-8"></th>
+                                            <th className="hidden sm:table-cell p-4 w-8"></th>
                                             <th className="p-4 w-10 text-xs font-bold uppercase text-gray-600 tracking-wider">Nr.</th>
                                             <th className="p-4 w-32 text-xs font-bold uppercase text-gray-600 tracking-wider">Station</th>
-                                            <th className="p-4 w-48 text-xs font-bold uppercase text-gray-600 tracking-wider">Beschreibung</th>
-                                            <th className="p-4 w-96 text-xs font-bold uppercase text-gray-600 tracking-wider">Material</th>
-                                            <th className="p-4 w-40 text-xs font-bold uppercase text-gray-600 tracking-wider">Gesprächsimpulse</th>
-                                            <th className="p-4 w-28 text-xs font-bold uppercase text-gray-600 tracking-wider">Aufbau</th>
-                                            <th className="p-4 w-28 text-xs font-bold uppercase text-gray-600 tracking-wider">Durchführung</th>
-                                            <th className="p-4 w-12 text-xs font-bold uppercase text-gray-600 tracking-wider">Stempelfeld</th>
-                                            <th className="p-4 w-10"></th>
+                                            <th className="hidden sm:table-cell p-4 w-48 text-xs font-bold uppercase text-gray-600 tracking-wider">Beschreibung</th>
+                                            <th className="hidden sm:table-cell p-4 w-96 text-xs font-bold uppercase text-gray-600 tracking-wider">Material</th>
+                                            <th className="hidden sm:table-cell p-4 w-40 text-xs font-bold uppercase text-gray-600 tracking-wider">Gesprächsimpulse</th>
+                                            <th className="hidden sm:table-cell p-4 w-28 text-xs font-bold uppercase text-gray-600 tracking-wider">Aufbau</th>
+                                            <th className="hidden sm:table-cell p-4 w-28 text-xs font-bold uppercase text-gray-600 tracking-wider">Durchführung</th>
+                                            <th className="hidden sm:table-cell p-4 w-12 text-xs font-bold uppercase text-gray-600 tracking-wider">Stempelfeld</th>
+                                            <th className="hidden sm:table-cell p-4 w-10"></th>
+                                            <th className="sm:hidden p-4 w-10"></th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
                                         {activePlan?.stations.map(s => (
+                                            <React.Fragment key={s.id}>
                                             <tr
-                                                key={s.id}
                                                 draggable
                                                 onDragStart={() => handleRowDragStart(s.id)}
                                                 onDragOver={(e) => handleRowDragOver(e, s.id)}
@@ -1917,7 +1928,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                     dragOverRowId === s.id && "border-t-2 border-[#6bbfd4]"
                                                 )}
                                             >
-                                                <td className="p-4 w-8 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600">
+                                                <td className="hidden sm:table-cell p-4 w-8 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600">
                                                     <GripVertical className="w-4 h-4" />
                                                 </td>
                                                 <td className="p-4">
@@ -1949,7 +1960,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                         }}
                                                     />
                                                 </td>
-                                                <td className="p-4 align-top">
+                                                <td className="hidden sm:table-cell p-4 align-top">
                                                     <textarea
                                                         value={s.description}
                                                         onChange={(e) => updateStation(s.id, { description: e.target.value })}
@@ -1963,7 +1974,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                         }}
                                                     />
                                                 </td>
-                                                <td className="p-4 align-top">
+                                                <td className="hidden sm:table-cell p-4 align-top">
                                                     <textarea
                                                         value={s.material}
                                                         onChange={(e) => updateStation(s.id, { material: e.target.value })}
@@ -1977,7 +1988,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                         }}
                                                     />
                                                 </td>
-                                                <td className="p-4 align-top">
+                                                <td className="hidden sm:table-cell p-4 align-top">
                                                     <textarea
                                                         value={(s.impulses || []).join('\n')}
                                                         onChange={(e) => updateStation(s.id, { impulses: e.target.value.split('\n').filter(l => l.trim()) })}
@@ -1991,7 +2002,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                         }}
                                                     />
                                                 </td>
-                                                <td className="p-4">
+                                                <td className="hidden sm:table-cell p-4">
                                                     <textarea
                                                         value={s.setupBy}
                                                         onChange={(e) => {
@@ -2009,7 +2020,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                         rows={1}
                                                     />
                                                 </td>
-                                                <td className="p-4">
+                                                <td className="hidden sm:table-cell p-4">
                                                     <textarea
                                                         value={s.conductedBy}
                                                         onChange={(e) => {
@@ -2027,7 +2038,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                         rows={1}
                                                     />
                                                 </td>
-                                                <td className="p-4">
+                                                <td className="hidden sm:table-cell p-4">
                                                     <input
                                                         type="checkbox"
                                                         checked={s.isFilled || false}
@@ -2035,7 +2046,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                         className="rounded text-[#6bbfd4] focus:ring-[#6bbfd4] border-gray-300"
                                                     />
                                                 </td>
-                                                <td className="p-4">
+                                                <td className="hidden sm:table-cell p-4">
                                                     <div className="flex items-center gap-2">
                                                         <button
                                                             onClick={() => handleSaveAsTemplate(s)}
@@ -2052,7 +2063,38 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                         </button>
                                                     </div>
                                                 </td>
+                                                <td className="sm:hidden p-4 align-middle">
+                                                    <button
+                                                        onClick={() => toggleExpandedRow(s.id)}
+                                                        className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                                                    >
+                                                        {expandedRows.has(s.id)
+                                                            ? <ChevronUp className="w-4 h-4" />
+                                                            : <ChevronDown className="w-4 h-4" />
+                                                        }
+                                                    </button>
+                                                </td>
                                             </tr>
+                                            {expandedRows.has(s.id) && (
+                                                <tr className="sm:hidden bg-gray-50/80">
+                                                    <td colSpan={3} className="px-4 pb-4 pt-2">
+                                                        <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Beschreibung</p>
+                                                        <textarea
+                                                            value={s.description}
+                                                            onChange={(e) => updateStation(s.id, { description: e.target.value })}
+                                                            className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm h-auto min-h-[3rem] resize-none overflow-hidden text-gray-600"
+                                                            style={{ touchAction: 'pan-y' }}
+                                                            placeholder="Keine Beschreibung..."
+                                                            onInput={(e) => {
+                                                                const target = e.target as HTMLTextAreaElement;
+                                                                target.style.height = 'auto';
+                                                                target.style.height = target.scrollHeight + 'px';
+                                                            }}
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            )}
+                                            </React.Fragment>
                                         ))}
                                     </tbody>
                                 </table>
