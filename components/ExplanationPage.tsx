@@ -223,8 +223,6 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
 
   return (
     <div className="flex-1 overflow-auto bg-gray-100 p-4 sm:p-8">
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap');`}</style>
-
       {/* Export button */}
       <div style={{ maxWidth: 559 }} className="mx-auto mb-4 flex justify-end">
         <button
