@@ -172,17 +172,19 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
       const hiddenEls = pageRef.current.querySelectorAll<HTMLElement>('[data-export-hidden]');
       hiddenEls.forEach((el) => (el.style.visibility = 'hidden'));
 
-      const dataUrl = await toPng(pageRef.current, {
+      const el = pageRef.current;
+      const png = await toPng(el, {
+        width: el.offsetWidth,
+        height: el.offsetHeight,
+        style: { transform: 'scale(1)', transformOrigin: 'top left' },
         pixelRatio: 2,
         backgroundColor: '#ffffff',
       });
 
       hiddenEls.forEach((el) => (el.style.visibility = ''));
 
-      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      const w = pdf.internal.pageSize.getWidth();
-      const h = pdf.internal.pageSize.getHeight();
-      pdf.addImage(dataUrl, 'PNG', 0, 0, w, h);
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a5' });
+      pdf.addImage(png, 'PNG', 0, 0, 148, 210);
       const safeName =
         data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'plan';
       pdf.save(`${safeName}-erklaerungsseite.pdf`);
@@ -197,7 +199,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
   return (
     <div className="flex-1 overflow-auto bg-gray-100 p-4 sm:p-8">
       {/* Export button — outside the paper */}
-      <div style={{ maxWidth: 1060 }} className="mx-auto mb-4 flex justify-end">
+      <div style={{ maxWidth: 559 }} className="mx-auto mb-4 flex justify-end">
         <button
           onClick={exportToPDF}
           disabled={isExporting}
@@ -208,28 +210,28 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
         </button>
       </div>
 
-      {/* A4 Landscape Paper — 1060 × 750px ≈ 297:210 */}
+      {/* A5 Portrait Paper — 559 × 794px ≈ 148:210 */}
       <div
         ref={pageRef}
         style={{
-          width: 1060,
-          height: 750,
+          width: 559,
+          height: 794,
           backgroundColor: '#ffffff',
           margin: '0 auto',
-          padding: '36px 48px 32px',
+          padding: '28px 32px 24px',
           boxShadow: '0 4px 32px rgba(0,0,0,0.15)',
           display: 'flex',
           flexDirection: 'column',
           fontFamily: 'system-ui, -apple-system, sans-serif',
           boxSizing: 'border-box',
-          overflow: 'hidden',
+          overflow: 'visible',
         }}
       >
         {/* ── HEADER ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 24, marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
           {/* ErKi Logo */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.jpeg" alt="ErKi Logo" style={{ height: 64, width: 'auto', flexShrink: 0 }} />
+          <img src="/logo.jpeg" alt="ErKi Logo" style={{ height: 56, width: 'auto', flexShrink: 0 }} />
 
           {/* Title */}
           <div style={{ flex: 1, textAlign: 'center' }}>
@@ -238,7 +240,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
               onChange={(v) => update({ title: v })}
               placeholder="Planungsname"
               style={{
-                fontSize: 32,
+                fontSize: 28,
                 fontWeight: 800,
                 color: '#1f2937',
                 lineHeight: 1.2,
@@ -251,7 +253,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
 
           {/* Church Logo / Upload */}
           <div
-            style={{ height: 64, width: 90, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}
+            style={{ height: 56, width: 72, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}
           >
             {data.churchLogoUrl ? (
               <div style={{ position: 'relative' }}>
@@ -259,7 +261,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
                 <img
                   src={data.churchLogoUrl}
                   alt="Kirchenlogo"
-                  style={{ height: 64, maxWidth: 90, objectFit: 'contain' }}
+                  style={{ height: 56, maxWidth: 72, objectFit: 'contain' }}
                 />
                 <button
                   data-export-hidden
@@ -325,26 +327,22 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
         <div style={{ height: 3, background: '#6bbfd4', borderRadius: 2, marginBottom: 28 }} />
 
         {/* ── TIME BLOCKS + STICKY NOTE ── */}
-        <div style={{ display: 'flex', gap: 24, flex: 1, alignItems: 'stretch' }}>
+        <div style={{ display: 'flex', gap: 20, flex: 1, alignItems: 'flex-start' }}>
           {/* Three time blocks */}
-          <div style={{ flex: 1, display: 'flex', gap: 0 }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0 }}>
             {([0, 1, 2] as const).map((i) => (
-              <React.Fragment key={i}>
-                {i > 0 && (
-                  <div style={{ width: 1, background: '#e5e7eb', flexShrink: 0, margin: '0 28px' }} />
-                )}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div key={i} style={{ paddingTop: i > 0 ? 24 : 0, paddingBottom: 24, display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {/* Label */}
                   <EditableText
                     value={data.timeBlocks[i].label}
                     onChange={(v) => updateTimeBlock(i, { label: v })}
                     placeholder="LABEL"
                     style={{
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: 700,
                       color: '#6bbfd4',
                       textTransform: 'uppercase',
-                      letterSpacing: '0.1em',
+                      letterSpacing: '0.12em',
                       display: 'block',
                     }}
                   />
@@ -354,7 +352,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
                     onChange={(v) => updateTimeBlock(i, { time: v })}
                     placeholder="00:00 Uhr"
                     style={{
-                      fontSize: 28,
+                      fontSize: 30,
                       fontWeight: 700,
                       color: '#111827',
                       lineHeight: 1.1,
@@ -366,10 +364,9 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
                     value={data.timeBlocks[i].description}
                     onChange={(v) => updateTimeBlock(i, { description: v })}
                     placeholder="Beschreibung …"
-                    style={{ fontSize: 14, color: '#4b5563', lineHeight: 1.5 }}
+                    style={{ fontSize: 15, color: '#4b5563', lineHeight: 1.6 }}
                   />
-                </div>
-              </React.Fragment>
+              </div>
             ))}
           </div>
 
@@ -377,17 +374,16 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
           <div
             style={{
               background: '#fef08a',
-              padding: '18px 20px',
-              width: 200,
+              padding: '14px 16px',
+              width: 160,
               flexShrink: 0,
               boxShadow: '3px 4px 12px rgba(0,0,0,0.15)',
               transform: 'rotate(-1.5deg)',
               borderRadius: 2,
-              alignSelf: 'flex-start',
               marginTop: 8,
             }}
           >
-            <p style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: '#92400e' }}>
+            <p style={{ fontWeight: 700, fontSize: 12, marginBottom: 12, color: '#92400e' }}>
               📅 Nächste Termine
             </p>
             {data.nextDates.map((date, idx) => (
@@ -441,7 +437,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
         </div>
 
         {/* ── FOOTER ── */}
-        <div style={{ marginTop: 20, borderTop: '1px solid #f3f4f6', paddingTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ marginTop: 16, paddingTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
           <span style={{ fontSize: 10, color: '#d1d5db', letterSpacing: '0.05em' }}>
             ErlebnisKirche · erki.app
           </span>
