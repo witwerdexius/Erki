@@ -1947,16 +1947,11 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                 </td>
                                                 <td className="p-4 align-top">
                                                     <textarea
+                                                        ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
                                                         value={s.name}
-                                                        onChange={(e) => updateStation(s.id, { name: e.target.value })}
-                                                        className="w-full bg-transparent border-none p-0 focus:ring-0 font-bold resize-none overflow-hidden h-auto"
+                                                        onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; updateStation(s.id, { name: e.target.value }); }}
+                                                        className="w-full bg-transparent border-none p-0 focus:ring-0 font-bold resize-none min-h-0"
                                                         style={{ touchAction: 'pan-y' }}
-                                                        rows={1}
-                                                        onInput={(e) => {
-                                                            const t = e.target as HTMLTextAreaElement;
-                                                            t.style.height = 'auto';
-                                                            t.style.height = t.scrollHeight + 'px';
-                                                        }}
                                                     />
                                                 </td>
                                                 <td className="max-sm:hidden sm:table-cell p-4 align-top">
@@ -2053,11 +2048,11 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                             <div>
                                                                 <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Beschreibung</p>
                                                                 <textarea
+                                                                    ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
                                                                     value={s.description}
-                                                                    onChange={(e) => updateStation(s.id, { description: e.target.value })}
+                                                                    onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; updateStation(s.id, { description: e.target.value }); }}
                                                                     className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-0 resize-none text-gray-700"
                                                                     style={{ touchAction: 'pan-y' }}
-                                                                    rows={Math.max(1, (s.description || '').split('\n').length)}
                                                                 />
                                                             </div>
                                                         ) : null}
@@ -2065,11 +2060,11 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                             <div>
                                                                 <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Material</p>
                                                                 <textarea
+                                                                    ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
                                                                     value={s.material}
-                                                                    onChange={(e) => updateStation(s.id, { material: e.target.value })}
+                                                                    onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; updateStation(s.id, { material: e.target.value }); }}
                                                                     className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-0 resize-none text-gray-700"
                                                                     style={{ touchAction: 'pan-y' }}
-                                                                    rows={Math.max(1, (s.material || '').split('\n').length)}
                                                                 />
                                                             </div>
                                                         ) : null}
@@ -2077,11 +2072,11 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                             <div>
                                                                 <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Gesprächsimpulse</p>
                                                                 <textarea
+                                                                    ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
                                                                     value={(s.impulses || []).join('\n')}
-                                                                    onChange={(e) => updateStation(s.id, { impulses: e.target.value.split('\n').filter(l => l.trim()) })}
+                                                                    onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; updateStation(s.id, { impulses: e.target.value.split('\n').filter(l => l.trim()) }); }}
                                                                     className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-0 resize-none text-gray-700"
                                                                     style={{ touchAction: 'pan-y' }}
-                                                                    rows={Math.max(1, (s.impulses || []).length)}
                                                                 />
                                                             </div>
                                                         ) : null}
@@ -2089,11 +2084,11 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                             <div>
                                                                 <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Aufbau</p>
                                                                 <textarea
+                                                                    ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
                                                                     value={s.setupBy}
-                                                                    onChange={(e) => updateStation(s.id, { setupBy: e.target.value })}
+                                                                    onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; updateStation(s.id, { setupBy: e.target.value }); }}
                                                                     className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-0 resize-none text-gray-700"
                                                                     style={{ touchAction: 'pan-y' }}
-                                                                    rows={Math.max(1, (s.setupBy || '').split('\n').length)}
                                                                 />
                                                             </div>
                                                         ) : null}
@@ -2101,11 +2096,11 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                             <div>
                                                                 <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Durchführung</p>
                                                                 <textarea
+                                                                    ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
                                                                     value={s.conductedBy}
-                                                                    onChange={(e) => updateStation(s.id, { conductedBy: e.target.value })}
+                                                                    onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; updateStation(s.id, { conductedBy: e.target.value }); }}
                                                                     className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-0 resize-none text-gray-700"
                                                                     style={{ touchAction: 'pan-y' }}
-                                                                    rows={Math.max(1, (s.conductedBy || '').split('\n').length)}
                                                                 />
                                                             </div>
                                                         ) : null}
