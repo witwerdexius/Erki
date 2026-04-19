@@ -73,6 +73,9 @@ export interface TimeBlock {
 export interface ExplanationData {
   title: string;
   churchLogoUrl?: string;
+  churchLogo1Url?: string;
+  churchLogo2Url?: string;
+  qrCodeUrl?: string;
   timeBlocks: [TimeBlock, TimeBlock, TimeBlock];
   nextDates: string[];
 }
