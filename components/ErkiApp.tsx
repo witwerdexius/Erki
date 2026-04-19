@@ -455,14 +455,20 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
         return () => clearTimeout(t);
     }, [activeTab]);
 
-    // Auto-resize all textareas in the table when plan or tab changes
+    // Auto-resize all textareas in the table when plan or tab changes.
+    // requestAnimationFrame defers until after framer-motion's initial paint so
+    // scrollHeight is correct even on first render.
     useEffect(() => {
         if (activeTab !== 'table' || !tableRef.current) return;
-        const textareas = tableRef.current.querySelectorAll('textarea');
-        textareas.forEach((ta) => {
-            ta.style.height = 'auto';
-            ta.style.height = ta.scrollHeight + 'px';
-        });
+        const resize = () => {
+            tableRef.current?.querySelectorAll('textarea').forEach(ta => {
+                ta.style.height = 'auto';
+                ta.style.height = ta.scrollHeight + 'px';
+            });
+        };
+        resize();
+        const id = requestAnimationFrame(resize);
+        return () => cancelAnimationFrame(id);
     }, [activeTab, plan.id, activePlan?.stations]);
 
     const handleImport = async () => {
