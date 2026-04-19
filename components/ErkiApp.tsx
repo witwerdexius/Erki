@@ -1320,7 +1320,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
             {/* Header */}
             <header className="flex flex-col border-b bg-white/80 backdrop-blur-md sticky top-0 z-50">
                 <div className="flex h-14 items-center justify-between px-4 sm:px-8">
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-1 mr-4">
                         <button
                             onClick={onBack}
                             disabled={isSaving}

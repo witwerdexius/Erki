@@ -1,10 +1,6 @@
 {
   "name": "erki-app",
-<<<<<<< HEAD
-  "version": "0.7.32",
-=======
-  "version": "0.7.32",
->>>>>>> 50ce50a (feat: Planungsname maxLength auf 200 Zeichen erhöhen (v0.7.32))
+  "version": "0.7.33",
   "private": true,
   "scripts": {
     "dev": "next dev",
