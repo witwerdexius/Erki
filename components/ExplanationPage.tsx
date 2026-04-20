@@ -330,59 +330,70 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
           </div>
 
           {/* ── SECTION 3: BOTTOM ── */}
-          <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'row', gap: 16, alignItems: 'center' }}>
-            {/* Left: Yellow sticky note */}
-            <div
-              style={{
-                width: 240,
-                flexShrink: 0,
-                background: '#fde047',
-                padding: '14px 16px',
-                boxShadow: '3px 4px 12px rgba(0,0,0,0.15)',
-                transform: 'rotate(-3deg)',
-                borderRadius: 4,
-                fontFamily: "'Patrick Hand', cursive",
-                alignSelf: 'center',
-              }}
-            >
-              <p style={{ fontWeight: 700, fontSize: 14, color: '#1c1917', textDecoration: 'underline', margin: '0 0 8px 0' }}>
-                Nächste Termine:
-              </p>
-              {data.nextDates.map((date, idx) => (
-                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-                  <span style={{ color: '#1c1917', fontSize: 14, flexShrink: 0 }}>•</span>
-                  <EditableText
-                    value={date}
-                    onChange={(v) => {
-                      const arr = [...data.nextDates];
-                      arr[idx] = v;
-                      update({ nextDates: arr });
-                    }}
-                    placeholder="Datum …"
-                    style={{ fontSize: 14, color: '#1c1917', flex: 1, minWidth: 0, fontFamily: "'Patrick Hand', cursive" }}
-                  />
-                  <button
-                    data-export-hidden
-                    onClick={() => update({ nextDates: data.nextDates.filter((_, j) => j !== idx) })}
-                    style={{ color: '#78350f', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, padding: 2 }}
-                    title="Termin entfernen"
-                  >
-                    <Trash2 size={11} />
-                  </button>
-                </div>
-              ))}
-              <button
-                data-export-hidden
-                onClick={() => update({ nextDates: [...data.nextDates, ''] })}
+          <div style={{ height: 220, flexShrink: 0, display: 'flex', flexDirection: 'row', gap: 16, alignItems: 'center' }}>
+            {/* Left: Sticky note + delete buttons wrapper */}
+            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 4, flexShrink: 0, alignSelf: 'center' }}>
+              {/* Yellow sticky note — no delete buttons inside */}
+              <div
                 style={{
-                  marginTop: 6, display: 'flex', alignItems: 'center', gap: 4,
-                  fontSize: 12, color: '#78350f', cursor: 'pointer',
-                  background: 'none', border: 'none', padding: 0,
+                  width: 'fit-content',
+                  background: '#fde047',
+                  padding: '14px 16px',
+                  boxShadow: '3px 4px 12px rgba(0,0,0,0.15)',
+                  transform: 'rotate(-3deg)',
+                  borderRadius: 4,
                   fontFamily: "'Patrick Hand', cursive",
                 }}
               >
-                <Plus size={11} /> Termin hinzufügen
-              </button>
+                <p style={{ fontWeight: 700, fontSize: 14, color: '#1c1917', textDecoration: 'underline', margin: '0 0 8px 0' }}>
+                  Nächste Termine:
+                </p>
+                {data.nextDates.map((date, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                    <span style={{ color: '#1c1917', fontSize: 14, flexShrink: 0 }}>•</span>
+                    <EditableText
+                      value={date}
+                      onChange={(v) => {
+                        const arr = [...data.nextDates];
+                        arr[idx] = v;
+                        update({ nextDates: arr });
+                      }}
+                      placeholder="Datum …"
+                      style={{ fontSize: 14, color: '#1c1917', fontFamily: "'Patrick Hand', cursive" }}
+                    />
+                  </div>
+                ))}
+                <button
+                  data-export-hidden
+                  onClick={() => update({ nextDates: [...data.nextDates, ''] })}
+                  style={{
+                    marginTop: 6, display: 'flex', alignItems: 'center', gap: 4,
+                    fontSize: 12, color: '#78350f', cursor: 'pointer',
+                    background: 'none', border: 'none', padding: 0,
+                    fontFamily: "'Patrick Hand', cursive",
+                  }}
+                >
+                  <Plus size={11} /> Termin hinzufügen
+                </button>
+              </div>
+
+              {/* Delete buttons column — right next to note, hidden on export */}
+              <div
+                data-export-hidden
+                style={{ display: 'flex', flexDirection: 'column', paddingTop: 36 }}
+              >
+                {data.nextDates.map((_, idx) => (
+                  <div key={idx} style={{ marginBottom: 4, display: 'flex', alignItems: 'center' }}>
+                    <button
+                      onClick={() => update({ nextDates: data.nextDates.filter((_, j) => j !== idx) })}
+                      style={{ color: '#78350f', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
+                      title="Termin entfernen"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Right: Feedback text + QR code */}
