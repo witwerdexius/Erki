@@ -270,13 +270,7 @@ interface ErkiAppProps {
 export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = false }: ErkiAppProps) {
     const [importUrl, setImportUrl] = useState('');
     const [isImporting, setIsImporting] = useState(false);
-    const [activeTab, setActiveTab] = useState<'map' | 'table' | 'templates' | 'nachdenk' | 'explanation'>(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('erki_view');
-            if (saved === 'map' || saved === 'table' || saved === 'templates' || saved === 'nachdenk' || saved === 'explanation') return saved;
-        }
-        return 'table';
-    });
+    const [activeTab, setActiveTab] = useState<'map' | 'table' | 'templates' | 'nachdenk' | 'explanation'>('table');
     const [templates, setTemplates] = useState<StationTemplate[]>([]);
     const [templatesLoaded, setTemplatesLoaded] = useState(false);
     const [showTemplatePicker, setShowTemplatePicker] = useState(false);
@@ -411,8 +405,6 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
             img.src = activePlan.backgroundImage;
         }
     }, [activePlan?.backgroundImage]);
-
-    useEffect(() => { localStorage.setItem('erki_view', activeTab); }, [activeTab]);
 
     // Escape cancels mask drawing
     useEffect(() => {
