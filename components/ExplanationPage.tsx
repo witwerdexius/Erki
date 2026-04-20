@@ -135,6 +135,16 @@ function EditableTextarea({
   );
 }
 
+async function imageToBase64(url: string): Promise<string> {
+  const res = await fetch(url);
+  const blob = await res.blob();
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.readAsDataURL(blob);
+  });
+}
+
 // --- Main component ---
 
 export default function ExplanationPage({ activePlan, updateActivePlan }: Props) {
@@ -200,6 +210,17 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
       hiddenEls.forEach((el) => (el.style.visibility = 'hidden'));
 
       const el = pageRef.current;
+
+      const images = el.querySelectorAll<HTMLImageElement>('img');
+      const origSrcs: string[] = [];
+      for (const img of Array.from(images)) {
+        const src = img.getAttribute('src') || img.src;
+        origSrcs.push(img.src);
+        if (src.startsWith('/')) {
+          img.src = await imageToBase64(src);
+        }
+      }
+
       const png = await toPng(el, {
         width: 559,
         height: 794,
@@ -208,6 +229,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
         backgroundColor: '#ffffff',
       });
 
+      Array.from(images).forEach((img, i) => { img.src = origSrcs[i]; });
       hiddenEls.forEach((el) => (el.style.visibility = ''));
 
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a5' });
