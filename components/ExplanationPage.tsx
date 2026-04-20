@@ -3,9 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Download, Plus, Trash2, Loader2 } from 'lucide-react';
 
-const LOGO1_SRC = '/logo1.jpg';
-const LOGO2_SRC = '/logo2.jpg';
-const QR_SRC = '/qr3.jpg';
+import { LOGO1_DATA, LOGO2_DATA, QR_DATA } from '@/lib/logoData';
 import { Plan, ExplanationData, TimeBlock } from '@/lib/types';
 import { jsPDF } from 'jspdf';
 import { cn } from '@/lib/utils';
@@ -293,7 +291,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
               {/* Logo 1 */}
               <div style={{ position: 'relative', height: 64, display: 'flex', alignItems: 'center' }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={data.churchLogo1Url ?? LOGO1_SRC} alt="Logo 1" style={{ height: 64, maxWidth: 100, objectFit: 'contain' }} />
+                <img src={data.churchLogo1Url ?? LOGO1_DATA} alt="Logo 1" style={{ height: 64, maxWidth: 100, objectFit: 'contain' }} />
                 <input
                   data-export-hidden
                   type="file"
@@ -307,7 +305,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
               {/* Logo 2 */}
               <div style={{ position: 'relative', height: 64, display: 'flex', alignItems: 'center' }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={data.churchLogo2Url ?? LOGO2_SRC} alt="Logo 2" style={{ height: 64, maxWidth: 100, objectFit: 'contain' }} />
+                <img src={data.churchLogo2Url ?? LOGO2_DATA} alt="Logo 2" style={{ height: 64, maxWidth: 100, objectFit: 'contain' }} />
                 <input
                   data-export-hidden
                   type="file"
@@ -427,7 +425,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
               />
               <div style={{ position: 'relative' }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={data.qrCodeUrl ?? QR_SRC} alt="QR Code" style={{ height: 80, width: 'auto', objectFit: 'contain' }} />
+                <img src={data.qrCodeUrl ?? QR_DATA} alt="QR Code" style={{ height: 80, width: 'auto', objectFit: 'contain' }} />
                 <input
                   data-export-hidden
                   ref={qrInputRef}
