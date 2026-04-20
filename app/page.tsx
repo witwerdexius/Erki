@@ -102,6 +102,8 @@ export default function Home() {
 
   const handleBack = useCallback(async () => {
     console.log('[handleBack] aufgerufen');
+    // Flush any focused contentEditable/input onBlur before reading the ref
+    (document.activeElement as HTMLElement)?.blur?.();
     clearTimeout(saveTimer.current);
     const plan = latestPlanRef.current;
     console.log('[handleBack] latestPlanRef.current:', plan
