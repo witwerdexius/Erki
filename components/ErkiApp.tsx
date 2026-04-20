@@ -2044,66 +2044,61 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                             {expandedRows.has(s.id) && (
                                                 <tr className="sm:hidden bg-gray-50/80">
                                                     <td colSpan={3} className="px-4 pb-4 pt-2 space-y-3">
-                                                        {s.description ? (
-                                                            <div>
-                                                                <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Beschreibung</p>
-                                                                <textarea
-                                                                    ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
-                                                                    value={s.description}
-                                                                    onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; updateStation(s.id, { description: e.target.value }); }}
-                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-0 resize-none text-gray-700"
-                                                                    style={{ touchAction: 'pan-y' }}
-                                                                />
-                                                            </div>
-                                                        ) : null}
-                                                        {s.material ? (
-                                                            <div>
-                                                                <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Material</p>
-                                                                <textarea
-                                                                    ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
-                                                                    value={s.material}
-                                                                    onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; updateStation(s.id, { material: e.target.value }); }}
-                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-0 resize-none text-gray-700"
-                                                                    style={{ touchAction: 'pan-y' }}
-                                                                />
-                                                            </div>
-                                                        ) : null}
-                                                        {(s.impulses || []).length > 0 ? (
-                                                            <div>
-                                                                <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Gesprächsimpulse</p>
-                                                                <textarea
-                                                                    ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
-                                                                    value={(s.impulses || []).join('\n')}
-                                                                    onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; updateStation(s.id, { impulses: e.target.value.split('\n').filter(l => l.trim()) }); }}
-                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-0 resize-none text-gray-700"
-                                                                    style={{ touchAction: 'pan-y' }}
-                                                                />
-                                                            </div>
-                                                        ) : null}
-                                                        {s.setupBy ? (
-                                                            <div>
-                                                                <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Aufbau</p>
-                                                                <textarea
-                                                                    ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
-                                                                    value={s.setupBy}
-                                                                    onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; updateStation(s.id, { setupBy: e.target.value }); }}
-                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-0 resize-none text-gray-700"
-                                                                    style={{ touchAction: 'pan-y' }}
-                                                                />
-                                                            </div>
-                                                        ) : null}
-                                                        {s.conductedBy ? (
-                                                            <div>
-                                                                <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Durchführung</p>
-                                                                <textarea
-                                                                    ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
-                                                                    value={s.conductedBy}
-                                                                    onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; updateStation(s.id, { conductedBy: e.target.value }); }}
-                                                                    className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm min-h-0 resize-none text-gray-700"
-                                                                    style={{ touchAction: 'pan-y' }}
-                                                                />
-                                                            </div>
-                                                        ) : null}
+                                                        <div>
+                                                            <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Beschreibung</p>
+                                                            <textarea
+                                                                ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = Math.max(el.scrollHeight, 24) + 'px'; } }}
+                                                                value={s.description || ''}
+                                                                placeholder="Beschreibung eingeben…"
+                                                                onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = Math.max(e.target.scrollHeight, 24) + 'px'; updateStation(s.id, { description: e.target.value }); }}
+                                                                className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm resize-none text-gray-700 placeholder-gray-300"
+                                                                style={{ touchAction: 'pan-y', minHeight: '24px' }}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Material</p>
+                                                            <textarea
+                                                                ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = Math.max(el.scrollHeight, 24) + 'px'; } }}
+                                                                value={s.material || ''}
+                                                                placeholder="Material eingeben…"
+                                                                onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = Math.max(e.target.scrollHeight, 24) + 'px'; updateStation(s.id, { material: e.target.value }); }}
+                                                                className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm resize-none text-gray-700 placeholder-gray-300"
+                                                                style={{ touchAction: 'pan-y', minHeight: '24px' }}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Gesprächsimpulse</p>
+                                                            <textarea
+                                                                ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = Math.max(el.scrollHeight, 24) + 'px'; } }}
+                                                                value={(s.impulses || []).join('\n')}
+                                                                placeholder="Impulse eingeben…"
+                                                                onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = Math.max(e.target.scrollHeight, 24) + 'px'; updateStation(s.id, { impulses: e.target.value.split('\n').filter(l => l.trim()) }); }}
+                                                                className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm resize-none text-gray-700 placeholder-gray-300"
+                                                                style={{ touchAction: 'pan-y', minHeight: '24px' }}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Aufbau</p>
+                                                            <textarea
+                                                                ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = Math.max(el.scrollHeight, 24) + 'px'; } }}
+                                                                value={s.setupBy || ''}
+                                                                placeholder="Aufbau eingeben…"
+                                                                onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = Math.max(e.target.scrollHeight, 24) + 'px'; updateStation(s.id, { setupBy: e.target.value }); }}
+                                                                className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm resize-none text-gray-700 placeholder-gray-300"
+                                                                style={{ touchAction: 'pan-y', minHeight: '24px' }}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Durchführung</p>
+                                                            <textarea
+                                                                ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = Math.max(el.scrollHeight, 24) + 'px'; } }}
+                                                                value={s.conductedBy || ''}
+                                                                placeholder="Durchführung eingeben…"
+                                                                onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = Math.max(e.target.scrollHeight, 24) + 'px'; updateStation(s.id, { conductedBy: e.target.value }); }}
+                                                                className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm resize-none text-gray-700 placeholder-gray-300"
+                                                                style={{ touchAction: 'pan-y', minHeight: '24px' }}
+                                                            />
+                                                        </div>
                                                         <div className="flex items-center gap-2">
                                                             <p className="text-xs font-bold uppercase text-gray-400 tracking-wider">Stempelfeld</p>
                                                             <input
