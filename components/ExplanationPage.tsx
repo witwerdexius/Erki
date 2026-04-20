@@ -330,12 +330,11 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
           </div>
 
           {/* ── SECTION 3: BOTTOM ── */}
-          <div style={{ height: 220, flexShrink: 0, display: 'flex', flexDirection: 'row', gap: 16, alignItems: 'center' }}>
+          <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'row', gap: 16, alignItems: 'center' }}>
             {/* Left: Yellow sticky note */}
             <div
               style={{
                 width: 240,
-                minHeight: 210,
                 flexShrink: 0,
                 background: '#fde047',
                 padding: '14px 16px',
