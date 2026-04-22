@@ -22,6 +22,13 @@ export default function Home() {
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   // Ref hält immer den neuesten Plan-Stand synchron (unabhängig von React-State-Batching)
   const latestPlanRef = useRef<Plan | null>(null);
+  // True, sobald der User im Editor eine Änderung gemacht hat, die noch nicht
+  // erfolgreich gespeichert wurde. Verhindert, dass handleBack unnötig
+  // savePlanning aufruft (DELETE+INSERT-Pattern würde bei Fehler Stationen verlieren).
+  const isDirtyRef = useRef(false);
+  // Hält die aktuell laufende savePlanning-Promise, damit handleBack darauf
+  // warten kann, bevor selbst gespeichert wird (verhindert DELETE+INSERT-Races).
+  const inFlightSaveRef = useRef<Promise<void> | null>(null);
 
   const loadUserProfile = useCallback(async (userId: string) => {
     try {
@@ -69,6 +76,8 @@ export default function Home() {
     try {
       const plan = await loadPlanning(planId);
       latestPlanRef.current = plan;
+      // Frisch geladener Plan – noch keine ungespeicherten Änderungen.
+      isDirtyRef.current = false;
       setActivePlan(plan);
       setView('editor');
     } catch (e) {
@@ -78,6 +87,20 @@ export default function Home() {
     setLoadingPlan(false);
   };
 
+  // Führt einen savePlanning-Call aus und markiert die ref als clean,
+  // wenn in der Zwischenzeit keine neue Änderung reinkam.
+  const runSave = useCallback(async (planToSave: Plan): Promise<void> => {
+    try {
+      await savePlanning(planToSave);
+      if (latestPlanRef.current === planToSave) {
+        isDirtyRef.current = false;
+      }
+      console.log('[Auto-Save] erfolgreich');
+    } catch (e) {
+      console.error('[Auto-Save] fehlgeschlagen:', e);
+    }
+  }, []);
+
   const handlePlanUpdate = useCallback((updatedPlan: Plan) => {
     console.log('[handlePlanUpdate] aufgerufen:', {
       id: updatedPlan.id,
@@ -86,45 +109,67 @@ export default function Home() {
       status: updatedPlan.status,
     });
     latestPlanRef.current = updatedPlan;
+    isDirtyRef.current = true;
     console.log('[handlePlanUpdate] latestPlanRef gesetzt auf:', updatedPlan.title);
     setActivePlan(updatedPlan);
     clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      console.log('[Auto-Save] speichere:', updatedPlan.title, '| Stationen:', updatedPlan.stations.length);
-      try {
-        await savePlanning(updatedPlan);
-        console.log('[Auto-Save] erfolgreich');
-      } catch (e) {
-        console.error('[Auto-Save] fehlgeschlagen:', e);
-      }
+    saveTimer.current = setTimeout(() => {
+      const planToSave = latestPlanRef.current;
+      if (!planToSave || !isDirtyRef.current) return;
+      console.log('[Auto-Save] speichere:', planToSave.title, '| Stationen:', planToSave.stations.length);
+      const savePromise = runSave(planToSave);
+      inFlightSaveRef.current = savePromise;
+      savePromise.finally(() => {
+        if (inFlightSaveRef.current === savePromise) {
+          inFlightSaveRef.current = null;
+        }
+      });
     }, 1500);
-  }, []);
+  }, [runSave]);
 
   const handleBack = useCallback(async () => {
     console.log('[handleBack] aufgerufen');
-    // Flush any focused contentEditable/input onBlur before reading the ref
+    // Erzwingt onBlur auf fokussierten contentEditable-Feldern, damit noch
+    // nicht committete Station-Edits in die ref fließen (setzt ggf. isDirtyRef).
     (document.activeElement as HTMLElement)?.blur?.();
+    // Geplanten Auto-Save abbrechen – wir speichern hier einmal, final.
     clearTimeout(saveTimer.current);
+    saveTimer.current = undefined;
+    // Noch laufenden Auto-Save abwarten, damit sich DELETE+INSERT zweier
+    // parallel laufender savePlanning-Aufrufe nicht überlagern (sonst kann
+    // eine DELETE-Operation die Stationen des anderen INSERT-Aufrufs wegräumen).
+    if (inFlightSaveRef.current) {
+      console.log('[handleBack] warte auf laufenden Auto-Save...');
+      try { await inFlightSaveRef.current; } catch { /* bereits geloggt */ }
+    }
     const plan = latestPlanRef.current;
+    const dirty = isDirtyRef.current;
     console.log('[handleBack] latestPlanRef.current:', plan
-      ? { id: plan.id, title: plan.title, stations: plan.stations.length }
+      ? { id: plan.id, title: plan.title, stations: plan.stations.length, dirty }
       : null
     );
-    if (plan) {
+    // Nur speichern, wenn der User auch wirklich etwas geändert hat. Sonst
+    // würde der DELETE-then-INSERT-Pfad in savePlanning unnötig ausgeführt –
+    // und bei einem Fehler zwischen DELETE und INSERT wären Stationen weg.
+    if (plan && dirty) {
       console.log('[handleBack] starte savePlanning...');
       setIsSaving(true);
       try {
         await savePlanning(plan);
+        isDirtyRef.current = false;
         console.log('[handleBack] savePlanning erfolgreich');
       } catch (e) {
         console.error('[handleBack] savePlanning FEHLGESCHLAGEN:', e);
       } finally {
         setIsSaving(false);
       }
-    } else {
+    } else if (!plan) {
       console.warn('[handleBack] kein Plan in latestPlanRef – nichts gespeichert!');
+    } else {
+      console.log('[handleBack] keine Änderungen – Speichern übersprungen');
     }
     latestPlanRef.current = null;
+    isDirtyRef.current = false;
     setActivePlan(null);
     console.log('[handleBack] navigiere zurück zur Liste');
     setView('list');
