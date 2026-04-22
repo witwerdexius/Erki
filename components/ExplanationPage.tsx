@@ -8,6 +8,17 @@ import { Plan, ExplanationData, TimeBlock } from '@/lib/types';
 import { jsPDF } from 'jspdf';
 import { cn } from '@/lib/utils';
 
+async function urlToDataUrl(url: string): Promise<string> {
+  const res = await fetch(url);
+  const blob = await res.blob();
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
 interface Props {
   activePlan: Plan | undefined;
   updateActivePlan: (updates: Partial<Plan>) => void;
@@ -133,16 +144,6 @@ function EditableTextarea({
   );
 }
 
-async function imageToBase64(url: string): Promise<string> {
-  const res = await fetch(url);
-  const blob = await res.blob();
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.readAsDataURL(blob);
-  });
-}
-
 // --- Main component ---
 
 export default function ExplanationPage({ activePlan, updateActivePlan }: Props) {
@@ -209,15 +210,31 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
 
       const el = pageRef.current;
 
-      const images = el.querySelectorAll<HTMLImageElement>('img');
-      const origSrcs: string[] = [];
-      for (const img of Array.from(images)) {
-        const src = img.getAttribute('src') || img.src;
-        origSrcs.push(img.src);
-        if (src.startsWith('/')) {
-          img.src = await imageToBase64(src);
-        }
-      }
+      const imgs = Array.from(el.querySelectorAll<HTMLImageElement>('img'));
+      const originalSrcs = imgs.map((img) => img.src);
+      await Promise.all(
+        imgs.map(async (img) => {
+          if (!img.src.startsWith('data:')) {
+            try {
+              img.src = await urlToDataUrl(img.src);
+            } catch {
+              // keep original src on failure
+            }
+          }
+        }),
+      );
+      await Promise.all(
+        imgs.map((img) =>
+          img.decode().catch(
+            () =>
+              new Promise<void>((resolve) => {
+                if (img.complete) return resolve();
+                img.onload = () => resolve();
+                img.onerror = () => resolve();
+              }),
+          ),
+        ),
+      );
 
       const png = await toPng(el, {
         width: 559,
@@ -225,9 +242,12 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
         style: { transform: 'scale(1)', transformOrigin: 'top left' },
         pixelRatio: 2,
         backgroundColor: '#ffffff',
+        cacheBust: true,
       });
 
-      Array.from(images).forEach((img, i) => { img.src = origSrcs[i]; });
+      imgs.forEach((img, i) => {
+        img.src = originalSrcs[i];
+      });
       hiddenEls.forEach((el) => (el.style.visibility = ''));
 
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a5' });
@@ -351,69 +371,59 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
 
           {/* ── SECTION 3: BOTTOM ── */}
           <div style={{ height: 220, flexShrink: 0, display: 'flex', flexDirection: 'row', gap: 16, alignItems: 'center' }}>
-            {/* Left: Sticky note + delete buttons wrapper */}
-            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 4, flexShrink: 0, alignSelf: 'center' }}>
-              {/* Yellow sticky note — no delete buttons inside */}
-              <div
+            {/* Left: Yellow sticky note */}
+            <div
+              style={{
+                width: 240,
+                minHeight: 210,
+                flexShrink: 0,
+                background: '#fde047',
+                padding: '14px 16px',
+                boxShadow: '3px 4px 12px rgba(0,0,0,0.15)',
+                transform: 'rotate(-3deg)',
+                borderRadius: 4,
+                fontFamily: "'Patrick Hand', cursive",
+                alignSelf: 'center',
+              }}
+            >
+              <p style={{ fontWeight: 700, fontSize: 14, color: '#1c1917', textDecoration: 'underline', margin: '0 0 8px 0' }}>
+                Nächste Termine:
+              </p>
+              {data.nextDates.map((date, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                  <span style={{ color: '#1c1917', fontSize: 14, flexShrink: 0 }}>•</span>
+                  <EditableText
+                    value={date}
+                    onChange={(v) => {
+                      const arr = [...data.nextDates];
+                      arr[idx] = v;
+                      update({ nextDates: arr });
+                    }}
+                    placeholder="Datum …"
+                    style={{ fontSize: 14, color: '#1c1917', flex: 1, minWidth: 0, fontFamily: "'Patrick Hand', cursive" }}
+                  />
+                  <button
+                    data-export-hidden
+                    onClick={() => update({ nextDates: data.nextDates.filter((_, j) => j !== idx) })}
+                    style={{ color: '#78350f', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, padding: 2 }}
+                    title="Termin entfernen"
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                </div>
+              ))}
+              <button
+                data-export-hidden
+                onClick={() => update({ nextDates: [...data.nextDates, ''] })}
                 style={{
-                  width: 'fit-content',
-                  background: '#fde047',
-                  padding: '14px 16px',
-                  boxShadow: '3px 4px 12px rgba(0,0,0,0.15)',
-                  transform: 'rotate(-3deg)',
-                  borderRadius: 4,
+                  marginTop: 6, display: 'flex', alignItems: 'center', gap: 4,
+                  fontSize: 12, color: '#78350f', cursor: 'pointer',
+                  background: 'none', border: 'none', padding: 0,
                   fontFamily: "'Patrick Hand', cursive",
                 }}
               >
-                <p style={{ fontWeight: 700, fontSize: 14, color: '#1c1917', textDecoration: 'underline', margin: '0 0 8px 0' }}>
-                  Nächste Termine:
-                </p>
-                {data.nextDates.map((date, idx) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-                    <span style={{ color: '#1c1917', fontSize: 14, flexShrink: 0 }}>•</span>
-                    <EditableText
-                      value={date}
-                      onChange={(v) => {
-                        const arr = [...data.nextDates];
-                        arr[idx] = v;
-                        update({ nextDates: arr });
-                      }}
-                      placeholder="Datum …"
-                      style={{ fontSize: 14, color: '#1c1917', fontFamily: "'Patrick Hand', cursive" }}
-                    />
-                  </div>
-                ))}
-                <button
-                  data-export-hidden
-                  onClick={() => update({ nextDates: [...data.nextDates, ''] })}
-                  style={{
-                    marginTop: 6, display: 'flex', alignItems: 'center', gap: 4,
-                    fontSize: 12, color: '#78350f', cursor: 'pointer',
-                    background: 'none', border: 'none', padding: 0,
-                    fontFamily: "'Patrick Hand', cursive",
-                  }}
-                >
-                  <Plus size={11} /> Termin hinzufügen
-                </button>
-              </div>
-
-              {/* Delete buttons column — right next to note, hidden on export */}
-              <div
-                data-export-hidden
-                style={{ display: 'flex', flexDirection: 'column', paddingTop: 36 }}
-              >
-                {data.nextDates.map((_, idx) => (
-                  <div key={idx} style={{ marginBottom: 4, display: 'flex', alignItems: 'center' }}>
-                    <button
-                      onClick={() => update({ nextDates: data.nextDates.filter((_, j) => j !== idx) })}
-                      style={{ color: '#78350f', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
-                      title="Termin entfernen"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                ))}
-              </div>
+                <Plus size={11} /> Termin hinzufügen
+              </button>
             </div>
 
             {/* Right: Feedback text + QR code */}
