@@ -755,7 +755,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                 ctx.fill();
 
                 // Station name — same font-size algorithm as JSX rendering
-                const textColor = s.isFilled ? '#ffffff' : '#374151';
+                const textColor = s.isFilled ? '#ffffff' : '#9ca3af';
                 const name = s.name.toUpperCase();
                 const availW = 64, availH = 58, charRatio = 0.56, lineH = 1.2;
                 let computedFontSize = 7;
@@ -1763,7 +1763,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                                 style={s.isFilled ? { backgroundColor: color.bg, borderColor: color.bg, borderWidth: 6 * mapScale, borderStyle: 'solid', padding: 8 * mapScale } : { ...color.style, borderWidth: 6 * mapScale, borderStyle: 'solid', padding: 8 * mapScale }}
                                                             >
                                                                 <span
-                                                                    className={cn("font-mono font-bold uppercase leading-tight line-clamp-5 tracking-tight w-full", s.isFilled ? "text-white" : "text-gray-700")}
+                                                                    className={cn("font-mono font-bold uppercase leading-tight line-clamp-5 tracking-tight w-full", s.isFilled ? "text-white" : "text-gray-400")}
                                                                     style={{ hyphens: 'auto', WebkitHyphens: 'auto', overflowWrap: 'anywhere', fontSize: `${computedFontSize * mapScale}px` }}
                                                                 >
                                                                     {s.name}
