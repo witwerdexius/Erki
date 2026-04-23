@@ -339,10 +339,14 @@ export async function updateUserRole(userId: string, role: UserRole): Promise<vo
   if (error) throw error;
 }
 
-export async function sendInvite(email: string): Promise<void> {
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { shouldCreateUser: true },
+export async function sendInvite(email: string, communityId?: string, isAdmin?: boolean): Promise<void> {
+  const res = await fetch('/api/invite', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, communityId, isAdmin: isAdmin ?? false }),
   });
-  if (error) throw error;
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? 'Einladung fehlgeschlagen');
+  }
 }

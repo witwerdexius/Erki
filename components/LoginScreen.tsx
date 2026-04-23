@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
-type Mode = 'login' | 'register';
+type Mode = 'login' | 'register' | 'forgot';
 
 export default function LoginScreen() {
   const [mode, setMode] = useState<Mode>('login');
@@ -58,6 +58,19 @@ export default function LoginScreen() {
     setLoading(false);
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setInfo('');
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + '/reset-password',
+    });
+    if (error) setError(error.message);
+    else setInfo('Reset-Link wurde an deine E-Mail-Adresse gesendet.');
+    setLoading(false);
+  };
+
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
     setError('');
@@ -81,12 +94,52 @@ export default function LoginScreen() {
           <div>
             <h1 className="text-xl font-bold tracking-tight">Erlebnis Kirche Planner</h1>
             <p className="text-sm text-gray-700">
-              {mode === 'login' ? 'Anmelden, um fortzufahren' : 'Neues Konto erstellen'}
+              {mode === 'login' ? 'Anmelden, um fortzufahren' : mode === 'register' ? 'Neues Konto erstellen' : 'Passwort zurücksetzen'}
             </p>
           </div>
         </div>
 
-        {mode === 'login' ? (
+        {mode === 'forgot' ? (
+          <form onSubmit={handleForgotPassword} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">E-Mail</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                placeholder="name@beispiel.de"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 focus:border-[#6bbfd4] transition-all"
+              />
+            </div>
+
+            {error && (
+              <p className="text-sm text-red-600 bg-red-50 px-4 py-2.5 rounded-xl">{error}</p>
+            )}
+            {info && (
+              <p className="text-sm text-green-700 bg-green-50 px-4 py-2.5 rounded-xl">{info}</p>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-2.5 bg-[#6bbfd4] text-white rounded-xl font-semibold hover:bg-[#5aaec3] active:scale-[0.98] transition-all disabled:opacity-50"
+            >
+              {loading ? 'Wird gesendet…' : 'Reset-Link senden'}
+            </button>
+
+            <p className="text-center text-sm text-gray-700 pt-1">
+              <button
+                type="button"
+                onClick={() => switchMode('login')}
+                className="text-[#6bbfd4] font-medium hover:underline"
+              >
+                Zurück zur Anmeldung
+              </button>
+            </p>
+          </form>
+        ) : mode === 'login' ? (
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">E-Mail</label>
@@ -111,6 +164,13 @@ export default function LoginScreen() {
                 placeholder="••••••••"
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 focus:border-[#6bbfd4] transition-all"
               />
+              <button
+                type="button"
+                onClick={() => switchMode('forgot')}
+                className="mt-1.5 text-xs text-gray-500 hover:text-[#6bbfd4] hover:underline transition-colors"
+              >
+                Passwort vergessen?
+              </button>
             </div>
 
             {error && (

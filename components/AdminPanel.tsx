@@ -15,6 +15,7 @@ export default function AdminPanel({ community, currentUserId, onClose }: Props)
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteAsAdmin, setInviteAsAdmin] = useState(false);
   const [inviting, setSending] = useState(false);
   const [inviteMsg, setInviteMsg] = useState('');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -49,9 +50,10 @@ export default function AdminPanel({ community, currentUserId, onClose }: Props)
     setSending(true);
     setInviteMsg('');
     try {
-      await sendInvite(inviteEmail.trim());
+      await sendInvite(inviteEmail.trim(), community?.id, inviteAsAdmin);
       setInviteMsg(`Einladungslink an ${inviteEmail.trim()} gesendet.`);
       setInviteEmail('');
+      setInviteAsAdmin(false);
     } catch (e) {
       console.error(e);
       setInviteMsg('Fehler beim Senden der Einladung.');
@@ -155,6 +157,15 @@ export default function AdminPanel({ community, currentUserId, onClose }: Props)
               {inviting ? '…' : 'Senden'}
             </button>
           </form>
+          <label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={inviteAsAdmin}
+              onChange={(e) => setInviteAsAdmin(e.target.checked)}
+              className="w-3.5 h-3.5 accent-[#6bbfd4]"
+            />
+            <span className="text-xs text-gray-600">Admin-Rechte vergeben</span>
+          </label>
           {inviteMsg && (
             <p className={`text-xs mt-2 ${inviteMsg.startsWith('Fehler') ? 'text-red-500' : 'text-green-600'}`}>
               {inviteMsg}
