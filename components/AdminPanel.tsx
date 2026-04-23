@@ -134,7 +134,7 @@ export default function AdminPanel({ community, currentUserId, onClose }: Props)
 
         {/* Invite section */}
         <div className="px-5 py-4 border-t bg-gray-50">
-          <p className="text-xs font-medium text-gray-500 mb-2">Einladen per E-Mail</p>
+          <p className="text-xs font-medium text-gray-700 mb-2">Einladen per E-Mail</p>
           <form onSubmit={handleInvite} className="flex gap-2">
             <div className="flex-1 flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2">
               <Mail className="w-4 h-4 text-gray-500 shrink-0" />
@@ -143,7 +143,7 @@ export default function AdminPanel({ community, currentUserId, onClose }: Props)
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 placeholder="name@beispiel.de"
-                className="bg-transparent border-none outline-none text-sm flex-1"
+                className="bg-transparent border-none outline-none text-sm flex-1 text-gray-700 placeholder:text-gray-400"
               />
             </div>
             <button
