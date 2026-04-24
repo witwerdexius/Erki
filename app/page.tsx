@@ -139,12 +139,18 @@ export default function Home() {
 
   const handleBack = useCallback(async () => {
     console.log('[handleBack] aufgerufen');
-    // Erzwingt onBlur auf fokussierten contentEditable-Feldern, damit noch
-    // nicht committete Station-Edits in die ref fließen (setzt ggf. isDirtyRef).
-    (document.activeElement as HTMLElement)?.blur?.();
     // Geplanten Auto-Save abbrechen – wir speichern hier einmal, final.
     clearTimeout(saveTimer.current);
     saveTimer.current = undefined;
+    // onBlur auf fokussiertem Element erzwingen, damit contentEditable-Inhalte
+    // noch in latestPlanRef fließen. Timer danach neu canceln, falls handlePlanUpdate
+    // intern einen neuen gesetzt hat.
+    (document.activeElement as HTMLElement)?.blur?.();
+    clearTimeout(saveTimer.current);
+    saveTimer.current = undefined;
+    // Einen Microtask-Tick abwarten, damit React etwaige onBlur-Handler
+    // vollständig verarbeiten kann, bevor wir latestPlanRef lesen.
+    await Promise.resolve();
     // Noch laufenden Auto-Save abwarten, damit sich DELETE+INSERT zweier
     // parallel laufender savePlanning-Aufrufe nicht überlagern (sonst kann
     // eine DELETE-Operation die Stationen des anderen INSERT-Aufrufs wegräumen).

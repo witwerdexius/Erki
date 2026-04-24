@@ -15,6 +15,7 @@ function rowToPlan(row: any, stations: Station[]): Plan {
     logoOverlay: row.logo_overlay ?? undefined,
     labelOverlay: row.label_overlay ?? undefined,
     bgZoom: row.bg_zoom ?? 1,
+    explanationData: row.explanation_data ?? undefined,
     stations,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
