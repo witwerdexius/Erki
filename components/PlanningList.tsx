@@ -122,7 +122,7 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
   };
 
   return (
-    <div className="min-h-screen bg-[#fdfdfd] flex flex-col">
+    <div className="min-h-[100dvh] bg-[#fdfdfd] flex flex-col">
       {/* Header */}
       <header className="flex h-14 items-center justify-between px-4 sm:px-8 border-b bg-white/80 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center gap-3">

@@ -188,7 +188,7 @@ export default function Home() {
 
   if (loadingPlan) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-[#fdfdfd]">
+      <main className="min-h-[100dvh] flex items-center justify-center bg-[#fdfdfd]">
         <p className="text-gray-600">Wird geladen…</p>
       </main>
     );
@@ -209,7 +209,7 @@ export default function Home() {
 
   if (view === 'editor' && activePlan && user) {
     return (
-      <main className="min-h-screen">
+      <main className="min-h-[100dvh]">
         <ErkiApp
           plan={activePlan}
           user={user}

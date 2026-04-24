@@ -1334,7 +1334,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
     };
 
     return (
-        <div className="flex h-screen w-full flex-col bg-[#fdfdfd] text-[#1a1a1a] font-sans selection:bg-[#e8f7fb]">
+        <div className="flex h-[100dvh] w-full flex-col bg-[#fdfdfd] text-[#1a1a1a] font-sans selection:bg-[#e8f7fb]">
             {/* Header */}
             <header className="flex flex-col border-b bg-white/80 backdrop-blur-md sticky top-0 z-50">
                 <div className="flex h-14 items-center justify-between px-4 sm:px-8">
