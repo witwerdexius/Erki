@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, MutableRefObject } from 'react';
 import { ChevronDown, ChevronUp, ChevronLeft, Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Move, Palette, GripVertical, PenLine, Eraser, Image as ImageIcon, Type, ZoomIn, ZoomOut, BookTemplate, Bookmark, Pencil, Loader2, BookOpen, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { User } from '@supabase/supabase-js';
@@ -265,9 +265,11 @@ interface ErkiAppProps {
     onPlanUpdate: (plan: Plan) => void;
     onBack: () => void;
     isSaving?: boolean;
+    latestPlanRef: MutableRefObject<Plan | null>;
+    isDirtyRef: MutableRefObject<boolean>;
 }
 
-export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = false }: ErkiAppProps) {
+export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = false, latestPlanRef, isDirtyRef }: ErkiAppProps) {
     const [importUrl, setImportUrl] = useState('');
     const [isImporting, setIsImporting] = useState(false);
     const tabKey = `activeTab_${plan.id}`;
@@ -490,7 +492,10 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
     };
 
     const updateActivePlan = (updates: Partial<Plan>) => {
-        onPlanUpdate({ ...plan, ...updates });
+        const newPlan = { ...plan, ...updates };
+        latestPlanRef.current = newPlan;
+        isDirtyRef.current = true;
+        onPlanUpdate(newPlan);
     };
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {

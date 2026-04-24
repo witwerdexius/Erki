@@ -216,6 +216,8 @@ export default function Home() {
           onPlanUpdate={handlePlanUpdate}
           onBack={handleBack}
           isSaving={isSaving}
+          latestPlanRef={latestPlanRef}
+          isDirtyRef={isDirtyRef}
         />
       </main>
     );
