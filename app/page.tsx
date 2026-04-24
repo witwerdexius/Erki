@@ -16,6 +16,7 @@ export default function Home() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [community, setCommunity] = useState<Community | null>(null);
   const [view, setView] = useState<View>('login');
+  const viewRef = useRef<View>('login');
   const [activePlan, setActivePlan] = useState<Plan | null>(null);
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -29,6 +30,9 @@ export default function Home() {
   // Hält die aktuell laufende savePlanning-Promise, damit handleBack darauf
   // warten kann, bevor selbst gespeichert wird (verhindert DELETE+INSERT-Races).
   const inFlightSaveRef = useRef<Promise<void> | null>(null);
+
+  // viewRef keeps the auth state change handler from using a stale closure value
+  useEffect(() => { viewRef.current = view; }, [view]);
 
   const loadUserProfile = useCallback(async (userId: string) => {
     try {
@@ -66,7 +70,7 @@ export default function Home() {
         setProfile(null);
         setCommunity(null);
         setView('login');
-      } else if (view === 'login') {
+      } else if (viewRef.current === 'login') {
         setView('list');
         loadUserProfile(session.user.id);
       }
