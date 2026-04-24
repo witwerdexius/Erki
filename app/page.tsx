@@ -111,6 +111,30 @@ export default function Home() {
     }
   }, []);
 
+  // Wird von ErkiApp aufgerufen, wenn eine strukturelle Änderung (z.B.
+  // addStation) sofort persistiert werden soll, ohne auf den 1.5s
+  // Auto-Save-Timer zu warten. Sequenzialisiert über inFlightSaveRef, damit
+  // sich parallele DELETE+INSERT-Aufrufe nicht überlagern.
+  const handleImmediateSave = useCallback(() => {
+    clearTimeout(saveTimer.current);
+    saveTimer.current = undefined;
+    const prev = inFlightSaveRef.current ?? Promise.resolve();
+    const savePromise: Promise<void> = prev
+      .catch(() => {})
+      .then(() => {
+        const planToSave = latestPlanRef.current;
+        if (!planToSave) return;
+        console.log('[Immediate-Save] speichere:', planToSave.title, '| Stationen:', planToSave.stations.length);
+        return runSave(planToSave);
+      });
+    inFlightSaveRef.current = savePromise;
+    savePromise.finally(() => {
+      if (inFlightSaveRef.current === savePromise) {
+        inFlightSaveRef.current = null;
+      }
+    });
+  }, [runSave]);
+
   const handlePlanUpdate = useCallback((updatedPlan: Plan) => {
     console.log('[handlePlanUpdate] aufgerufen:', {
       id: updatedPlan.id,
@@ -215,6 +239,7 @@ export default function Home() {
           user={user}
           onPlanUpdate={handlePlanUpdate}
           onBack={handleBack}
+          onImmediateSave={handleImmediateSave}
           isSaving={isSaving}
           latestPlanRef={latestPlanRef}
           isDirtyRef={isDirtyRef}

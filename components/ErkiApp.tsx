@@ -264,12 +264,13 @@ interface ErkiAppProps {
     user: User;
     onPlanUpdate: (plan: Plan) => void;
     onBack: () => void;
+    onImmediateSave?: () => void;
     isSaving?: boolean;
     latestPlanRef: MutableRefObject<Plan | null>;
     isDirtyRef: MutableRefObject<boolean>;
 }
 
-export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = false, latestPlanRef, isDirtyRef }: ErkiAppProps) {
+export default function ErkiApp({ plan, user, onPlanUpdate, onBack, onImmediateSave, isSaving = false, latestPlanRef, isDirtyRef }: ErkiAppProps) {
     const [importUrl, setImportUrl] = useState('');
     const [isImporting, setIsImporting] = useState(false);
     const tabKey = `activeTab_${plan.id}`;
@@ -299,7 +300,14 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
     const tableRef = useRef<HTMLDivElement>(null);
     const [containerWidth, setContainerWidth] = useState(0);
 
-    const activePlan = plan;
+    // Immer die aktuellste Version des Plans verwenden. latestPlanRef.current
+    // wird in updateActivePlan synchron gesetzt, bevor React re-rendert — ist
+    // also aktueller als das prop `plan`, wenn mehrere Updates im selben Tick
+    // feuern (z. B. blur + click). Ohne diese Indirektion würden parallele
+    // Calls wie updateStation(...) { stations: plan.stations.map(...) } mit
+    // einem stale `plan` spreaden und eben gerade hinzugefügte Stationen
+    // wieder aus latestPlanRef rausschreiben.
+    const activePlan = latestPlanRef.current ?? plan;
     const mapScale = containerWidth > 0 ? containerWidth / 800 : 1;
 
     // Templates lazy-laden beim ersten Wechsel zum Vorlagen-Tab oder beim Öffnen des Pickers
@@ -361,6 +369,9 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
             colorVariant: i % 4,
         };
         updateActivePlan({ stations: [...activePlan.stations, newStation] });
+        // Belt-and-suspenders: Station-Add sofort persistieren, ohne auf den
+        // 1.5s Auto-Save-Timer zu warten. Sequenzialisiert im Parent.
+        onImmediateSave?.();
         setActiveTab('table');
     };
 
@@ -492,7 +503,10 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
     };
 
     const updateActivePlan = (updates: Partial<Plan>) => {
-        const newPlan = { ...plan, ...updates };
+        // Als Basis die aktuellste Version nehmen – das prop `plan` kann stale
+        // sein, wenn mehrere Updates im gleichen Event-Tick passieren.
+        const base = latestPlanRef.current ?? plan;
+        const newPlan = { ...base, ...updates };
         latestPlanRef.current = newPlan;
         isDirtyRef.current = true;
         onPlanUpdate(newPlan);
@@ -596,6 +610,9 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
             colorVariant: i % 4,
         };
         updateActivePlan({ stations: [...activePlan.stations, newStation] });
+        // Belt-and-suspenders: Station-Add sofort persistieren, ohne auf den
+        // 1.5s Auto-Save-Timer zu warten. Sequenzialisiert im Parent.
+        onImmediateSave?.();
     };
 
     const renumberStations = () => {
