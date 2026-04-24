@@ -144,7 +144,6 @@ export default function Home() {
     });
     latestPlanRef.current = updatedPlan;
     isDirtyRef.current = true;
-    console.log('[handlePlanUpdate] latestPlanRef gesetzt auf:', updatedPlan.title);
     setActivePlan(updatedPlan);
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
@@ -161,6 +160,44 @@ export default function Home() {
     }, 1500);
   }, [runSave]);
 
+  // Direkt-Speichern mit EXPLIZIT übergebenem Plan – keine Ref-Reads, keine Timing-Risiken.
+  // Wird z.B. von addStation aufgerufen, damit der neue Zustand sofort persistiert ist,
+  // selbst wenn der User unmittelbar danach "Zurück" klickt.
+  const handleSaveNow = useCallback(async (planToSave: Plan): Promise<void> => {
+    console.log('[handleSaveNow] direkt:', planToSave.title, '| Stationen:', planToSave.stations.length);
+    // Geplanten Auto-Save stornieren – wir speichern jetzt sofort.
+    clearTimeout(saveTimer.current);
+    saveTimer.current = undefined;
+    // Vorherigen Save abwarten, damit DELETE+INSERT sich nicht überlagern.
+    if (inFlightSaveRef.current) {
+      try { await inFlightSaveRef.current; } catch { /* bereits geloggt */ }
+    }
+    // Ref synchron aktualisieren, damit nachfolgende handleBack-Calls denselben Stand sehen.
+    latestPlanRef.current = planToSave;
+    isDirtyRef.current = true;
+    setIsSaving(true);
+    const savePromise = (async () => {
+      try {
+        await savePlanning(planToSave);
+        if (latestPlanRef.current === planToSave) {
+          isDirtyRef.current = false;
+        }
+        console.log('[handleSaveNow] erfolgreich');
+      } catch (e) {
+        console.error('[handleSaveNow] FEHLGESCHLAGEN:', e);
+      } finally {
+        setIsSaving(false);
+      }
+    })();
+    inFlightSaveRef.current = savePromise;
+    savePromise.finally(() => {
+      if (inFlightSaveRef.current === savePromise) {
+        inFlightSaveRef.current = null;
+      }
+    });
+    await savePromise;
+  }, []);
+
   const handleBack = useCallback(async () => {
     console.log('[handleBack] aufgerufen');
     // Geplanten Auto-Save abbrechen – wir speichern hier einmal, final.
@@ -175,11 +212,10 @@ export default function Home() {
     // Einen Microtask-Tick abwarten, damit React etwaige onBlur-Handler
     // vollständig verarbeiten kann, bevor wir latestPlanRef lesen.
     await Promise.resolve();
-    // Noch laufenden Auto-Save abwarten, damit sich DELETE+INSERT zweier
-    // parallel laufender savePlanning-Aufrufe nicht überlagern (sonst kann
-    // eine DELETE-Operation die Stationen des anderen INSERT-Aufrufs wegräumen).
+    // Noch laufenden Save abwarten, damit sich DELETE+INSERT zweier parallel
+    // laufender savePlanning-Aufrufe nicht überlagern.
     if (inFlightSaveRef.current) {
-      console.log('[handleBack] warte auf laufenden Auto-Save...');
+      console.log('[handleBack] warte auf laufenden Save...');
       try { await inFlightSaveRef.current; } catch { /* bereits geloggt */ }
     }
     const plan = latestPlanRef.current;
@@ -187,8 +223,11 @@ export default function Home() {
       ? { id: plan.id, title: plan.title, stations: plan.stations.length }
       : null
     );
+    // UNBEDINGT speichern, wenn ein Plan in der Ref liegt – kein isDirtyRef-Check mehr.
+    // Warum: ein verpasster Save ist schlimmer als ein redundanter Save. Der bisherige
+    // dirty-Gate hatte zu Datenverlust geführt, wenn isDirtyRef fälschlich false war.
     if (plan) {
-      console.log('[handleBack] starte savePlanning...');
+      console.log('[handleBack] starte savePlanning (unbedingt)...');
       setIsSaving(true);
       try {
         await savePlanning(plan);
@@ -206,7 +245,6 @@ export default function Home() {
     isDirtyRef.current = false;
     sessionStorage.removeItem('activePlanId');
     setActivePlan(null);
-    console.log('[handleBack] navigiere zurück zur Liste');
     setView('list');
   }, []);
 
@@ -238,6 +276,7 @@ export default function Home() {
           plan={activePlan}
           user={user}
           onPlanUpdate={handlePlanUpdate}
+          onSaveNow={handleSaveNow}
           onBack={handleBack}
           onImmediateSave={handleImmediateSave}
           isSaving={isSaving}

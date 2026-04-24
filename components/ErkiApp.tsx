@@ -263,6 +263,10 @@ interface ErkiAppProps {
     plan: Plan;
     user: User;
     onPlanUpdate: (plan: Plan) => void;
+    // Sofort-Speichern mit explizitem Plan-Argument (umgeht Ref-Timing-Probleme,
+    // die bei addStation zu verlorenen Stationen führten, wenn der User direkt
+    // danach "Zurück" klickte).
+    onSaveNow: (plan: Plan) => Promise<void>;
     onBack: () => void;
     onImmediateSave?: () => void;
     isSaving?: boolean;
@@ -270,7 +274,7 @@ interface ErkiAppProps {
     isDirtyRef: MutableRefObject<boolean>;
 }
 
-export default function ErkiApp({ plan, user, onPlanUpdate, onBack, onImmediateSave, isSaving = false, latestPlanRef, isDirtyRef }: ErkiAppProps) {
+export default function ErkiApp({ plan, user, onPlanUpdate, onSaveNow, onBack, onImmediateSave, isSaving = false, latestPlanRef, isDirtyRef }: ErkiAppProps) {
     const [importUrl, setImportUrl] = useState('');
     const [isImporting, setIsImporting] = useState(false);
     const tabKey = `activeTab_${plan.id}`;
@@ -609,10 +613,13 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, onImmediateS
             isFilled: false,
             colorVariant: i % 4,
         };
-        updateActivePlan({ stations: [...activePlan.stations, newStation] });
-        // Belt-and-suspenders: Station-Add sofort persistieren, ohne auf den
-        // 1.5s Auto-Save-Timer zu warten. Sequenzialisiert im Parent.
-        onImmediateSave?.();
+        // Nuclear option: Plan EXPLIZIT als Funktions-Argument übergeben –
+        // kein Umweg über Refs, kein Timing-Risiko. onPlanUpdate für das
+        // UI-State-Update, onSaveNow für den sofortigen Persistenz-Call mit
+        // garantiert korrektem Plan-Inhalt (inkl. neuer Station).
+        const newPlan: Plan = { ...activePlan, stations: [...activePlan.stations, newStation] };
+        onPlanUpdate(newPlan);
+        void onSaveNow(newPlan);
     };
 
     const renumberStations = () => {
