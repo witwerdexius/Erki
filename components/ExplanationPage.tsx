@@ -60,10 +60,10 @@ function EditableText({
       <input
         value={local}
         autoFocus
-        onChange={(e) => setLocal(e.target.value)}
-        onBlur={() => { onChange(local); setEditing(false); }}
+        onChange={(e) => { setLocal(e.target.value); onChange(e.target.value); }}
+        onBlur={() => setEditing(false)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') { onChange(local); setEditing(false); }
+          if (e.key === 'Enter') setEditing(false);
           if (e.key === 'Escape') setEditing(false);
         }}
         className={cn('bg-blue-50 border-b-2 border-[#6bbfd4] outline-none rounded-sm w-full', className)}
@@ -121,11 +121,12 @@ function EditableTextarea({
         autoFocus
         onChange={(e) => {
           setLocal(e.target.value);
+          onChange(e.target.value);
           const el = e.target;
           el.style.height = 'auto';
           el.style.height = `${el.scrollHeight}px`;
         }}
-        onBlur={() => { onChange(local); setEditing(false); }}
+        onBlur={() => setEditing(false)}
         className={cn('w-full bg-blue-50 border-2 border-[#6bbfd4] outline-none rounded p-1 resize-none', className)}
         style={{ ...style, overflow: 'hidden' }}
       />

@@ -1969,6 +1969,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                         suppressContentEditableWarning
                                                         className="w-full text-sm whitespace-pre-wrap outline-none min-h-[4rem] cursor-text"
                                                         style={{ touchAction: 'pan-y' }}
+                                                        onInput={(e) => updateStation(s.id, { description: e.currentTarget.innerText })}
                                                         onBlur={(e) => updateStation(s.id, { description: e.currentTarget.innerText })}
                                                     />
                                                 </td>
@@ -1979,6 +1980,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                         suppressContentEditableWarning
                                                         className="w-full text-xs whitespace-pre-wrap outline-none min-h-[4rem] cursor-text text-gray-500"
                                                         style={{ touchAction: 'pan-y' }}
+                                                        onInput={(e) => updateStation(s.id, { material: e.currentTarget.innerText })}
                                                         onBlur={(e) => updateStation(s.id, { material: e.currentTarget.innerText })}
                                                     />
                                                 </td>
@@ -1989,6 +1991,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                         suppressContentEditableWarning
                                                         className="w-full text-sm whitespace-pre-wrap outline-none min-h-[4rem] cursor-text text-gray-500"
                                                         style={{ touchAction: 'pan-y' }}
+                                                        onInput={(e) => updateStation(s.id, { impulses: e.currentTarget.innerText.split('\n').filter(l => l.trim()) })}
                                                         onBlur={(e) => updateStation(s.id, { impulses: e.currentTarget.innerText.split('\n').filter(l => l.trim()) })}
                                                     />
                                                 </td>
@@ -1999,6 +2002,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                         suppressContentEditableWarning
                                                         className="w-full text-sm whitespace-pre-wrap outline-none cursor-text"
                                                         style={{ touchAction: 'pan-y' }}
+                                                        onInput={(e) => updateStation(s.id, { setupBy: e.currentTarget.innerText })}
                                                         onBlur={(e) => updateStation(s.id, { setupBy: e.currentTarget.innerText })}
                                                     />
                                                 </td>
@@ -2009,6 +2013,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
                                                         suppressContentEditableWarning
                                                         className="w-full text-sm whitespace-pre-wrap outline-none cursor-text"
                                                         style={{ touchAction: 'pan-y' }}
+                                                        onInput={(e) => updateStation(s.id, { conductedBy: e.currentTarget.innerText })}
                                                         onBlur={(e) => updateStation(s.id, { conductedBy: e.currentTarget.innerText })}
                                                     />
                                                 </td>
