@@ -153,15 +153,11 @@ export default function Home() {
       try { await inFlightSaveRef.current; } catch { /* bereits geloggt */ }
     }
     const plan = latestPlanRef.current;
-    const dirty = isDirtyRef.current;
     console.log('[handleBack] latestPlanRef.current:', plan
-      ? { id: plan.id, title: plan.title, stations: plan.stations.length, dirty }
+      ? { id: plan.id, title: plan.title, stations: plan.stations.length }
       : null
     );
-    // Nur speichern, wenn der User auch wirklich etwas geändert hat. Sonst
-    // würde der DELETE-then-INSERT-Pfad in savePlanning unnötig ausgeführt –
-    // und bei einem Fehler zwischen DELETE und INSERT wären Stationen weg.
-    if (plan && dirty) {
+    if (plan) {
       console.log('[handleBack] starte savePlanning...');
       setIsSaving(true);
       try {
@@ -173,10 +169,8 @@ export default function Home() {
       } finally {
         setIsSaving(false);
       }
-    } else if (!plan) {
-      console.warn('[handleBack] kein Plan in latestPlanRef – nichts gespeichert!');
     } else {
-      console.log('[handleBack] keine Änderungen – Speichern übersprungen');
+      console.warn('[handleBack] kein Plan in latestPlanRef – nichts gespeichert!');
     }
     latestPlanRef.current = null;
     isDirtyRef.current = false;
