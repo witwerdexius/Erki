@@ -47,8 +47,13 @@ export default function Home() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        setView('list');
         loadUserProfile(session.user.id);
+        const storedPlanId = sessionStorage.getItem('activePlanId');
+        if (storedPlanId) {
+          handleOpenPlan(storedPlanId);
+        } else {
+          setView('list');
+        }
       } else {
         setView('login');
       }
@@ -76,12 +81,13 @@ export default function Home() {
     try {
       const plan = await loadPlanning(planId);
       latestPlanRef.current = plan;
-      // Frisch geladener Plan – noch keine ungespeicherten Änderungen.
       isDirtyRef.current = false;
+      sessionStorage.setItem('activePlanId', planId);
       setActivePlan(plan);
       setView('editor');
     } catch (e) {
       console.error(e);
+      sessionStorage.removeItem('activePlanId');
       alert('Fehler beim Laden der Planung.');
     }
     setLoadingPlan(false);
@@ -170,6 +176,7 @@ export default function Home() {
     }
     latestPlanRef.current = null;
     isDirtyRef.current = false;
+    sessionStorage.removeItem('activePlanId');
     setActivePlan(null);
     console.log('[handleBack] navigiere zurück zur Liste');
     setView('list');

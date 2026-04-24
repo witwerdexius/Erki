@@ -270,7 +270,11 @@ interface ErkiAppProps {
 export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = false }: ErkiAppProps) {
     const [importUrl, setImportUrl] = useState('');
     const [isImporting, setIsImporting] = useState(false);
-    const [activeTab, setActiveTab] = useState<'map' | 'table' | 'templates' | 'nachdenk' | 'explanation'>('table');
+    const tabKey = `activeTab_${plan.id}`;
+    const [activeTab, setActiveTab] = useState<'map' | 'table' | 'templates' | 'nachdenk' | 'explanation'>(() => {
+        const stored = sessionStorage.getItem(tabKey);
+        return (stored as 'map' | 'table' | 'templates' | 'nachdenk' | 'explanation' | null) ?? 'table';
+    });
     const [templates, setTemplates] = useState<StationTemplate[]>([]);
     const [templatesLoaded, setTemplatesLoaded] = useState(false);
     const [showTemplatePicker, setShowTemplatePicker] = useState(false);
@@ -442,6 +446,10 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onBack, isSaving = f
         setContainerWidth(el.getBoundingClientRect().width);
         return () => ro.disconnect();
     }, []);
+
+    useEffect(() => {
+        sessionStorage.setItem(tabKey, activeTab);
+    }, [activeTab, tabKey]);
 
     // Re-measure when switching back to map tab (container was hidden/zero-width)
     useEffect(() => {
