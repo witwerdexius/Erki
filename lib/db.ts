@@ -118,6 +118,7 @@ export async function createPlanning(title: string, userId: string): Promise<Pla
 }
 
 export async function savePlanning(plan: Plan): Promise<void> {
+  if (!plan || !plan.id) return;
   console.log('[savePlanning] starte für:', plan.id, '|', plan.title, '| status:', plan.status, '| Stationen:', plan.stations.length);
 
   // plannings UPDATE (ohne explanation_data) und stations DELETE parallel ausführen
@@ -143,6 +144,7 @@ export async function savePlanning(plan: Plan): Promise<void> {
   ]);
   if (planError) {
     console.error('[savePlanning] plannings UPDATE Fehler:', planError);
+    console.error('[savePlanning] plannings UPDATE Fehler detail:', JSON.stringify(planError));
     throw planError;
   }
   if (deleteError) {
