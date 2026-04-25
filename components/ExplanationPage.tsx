@@ -204,6 +204,14 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
     setIsExporting(true);
     await new Promise((r) => setTimeout(r, 150));
     try {
+      try {
+        await Promise.all([
+          document.fonts.load('400 14px "Patrick Hand"'),
+          document.fonts.load('700 14px "Patrick Hand"'),
+        ]);
+      } catch { /* ignore if unavailable */ }
+      await document.fonts.ready;
+
       const { toPng } = await import('html-to-image');
 
       const hiddenEls = pageRef.current.querySelectorAll<HTMLElement>('[data-export-hidden]');
@@ -244,7 +252,6 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
         pixelRatio: 2,
         backgroundColor: '#ffffff',
         cacheBust: true,
-        skipFonts: true,
       });
 
       imgs.forEach((img, i) => {
@@ -378,7 +385,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
               {/* Yellow sticky note — no delete buttons inside */}
               <div
                 style={{
-                  width: 'fit-content',
+                  minWidth: 155,
                   flexShrink: 0,
                   background: '#fde047',
                   padding: '14px 16px',
@@ -388,7 +395,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
                   fontFamily: "'Patrick Hand', cursive",
                 }}
               >
-                <p style={{ fontWeight: 700, fontSize: 14, color: '#1c1917', textDecoration: 'underline', margin: '0 0 8px 0' }}>
+                <p style={{ fontWeight: 700, fontSize: 14, color: '#1c1917', textDecoration: 'underline', margin: '0 0 8px 0', whiteSpace: 'nowrap' }}>
                   Nächste Termine:
                 </p>
                 {data.nextDates.map((date, idx) => (
