@@ -205,14 +205,6 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
     await new Promise((r) => setTimeout(r, 150));
     let injectedStyle: HTMLStyleElement | null = null;
     try {
-      try {
-        await Promise.all([
-          document.fonts.load('400 14px "Patrick Hand"'),
-          document.fonts.load('700 14px "Patrick Hand"'),
-        ]);
-      } catch { /* ignore if unavailable */ }
-      await document.fonts.ready;
-
       const { toPng } = await import('html-to-image');
 
       const hiddenEls = pageRef.current.querySelectorAll<HTMLElement>('[data-export-hidden]');
@@ -246,17 +238,61 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
         ),
       );
 
+      // Inject Patrick Hand font as base64 into document.head so iOS Safari
+      // canvas can render it. Try TTF first (broadest iOS canvas support),
+      // fall back to woff2. After injection we MUST await document.fonts.load()
+      // so the font is fully decoded before toPng() runs.
       try {
-        const fontResp = await fetch('/fonts/PatrickHand-Regular.woff2');
-        const fontBuf = await fontResp.arrayBuffer();
-        const bytes = new Uint8Array(fontBuf);
-        let binary = '';
-        for (let i = 0; i < bytes.length; i += 8192)
-          binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + 8192, bytes.length)));
+        let fontDataUrl: string | null = null;
+        let fontFormat = 'truetype';
+
+        // Try TTF first — better iOS canvas compatibility
+        try {
+          const r = await fetch('/fonts/PatrickHand-Regular.ttf');
+          if (r.ok) {
+            const buf = await r.arrayBuffer();
+            const bytes = new Uint8Array(buf);
+            let bin = '';
+            for (let i = 0; i < bytes.length; i += 8192)
+              bin += String.fromCharCode(...bytes.subarray(i, Math.min(i + 8192, bytes.length)));
+            fontDataUrl = `data:font/ttf;base64,${btoa(bin)}`;
+            fontFormat = 'truetype';
+          }
+        } catch { /* fall through to woff2 */ }
+
+        // Fallback: woff2
+        if (!fontDataUrl) {
+          const r = await fetch('/fonts/PatrickHand-Regular.woff2');
+          const buf = await r.arrayBuffer();
+          const bytes = new Uint8Array(buf);
+          let bin = '';
+          for (let i = 0; i < bytes.length; i += 8192)
+            bin += String.fromCharCode(...bytes.subarray(i, Math.min(i + 8192, bytes.length)));
+          fontDataUrl = `data:font/woff2;base64,${btoa(bin)}`;
+          fontFormat = 'woff2';
+        }
+
+        // Inject into <head> — @font-face in a body element is unreliable on iOS
         injectedStyle = document.createElement('style');
-        injectedStyle.textContent = `@font-face { font-family: 'Patrick Hand'; src: url('data:font/woff2;base64,${btoa(binary)}') format('woff2'); font-weight: normal; font-style: normal; }`;
-        el.appendChild(injectedStyle);
-      } catch { /* continue without custom font */ }
+        injectedStyle.textContent = [
+          `@font-face {`,
+          `  font-family: 'Patrick Hand';`,
+          `  src: url('${fontDataUrl}') format('${fontFormat}');`,
+          `  font-weight: normal; font-style: normal; font-display: block;`,
+          `}`,
+        ].join('\n');
+        document.head.appendChild(injectedStyle);
+
+        // Wait for the browser to fully decode the newly registered font
+        // before handing off to html-to-image (critical on iOS Safari).
+        await Promise.all([
+          document.fonts.load('400 14px "Patrick Hand"'),
+          document.fonts.load('700 14px "Patrick Hand"'),
+        ]);
+        await document.fonts.ready;
+        // Extra breathing room for iOS WKWebView font pipeline
+        await new Promise((r) => setTimeout(r, 200));
+      } catch { /* continue without custom font — system cursive will be used */ }
 
       const png = await toPng(el, {
         width: 559,
@@ -265,6 +301,10 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
         pixelRatio: 2,
         backgroundColor: '#ffffff',
         cacheBust: true,
+        // skipFonts: true keeps html-to-image from crawling external stylesheet
+        // URLs (Google Fonts CDN) which causes CORS failures on iOS Safari.
+        // We've already injected the font manually above.
+        skipFonts: true,
       });
 
       injectedStyle?.remove();
