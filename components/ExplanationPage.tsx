@@ -203,6 +203,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     setIsExporting(true);
     await new Promise((r) => setTimeout(r, 150));
+    let injectedStyle: HTMLStyleElement | null = null;
     try {
       try {
         await Promise.all([
@@ -245,6 +246,18 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
         ),
       );
 
+      try {
+        const fontResp = await fetch('/fonts/PatrickHand-Regular.woff2');
+        const fontBuf = await fontResp.arrayBuffer();
+        const bytes = new Uint8Array(fontBuf);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i += 8192)
+          binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + 8192, bytes.length)));
+        injectedStyle = document.createElement('style');
+        injectedStyle.textContent = `@font-face { font-family: 'Patrick Hand'; src: url('data:font/woff2;base64,${btoa(binary)}') format('woff2'); font-weight: normal; font-style: normal; }`;
+        el.appendChild(injectedStyle);
+      } catch { /* continue without custom font */ }
+
       const png = await toPng(el, {
         width: 559,
         height: 794,
@@ -254,6 +267,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
         cacheBust: true,
       });
 
+      injectedStyle?.remove();
       imgs.forEach((img, i) => {
         img.src = originalSrcs[i];
       });
@@ -263,6 +277,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
       pdf.addImage(png, 'PNG', 0, 0, 148, 210);
       pdf.save('erklaerungsseite.pdf');
     } catch (err) {
+      injectedStyle?.remove();
       console.error('PDF-Export fehlgeschlagen:', err);
       alert('PDF-Export fehlgeschlagen.');
     } finally {
@@ -395,7 +410,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
                   fontFamily: "'Patrick Hand', cursive",
                 }}
               >
-                <p style={{ fontWeight: 700, fontSize: 14, color: '#1c1917', textDecoration: 'underline', margin: '0 0 8px 0', whiteSpace: 'nowrap' }}>
+                <p style={{ display: 'block', fontWeight: 700, fontSize: 14, color: '#1c1917', textDecoration: 'underline', margin: '0 0 8px 0', whiteSpace: 'nowrap' }}>
                   Nächste Termine:
                 </p>
                 {data.nextDates.map((date, idx) => (
