@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Clipboard, Check, Upload, Download, FileText, Trash2 } from 'lucide-react';
 import { Plan } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -25,6 +25,19 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
     const [rows, setRows] = useState<NachdenktextRow[]>([]);
     const [copied, setCopied] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
+    const [vorlageDefault, setVorlageDefault] = useState<string | null>(null);
+
+    useEffect(() => {
+        fetch('/Vorlage.pdf')
+            .then(r => r.blob())
+            .then(blob => new Promise<string>(resolve => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as string);
+                reader.readAsDataURL(blob);
+            }))
+            .then(setVorlageDefault)
+            .catch(() => {});
+    }, []);
 
     const generatePrompt = () => {
         const stationsText = (activePlan?.stations ?? [])
@@ -94,11 +107,12 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
             const topOffset = mmToPt(55);
             const textWidth = pageWidth - 2 * marginLR;
 
-            // Pre-embed template once
+            // Pre-embed template once (use uploaded template, or fall back to /Vorlage.pdf)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             let embeddedTemplate: any = null;
-            if (activePlan?.nachdenk_template) {
-                const base64 = activePlan.nachdenk_template.split(',')[1];
+            const templateSource = activePlan?.nachdenk_template ?? vorlageDefault;
+            if (templateSource) {
+                const base64 = templateSource.split(',')[1];
                 const binary = atob(base64);
                 const bytes = new Uint8Array(binary.length);
                 for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -313,11 +327,17 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                                 'flex items-center gap-2 px-4 py-2 rounded-full cursor-pointer transition-all text-sm font-medium border',
                                 activePlan?.nachdenk_template
                                     ? 'bg-[#7bc9a0]/15 border-[#7bc9a0]/40 text-[#2d7a52] hover:bg-[#7bc9a0]/25'
-                                    : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                                    : vorlageDefault
+                                        ? 'bg-[#7bc9a0]/10 border-[#7bc9a0]/30 text-[#2d7a52] hover:bg-[#7bc9a0]/20'
+                                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
                             )}
                         >
                             <FileText className="w-4 h-4 shrink-0" />
-                            {activePlan?.nachdenk_template ? 'Vorlage hochgeladen ✓' : 'vorlage.pdf hochladen'}
+                            {activePlan?.nachdenk_template
+                                ? 'Vorlage hochgeladen ✓'
+                                : vorlageDefault
+                                    ? 'Vorlage.pdf (Standard) ✓'
+                                    : 'vorlage.pdf hochladen'}
                             <input type="file" accept=".pdf" className="hidden" onChange={handleTemplateUpload} />
                         </label>
                         {activePlan?.nachdenk_template && (
@@ -339,9 +359,14 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                                 : `PDF exportieren${rows.length > 0 ? ` (${rows.length} × 2 Seiten)` : ''}`}
                         </button>
                     </div>
-                    {!activePlan?.nachdenk_template && (
+                    {!activePlan?.nachdenk_template && !vorlageDefault && (
                         <p className="mt-3 text-xs text-gray-500">
                             Ohne Vorlage: Seite 2 hat weißen Hintergrund. Die Vorlage wird einmalig pro Plan gespeichert.
+                        </p>
+                    )}
+                    {!activePlan?.nachdenk_template && vorlageDefault && (
+                        <p className="mt-3 text-xs text-gray-500">
+                            Standard-Vorlage aktiv. Eigene PDF hochladen um sie zu ersetzen.
                         </p>
                     )}
                 </section>
