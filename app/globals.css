@@ -25,6 +25,11 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Prevent iOS Safari auto-zoom on input focus (zoom triggers when font-size < 16px) */
+input, textarea, select {
+  font-size: 16px !important;
+}
+
 /* Hide elements during PDF export */
 .is-exporting [data-export-hidden] {
   display: none !important;
