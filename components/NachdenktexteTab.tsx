@@ -19,8 +19,37 @@ interface Props {
     updateActivePlan: (updates: Partial<Plan>) => void;
 }
 
+const DEFAULT_INSTRUCTION_TEXT = `Erstelle Texte als csv (Spalten: Stationsnummer;Stationsname;Überschrift;Teil 1;Bibelzitat;Teil 2) wie diesen
+
+„Mutig im Sturm
+
+Manchmal kommt der Sturm ganz plötzlich.
+Ein Moment – und alles gerät ins Wanken.
+Pläne scheitern, Sicherheiten fallen, der Gegenwind wird stärker.
+
+Und mittendrin: du.
+Mitten im Sturm.
+Mit einer Aufgabe, die eigentlich ganz einfach ist –
+aber jetzt? Kaum zu bewältigen.
+
+Was hilft dir, durchzuhalten?
+Was gibt dir Halt, wenn alles unsicher ist?
+
+In der Bibel wird erzählt, wie die Jünger mit dem Boot in einen Sturm geraten.
+Sie kämpfen – gegen Wind und Wellen. Und dann – in ihrer Angst – kommt Jesus zu ihnen.
+
+„Habt keine Angst. Ich bin es. Fürchtet euch nicht!"
+(Matthäus 14,27)
+
+Mut bedeutet nicht, keine Angst zu haben.
+Mut bedeutet, der Angst nicht das letzte Wort zu lassen.
+Mut bedeutet, Jesus im Sturm zu entdecken –
+und ihm zuzutrauen, dass er mit dir geht. Auch wenn's stürmt."
+
+zu folgenden Stationen:`;
+
 export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props) {
-    const [instructionText, setInstructionText] = useState('');
+    const [instructionText, setInstructionText] = useState(DEFAULT_INSTRUCTION_TEXT);
     const [pasteText, setPasteText] = useState('');
     const [rows, setRows] = useState<NachdenktextRow[]>([]);
     const [copied, setCopied] = useState(false);
