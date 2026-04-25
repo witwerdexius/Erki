@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Clipboard, Check, Upload, Download, FileText, Trash2 } from 'lucide-react';
 import { Plan } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -55,24 +55,27 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
     const [copied, setCopied] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [templateName, setTemplateName] = useState<string | null>(null);
-    const autoLoadedForPlanRef = useRef<string | null>(null);
+    const [vorlageDataUrl, setVorlageDataUrl] = useState<string | null>(null);
 
+    // Fetch the default template once on mount, unconditionally
     useEffect(() => {
-        if (!activePlan || activePlan.nachdenk_template || autoLoadedForPlanRef.current === activePlan.id) return;
-        autoLoadedForPlanRef.current = activePlan.id;
         fetch('/Vorlage.pdf')
             .then(res => (res.ok ? res.blob() : null))
             .then(blob => {
                 if (!blob) return;
                 const reader = new FileReader();
-                reader.onload = ev => {
-                    updateActivePlan({ nachdenk_template: ev.target?.result as string });
-                    setTemplateName('Vorlage.pdf');
-                };
+                reader.onload = ev => setVorlageDataUrl(ev.target?.result as string);
                 reader.readAsDataURL(blob);
             })
             .catch(() => {});
-    }, [activePlan?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Apply default template as soon as both plan and fetched data are available
+    useEffect(() => {
+        if (!activePlan || activePlan.nachdenk_template || !vorlageDataUrl) return;
+        updateActivePlan({ nachdenk_template: vorlageDataUrl });
+        setTemplateName('Vorlage.pdf');
+    }, [activePlan?.id, vorlageDataUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const generatePrompt = () => {
         const stationsText = (activePlan?.stations ?? [])
@@ -390,11 +393,6 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                                 : `PDF exportieren${rows.length > 0 ? ` (${rows.length} × 2 Seiten)` : ''}`}
                         </button>
                     </div>
-                    {!activePlan?.nachdenk_template && (
-                        <p className="mt-3 text-xs text-gray-500">
-                            Ohne Vorlage: Seite 2 hat weißen Hintergrund. Die Vorlage wird einmalig pro Plan gespeichert.
-                        </p>
-                    )}
                 </section>
             </div>
         </motion.div>
