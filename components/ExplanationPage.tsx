@@ -376,11 +376,11 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
             {/* Left: Yellow sticky note */}
             <div
               style={{
-                width: 240,
-                minHeight: 210,
+                width: 200,
+                minHeight: 155,
                 flexShrink: 0,
                 background: '#fde047',
-                padding: '14px 16px',
+                padding: '10px 14px',
                 boxShadow: '3px 4px 12px rgba(0,0,0,0.15)',
                 transform: 'rotate(-3deg)',
                 borderRadius: 4,
@@ -388,11 +388,11 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
                 alignSelf: 'center',
               }}
             >
-              <p style={{ fontWeight: 700, fontSize: 14, color: '#1c1917', textDecoration: 'underline', margin: '0 0 8px 0' }}>
+              <p style={{ fontWeight: 700, fontSize: 14, color: '#1c1917', textDecoration: 'underline', margin: '0 0 6px 0' }}>
                 Nächste Termine:
               </p>
               {data.nextDates.map((date, idx) => (
-                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                <div key={idx} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 5 }}>
                   <span style={{ color: '#1c1917', fontSize: 14, flexShrink: 0 }}>•</span>
                   <EditableText
                     value={date}
@@ -407,10 +407,15 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
                   <button
                     data-export-hidden
                     onClick={() => update({ nextDates: data.nextDates.filter((_, j) => j !== idx) })}
-                    style={{ color: '#78350f', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, padding: 2 }}
+                    style={{
+                      position: 'absolute', top: -6, right: -8,
+                      color: '#92400e', background: '#fde047', border: '1px solid #92400e',
+                      borderRadius: '50%', cursor: 'pointer', padding: 0,
+                      width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
                     title="Termin entfernen"
                   >
-                    <Trash2 size={11} />
+                    <Trash2 size={8} />
                   </button>
                 </div>
               ))}
