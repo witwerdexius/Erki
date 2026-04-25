@@ -440,7 +440,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
               {/* Yellow sticky note — no delete buttons inside */}
               <div
                 style={{
-                  minWidth: 155,
+                  minWidth: 185,
                   flexShrink: 0,
                   background: '#fde047',
                   padding: '14px 16px',
@@ -454,7 +454,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
                   Nächste Termine:
                 </p>
                 {data.nextDates.map((date, idx) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4, whiteSpace: 'nowrap' }}>
                     <span style={{ color: '#1c1917', fontSize: 14, flexShrink: 0 }}>•</span>
                     <EditableText
                       value={date}
@@ -464,7 +464,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
                         update({ nextDates: arr });
                       }}
                       placeholder="Datum …"
-                      style={{ fontSize: 14, color: '#1c1917', fontFamily: "'Patrick Hand', cursive" }}
+                      style={{ fontSize: 14, color: '#1c1917', fontFamily: "'Patrick Hand', cursive", whiteSpace: 'nowrap' }}
                     />
                   </div>
                 ))}
