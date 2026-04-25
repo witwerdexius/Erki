@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Clipboard, Check, Upload, Download, FileText, Trash2 } from 'lucide-react';
 import { Plan } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -54,6 +54,25 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
     const [rows, setRows] = useState<NachdenktextRow[]>([]);
     const [copied, setCopied] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
+    const [templateName, setTemplateName] = useState<string | null>(null);
+    const autoLoadedForPlanRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        if (!activePlan || activePlan.nachdenk_template || autoLoadedForPlanRef.current === activePlan.id) return;
+        autoLoadedForPlanRef.current = activePlan.id;
+        fetch('/Vorlage.pdf')
+            .then(res => (res.ok ? res.blob() : null))
+            .then(blob => {
+                if (!blob) return;
+                const reader = new FileReader();
+                reader.onload = ev => {
+                    updateActivePlan({ nachdenk_template: ev.target?.result as string });
+                    setTemplateName('Vorlage.pdf');
+                };
+                reader.readAsDataURL(blob);
+            })
+            .catch(() => {});
+    }, [activePlan?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const generatePrompt = () => {
         const stationsText = (activePlan?.stations ?? [])
@@ -101,6 +120,7 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
     const handleTemplateUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
+        setTemplateName(file.name);
         const reader = new FileReader();
         reader.onload = ev => updateActivePlan({ nachdenk_template: ev.target?.result as string });
         reader.readAsDataURL(file);
@@ -346,7 +366,9 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                             )}
                         >
                             <FileText className="w-4 h-4 shrink-0" />
-                            {activePlan?.nachdenk_template ? 'Vorlage hochgeladen ✓' : 'vorlage.pdf hochladen'}
+                            {activePlan?.nachdenk_template
+                                ? `${templateName ?? 'Vorlage hochgeladen'} ✓`
+                                : 'vorlage.pdf hochladen'}
                             <input type="file" accept=".pdf" className="hidden" onChange={handleTemplateUpload} />
                         </label>
                         {activePlan?.nachdenk_template && (
