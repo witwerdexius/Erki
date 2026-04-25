@@ -244,6 +244,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
         pixelRatio: 2,
         backgroundColor: '#ffffff',
         cacheBust: true,
+        skipFonts: true,
       });
 
       imgs.forEach((img, i) => {
