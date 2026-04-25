@@ -15,6 +15,7 @@ function rowToPlan(row: any, stations: Station[]): Plan {
     logoOverlay: row.logo_overlay ?? undefined,
     labelOverlay: row.label_overlay ?? undefined,
     bgZoom: row.bg_zoom ?? 1,
+    explanationData: row.explanation_data ?? undefined,
     stations,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -117,9 +118,10 @@ export async function createPlanning(title: string, userId: string): Promise<Pla
 }
 
 export async function savePlanning(plan: Plan): Promise<void> {
+  if (!plan || !plan.id) return;
   console.log('[savePlanning] starte für:', plan.id, '|', plan.title, '| status:', plan.status, '| Stationen:', plan.stations.length);
 
-  // plannings UPDATE und stations DELETE sind unabhängig → parallel ausführen
+  // plannings UPDATE (ohne explanation_data) und stations DELETE parallel ausführen
   const [{ error: planError }, { error: deleteError }] = await Promise.all([
     supabase
       .from('plannings')
@@ -132,7 +134,6 @@ export async function savePlanning(plan: Plan): Promise<void> {
         logo_overlay: plan.logoOverlay ?? null,
         label_overlay: plan.labelOverlay ?? null,
         bg_zoom: plan.bgZoom ?? 1,
-        explanation_data: plan.explanationData ?? null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', plan.id),
@@ -143,6 +144,7 @@ export async function savePlanning(plan: Plan): Promise<void> {
   ]);
   if (planError) {
     console.error('[savePlanning] plannings UPDATE Fehler:', planError);
+    console.error('[savePlanning] plannings UPDATE Fehler detail:', JSON.stringify(planError));
     throw planError;
   }
   if (deleteError) {
@@ -150,6 +152,18 @@ export async function savePlanning(plan: Plan): Promise<void> {
     throw deleteError;
   }
   console.log('[savePlanning] plannings UPDATE + stations DELETE ok (parallel)');
+
+  // explanation_data separat updaten (kann bei großen Base64-Bildern timeoutten)
+  try {
+    const { error: explError } = await supabase
+      .from('plannings')
+      .update({ explanation_data: plan.explanationData ?? null })
+      .eq('id', plan.id);
+    if (explError) throw explError;
+    console.log('[savePlanning] explanation_data UPDATE ok');
+  } catch (e) {
+    console.error('[savePlanning] explanation_data UPDATE Fehler (ignoriert):', e);
+  }
 
   if (plan.stations.length > 0) {
     // Sicherstellen dass alle IDs gültige UUIDs sind (alte .rki-Importe können Non-UUIDs enthalten)
@@ -159,12 +173,14 @@ export async function savePlanning(plan: Plan): Promise<void> {
       id: UUID_RE.test(s.id) ? s.id : crypto.randomUUID(),
     }));
     const rows = stations.map((s, i) => stationToRow(s, plan.id, i));
-    const { error: insertError } = await supabase.from('stations').insert(rows);
-    if (insertError) {
-      console.error('[savePlanning] stations INSERT Fehler:', insertError);
-      throw insertError;
+    const { error: upsertError } = await supabase
+      .from('stations')
+      .upsert(rows, { onConflict: 'id' });
+    if (upsertError) {
+      console.error('[savePlanning] stations UPSERT Fehler:', upsertError);
+      throw upsertError;
     }
-    console.log('[savePlanning] stations INSERT ok (' + rows.length + ' Zeilen)');
+    console.log('[savePlanning] stations UPSERT ok (' + rows.length + ' Zeilen)');
   }
 
   console.log('[savePlanning] komplett abgeschlossen');
