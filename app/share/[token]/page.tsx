@@ -546,7 +546,7 @@ export default function SharePage() {
 
       <header className="px-4 sm:px-6 py-4 border-b bg-white shrink-0">
         <div className="min-w-0">
-          <h1 className="text-lg sm:text-xl font-bold truncate">{planning.title}</h1>
+          <h1 className="text-lg sm:text-xl font-bold">{planning.title}</h1>
           <p className="text-gray-500 text-xs">
             {planning.stationCount} Station{planning.stationCount !== 1 ? 'en' : ''}{' '}
             · {STATUS_LABELS[planning.status] ?? planning.status}
