@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Map as MapIcon, List, ChevronDown, ChevronUp } from 'lucide-react';
+import { Map as MapIcon, List, ChevronDown, ChevronUp, Download } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { exportLageplanPDF, exportTablePDF } from '@/lib/pdfExport';
@@ -508,7 +508,7 @@ export default function SharePage() {
       </div>
 
       <header className="px-4 sm:px-6 py-4 border-b bg-white flex items-center justify-between gap-4 shrink-0">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="text-lg sm:text-xl font-bold truncate">{planning.title}</h1>
           <p className="text-gray-500 text-xs">
             {planning.stationCount} Station{planning.stationCount !== 1 ? 'en' : ''}{' '}
@@ -520,18 +520,20 @@ export default function SharePage() {
             <button
               onClick={handleLageplanPDF}
               disabled={isExporting}
-              className="bg-[#6bbfd4] text-white px-3 py-1.5 rounded-full text-sm font-medium hover:bg-[#5aaec3] transition-colors disabled:opacity-60 shrink-0"
+              className="bg-[#6bbfd4] text-white px-2.5 sm:px-3 py-1.5 rounded-full text-sm font-medium hover:bg-[#5aaec3] transition-colors disabled:opacity-60 shrink-0 flex items-center gap-1.5"
             >
-              {isExporting ? 'Wird erstellt…' : 'PDF herunterladen'}
+              <Download className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">{isExporting ? 'Wird erstellt…' : 'PDF'}</span>
             </button>
           )}
           {activeTab === 'table' && planning.stations.length > 0 && (
             <button
               onClick={handleTablePDF}
               disabled={isExporting}
-              className="bg-[#6bbfd4] text-white px-3 py-1.5 rounded-full text-sm font-medium hover:bg-[#5aaec3] transition-colors disabled:opacity-60 shrink-0"
+              className="bg-[#6bbfd4] text-white px-2.5 sm:px-3 py-1.5 rounded-full text-sm font-medium hover:bg-[#5aaec3] transition-colors disabled:opacity-60 shrink-0 flex items-center gap-1.5"
             >
-              {isExporting ? 'Wird erstellt…' : 'PDF herunterladen'}
+              <Download className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">{isExporting ? 'Wird erstellt…' : 'PDF'}</span>
             </button>
           )}
           <div className="bg-gray-100 rounded-full p-1 flex items-center text-sm">
