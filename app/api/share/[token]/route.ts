@@ -1,4 +1,4 @@
-// v0.7.106
+// v0.7.107
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -35,12 +35,12 @@ export async function GET(
   ] = await Promise.all([
     supabase
       .from('plannings')
-      .select('id, title, status, updated_at')
+      .select('id, title, status, updated_at, background_image, masks, logo_overlay, label_overlay, bg_zoom')
       .eq('id', planningId)
       .maybeSingle(),
     supabase
       .from('stations')
-      .select('id, number, name, description, setup_by, conducted_by')
+      .select('id, number, name, description, material, instructions, impulses, setup_by, conducted_by, x, y, target_x, target_y, is_filled, color_variant')
       .eq('planning_id', planningId)
       .order('sort_order'),
   ]);
@@ -61,8 +61,17 @@ export async function GET(
     number: r.number,
     name: r.name,
     description: r.description,
+    material: r.material,
+    instructions: r.instructions,
+    impulses: r.impulses ?? [],
     setupBy: r.setup_by,
     conductedBy: r.conducted_by,
+    x: r.x,
+    y: r.y,
+    targetX: r.target_x,
+    targetY: r.target_y,
+    isFilled: r.is_filled,
+    colorVariant: r.color_variant,
   }));
 
   return NextResponse.json({
@@ -71,6 +80,11 @@ export async function GET(
     status: planning.status,
     updatedAt: planning.updated_at,
     stationCount: stations.length,
+    backgroundImage: planning.background_image ?? null,
+    masks: planning.masks ?? [],
+    logoOverlay: planning.logo_overlay ?? null,
+    labelOverlay: planning.label_overlay ?? null,
+    bgZoom: planning.bg_zoom ?? 1,
     stations,
   });
 }
