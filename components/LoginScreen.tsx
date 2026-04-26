@@ -93,7 +93,7 @@ export default function LoginScreen() {
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight">Erlebnis Kirche Planner</h1>
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-gray-800">
               {mode === 'login' ? 'Anmelden, um fortzufahren' : mode === 'register' ? 'Neues Konto erstellen' : 'Passwort zurücksetzen'}
             </p>
           </div>
@@ -102,7 +102,7 @@ export default function LoginScreen() {
         {mode === 'forgot' ? (
           <form onSubmit={handleForgotPassword} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">E-Mail</label>
+              <label className="block text-sm font-medium text-gray-800 mb-1">E-Mail</label>
               <input
                 type="email"
                 value={email}
@@ -129,7 +129,7 @@ export default function LoginScreen() {
               {loading ? 'Wird gesendet…' : 'Reset-Link senden'}
             </button>
 
-            <p className="text-center text-sm text-gray-700 pt-1">
+            <p className="text-center text-sm text-gray-800 pt-1">
               <button
                 type="button"
                 onClick={() => switchMode('login')}
@@ -142,7 +142,7 @@ export default function LoginScreen() {
         ) : mode === 'login' ? (
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">E-Mail</label>
+              <label className="block text-sm font-medium text-gray-800 mb-1">E-Mail</label>
               <input
                 type="email"
                 value={email}
@@ -154,7 +154,7 @@ export default function LoginScreen() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Passwort</label>
+              <label className="block text-sm font-medium text-gray-800 mb-1">Passwort</label>
               <input
                 type="password"
                 value={password}
@@ -167,7 +167,7 @@ export default function LoginScreen() {
               <button
                 type="button"
                 onClick={() => switchMode('forgot')}
-                className="mt-1.5 text-xs text-gray-500 hover:text-[#6bbfd4] hover:underline transition-colors"
+                className="mt-1.5 text-xs text-gray-700 hover:text-[#6bbfd4] hover:underline transition-colors"
               >
                 Passwort vergessen?
               </button>
@@ -185,7 +185,7 @@ export default function LoginScreen() {
               {loading ? 'Wird angemeldet…' : 'Anmelden'}
             </button>
 
-            <p className="text-center text-sm text-gray-700 pt-1">
+            <p className="text-center text-sm text-gray-800 pt-1">
               Noch kein Konto?{' '}
               <button
                 type="button"
@@ -199,7 +199,7 @@ export default function LoginScreen() {
         ) : (
           <form onSubmit={handleRegister} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">E-Mail</label>
+              <label className="block text-sm font-medium text-gray-800 mb-1">E-Mail</label>
               <input
                 type="email"
                 value={email}
@@ -211,7 +211,7 @@ export default function LoginScreen() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Passwort</label>
+              <label className="block text-sm font-medium text-gray-800 mb-1">Passwort</label>
               <input
                 type="password"
                 value={password}
@@ -223,7 +223,7 @@ export default function LoginScreen() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Passwort wiederholen</label>
+              <label className="block text-sm font-medium text-gray-800 mb-1">Passwort wiederholen</label>
               <input
                 type="password"
                 value={passwordConfirm}
@@ -250,7 +250,7 @@ export default function LoginScreen() {
               {loading ? 'Wird registriert…' : 'Konto erstellen'}
             </button>
 
-            <p className="text-center text-sm text-gray-700 pt-1">
+            <p className="text-center text-sm text-gray-800 pt-1">
               Bereits ein Konto?{' '}
               <button
                 type="button"
@@ -265,7 +265,7 @@ export default function LoginScreen() {
 
         <div className="flex items-center gap-3 my-5">
           <div className="flex-1 h-px bg-gray-200" />
-          <span className="text-sm text-gray-600">oder</span>
+          <span className="text-sm text-gray-700">oder</span>
           <div className="flex-1 h-px bg-gray-200" />
         </div>
 
@@ -273,7 +273,7 @@ export default function LoginScreen() {
           type="button"
           onClick={handleGoogleLogin}
           disabled={loading || googleLoading}
-          className="w-full flex items-center justify-center gap-3 py-2.5 px-4 border border-gray-200 rounded-xl font-medium text-gray-700 bg-white hover:bg-gray-50 active:scale-[0.98] transition-all disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-3 py-2.5 px-4 border border-gray-200 rounded-xl font-medium text-gray-800 bg-white hover:bg-gray-50 active:scale-[0.98] transition-all disabled:opacity-50"
         >
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
             <path
@@ -296,7 +296,7 @@ export default function LoginScreen() {
           {googleLoading ? 'Weiterleitung…' : 'Mit Google anmelden'}
         </button>
 
-        <p className="text-center text-xs text-gray-600 mt-8">
+        <p className="text-center text-xs text-gray-700 mt-8">
           © 2026 Erlebnis Kirche Planner · v{process.env.NEXT_PUBLIC_APP_VERSION}
         </p>
       </div>
