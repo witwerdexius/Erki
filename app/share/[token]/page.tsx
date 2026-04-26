@@ -5,12 +5,22 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 
+interface SharedStation {
+  id: string;
+  number: string;
+  name: string;
+  description: string;
+  setupBy: string;
+  conductedBy: string;
+}
+
 interface PlanningInfo {
   planningId: string;
   title: string;
   status: string;
   updatedAt: string;
   stationCount: number;
+  stations: SharedStation[];
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -130,9 +140,31 @@ export default function SharePage() {
           {planning.stationCount} Station{planning.stationCount !== 1 ? 'en' : ''}{' '}
           · {STATUS_LABELS[planning.status] ?? planning.status}
         </p>
-        <div className="bg-gray-50 border rounded-xl p-8 text-gray-400 text-center text-sm">
-          Vorschau nach dem Beitreten in der App verfügbar
-        </div>
+
+        {planning.stations.length > 0 ? (
+          <div className="space-y-2">
+            {planning.stations.map((station) => (
+              <div
+                key={station.id}
+                className="bg-white border rounded-xl px-4 py-3 flex items-center gap-3"
+              >
+                <span className="w-7 h-7 rounded-full bg-[#6bbfd4] text-white text-xs font-bold flex items-center justify-center shrink-0">
+                  {station.number}
+                </span>
+                <div className="min-w-0">
+                  <p className="font-medium text-sm">{station.name}</p>
+                  {station.description && (
+                    <p className="text-gray-400 text-xs truncate">{station.description}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-gray-50 border rounded-xl p-8 text-gray-400 text-center text-sm">
+            Keine Stationen vorhanden
+          </div>
+        )}
       </div>
     </main>
   );
