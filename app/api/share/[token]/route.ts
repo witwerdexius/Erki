@@ -1,3 +1,4 @@
+// v0.7.105
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -9,37 +10,53 @@ export async function GET(
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    (process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   );
 
   let planningId: string = token;
 
-  const { data: shareRow } = await supabase
+  const { data: shareRow, error: shareError } = await supabase
     .from('share_tokens')
-    .select('planning_id, expires_at')
+    .select('planning_id')
     .eq('token', token)
     .maybeSingle();
 
+  if (shareError) {
+    console.error('[share/token] share_tokens lookup error:', JSON.stringify(shareError));
+  }
+
   if (shareRow) {
-    if (shareRow.expires_at && new Date(shareRow.expires_at) < new Date()) {
-      return NextResponse.json({ error: 'Link abgelaufen' }, { status: 410 });
-    }
     planningId = shareRow.planning_id;
   }
 
-  const { data: planning, error } = await supabase
+  const { data: planning, error: planningError } = await supabase
     .from('plannings')
-    .select('*')
+    .select('id, title, status, updated_at')
     .eq('id', planningId)
     .maybeSingle();
 
-  if (error) {
-    console.error('[share/token] plannings lookup error:', JSON.stringify(error));
+  if (planningError) {
+    console.error('[share/token] plannings lookup error:', JSON.stringify(planningError));
   }
 
   if (!planning) {
     return NextResponse.json({ error: 'Nicht gefunden' }, { status: 404 });
   }
 
-  return NextResponse.json({ planning });
+  const { count, error: countError } = await supabase
+    .from('stations')
+    .select('id', { count: 'exact', head: true })
+    .eq('planning_id', planningId);
+
+  if (countError) {
+    console.error('[share/token] stations count error:', JSON.stringify(countError));
+  }
+
+  return NextResponse.json({
+    planningId: planning.id,
+    title: planning.title,
+    status: planning.status,
+    updatedAt: planning.updated_at,
+    stationCount: count ?? 0,
+  });
 }
