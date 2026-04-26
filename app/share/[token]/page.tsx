@@ -280,7 +280,7 @@ function ReadonlyTabelle({ stations }: { stations: SharedStation[] }) {
             <thead>
               <tr className="bg-gray-50 border-b">
                 <th className="p-4 w-10 text-xs font-bold uppercase text-gray-600 tracking-wider">Nr.</th>
-                <th className="p-4 w-32 text-xs font-bold uppercase text-gray-600 tracking-wider">Station</th>
+                <th className="p-4 w-48 text-xs font-bold uppercase text-gray-600 tracking-wider">Station</th>
                 <th className="max-sm:hidden sm:table-cell p-4 w-64 text-xs font-bold uppercase text-gray-600 tracking-wider">Beschreibung</th>
                 <th className="max-sm:hidden sm:table-cell p-4 w-64 text-xs font-bold uppercase text-gray-600 tracking-wider">Material</th>
                 <th className="max-sm:hidden sm:table-cell p-4 w-40 text-xs font-bold uppercase text-gray-600 tracking-wider">Gesprächsimpulse</th>
@@ -297,9 +297,9 @@ function ReadonlyTabelle({ stations }: { stations: SharedStation[] }) {
                     onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
                   >
                     <td className="p-4 align-top font-medium text-[#6bbfd4]">{s.number}</td>
-                    <td className="p-4 align-top font-bold whitespace-pre-wrap">{s.name}</td>
-                    <td className="max-sm:hidden sm:table-cell p-4 w-64 align-top text-sm whitespace-pre-wrap">{s.description}</td>
-                    <td className="max-sm:hidden sm:table-cell p-4 w-64 align-top text-xs whitespace-pre-wrap text-gray-500">{s.material}</td>
+                    <td className="p-4 align-top font-bold whitespace-pre-wrap max-w-0 overflow-hidden">{s.name}</td>
+                    <td className="max-sm:hidden sm:table-cell p-4 w-64 align-top text-sm whitespace-pre-wrap max-w-0 overflow-hidden">{s.description}</td>
+                    <td className="max-sm:hidden sm:table-cell p-4 w-64 align-top text-xs whitespace-pre-wrap text-gray-500 max-w-0 overflow-hidden">{s.material}</td>
                     <td className="max-sm:hidden sm:table-cell p-4 align-top text-sm whitespace-pre-wrap text-gray-500">{(s.impulses || []).join('\n')}</td>
                     <td className="max-sm:hidden sm:table-cell p-4 align-top text-sm whitespace-pre-wrap">{s.setupBy}</td>
                     <td className="max-sm:hidden sm:table-cell p-4 align-top text-sm whitespace-pre-wrap">{s.conductedBy}</td>

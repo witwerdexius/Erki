@@ -1546,7 +1546,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onSaveNow, onBack, o
                                         <tr className="bg-gray-50 border-b">
                                             <th className="max-sm:hidden sm:table-cell p-4 w-8"></th>
                                             <th className="p-4 w-10 text-xs font-bold uppercase text-gray-600 tracking-wider">Nr.</th>
-                                            <th className="p-4 w-32 text-xs font-bold uppercase text-gray-600 tracking-wider">Station</th>
+                                            <th className="p-4 w-48 text-xs font-bold uppercase text-gray-600 tracking-wider">Station</th>
                                             <th className="max-sm:hidden sm:table-cell p-4 w-64 text-xs font-bold uppercase text-gray-600 tracking-wider">Beschreibung</th>
                                             <th className="max-sm:hidden sm:table-cell p-4 w-64 text-xs font-bold uppercase text-gray-600 tracking-wider">Material</th>
                                             <th className="max-sm:hidden sm:table-cell p-4 w-40 text-xs font-bold uppercase text-gray-600 tracking-wider">Gesprächsimpulse</th>
@@ -1590,7 +1590,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onSaveNow, onBack, o
                                                         onBlur={(e) => handleRowReorder(s.id, e.target.value)}
                                                     />
                                                 </td>
-                                                <td className="p-4 align-top">
+                                                <td className="p-4 align-top max-w-0 overflow-hidden">
                                                     <textarea
                                                         ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
                                                         value={s.name}
@@ -1599,7 +1599,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onSaveNow, onBack, o
                                                         style={{ touchAction: 'pan-y' }}
                                                     />
                                                 </td>
-                                                <td className="max-sm:hidden sm:table-cell p-4 w-64 align-top">
+                                                <td className="max-sm:hidden sm:table-cell p-4 w-64 align-top max-w-0 overflow-hidden">
                                                     <div
                                                         ref={(el) => { if (el && el !== document.activeElement) el.textContent = s.description || ''; }}
                                                         contentEditable
@@ -1610,7 +1610,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onSaveNow, onBack, o
                                                         onBlur={(e) => updateStation(s.id, { description: e.currentTarget.innerText })}
                                                     />
                                                 </td>
-                                                <td className="max-sm:hidden sm:table-cell p-4 w-64 align-top">
+                                                <td className="max-sm:hidden sm:table-cell p-4 w-64 align-top max-w-0 overflow-hidden">
                                                     <div
                                                         ref={(el) => { if (el && el !== document.activeElement) el.textContent = s.material || ''; }}
                                                         contentEditable
