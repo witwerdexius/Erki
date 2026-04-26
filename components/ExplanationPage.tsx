@@ -203,121 +203,116 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     setIsExporting(true);
     await new Promise((r) => setTimeout(r, 150));
-    let injectedStyle: HTMLStyleElement | null = null;
     try {
-      const { toPng } = await import('html-to-image');
-
-      const hiddenEls = pageRef.current.querySelectorAll<HTMLElement>('[data-export-hidden]');
-      hiddenEls.forEach((el) => (el.style.visibility = 'hidden'));
+      const { toCanvas } = await import('html-to-image');
 
       const el = pageRef.current;
 
-      const imgs = Array.from(el.querySelectorAll<HTMLImageElement>('img'));
-      const originalSrcs = imgs.map((img) => img.src);
-      await Promise.all(
-        imgs.map(async (img) => {
-          if (!img.src.startsWith('data:')) {
-            try {
-              img.src = await urlToDataUrl(img.src);
-            } catch {
-              // keep original src on failure
-            }
-          }
-        }),
-      );
-      await Promise.all(
-        imgs.map((img) =>
-          img.decode().catch(
-            () =>
-              new Promise<void>((resolve) => {
-                if (img.complete) return resolve();
-                img.onload = () => resolve();
-                img.onerror = () => resolve();
-              }),
-          ),
-        ),
-      );
+      // Hide export-only-hidden UI elements (upload labels, buttons)
+      const hiddenEls = el.querySelectorAll<HTMLElement>('[data-export-hidden]');
+      hiddenEls.forEach((h) => (h.style.visibility = 'hidden'));
 
-      // Inject Patrick Hand font as base64 into document.head so iOS Safari
-      // canvas can render it. Try TTF first (broadest iOS canvas support),
-      // fall back to woff2. After injection we MUST await document.fonts.load()
-      // so the font is fully decoded before toPng() runs.
+      // ── Step 1: Build fontEmbedCSS with Patrick Hand TTF as base64 ──────────
+      // We pass this directly to toCanvas so html-to-image embeds the @font-face
+      // *inside* the SVG. This is the only reliable approach in WKWebView /
+      // iOS Safari: the SVG is rendered in a sandboxed context that has no access
+      // to document.head fonts, so the font must live inside the SVG itself.
+      let fontEmbedCSS = '';
       try {
-        let fontDataUrl: string | null = null;
-        let fontFormat = 'truetype';
-
-        // Try TTF first — better iOS canvas compatibility
-        try {
-          const r = await fetch('/fonts/PatrickHand-Regular.ttf');
-          if (r.ok) {
-            const buf = await r.arrayBuffer();
-            const bytes = new Uint8Array(buf);
-            let bin = '';
-            for (let i = 0; i < bytes.length; i += 8192)
-              bin += String.fromCharCode(...bytes.subarray(i, Math.min(i + 8192, bytes.length)));
-            fontDataUrl = `data:font/ttf;base64,${btoa(bin)}`;
-            fontFormat = 'truetype';
-          }
-        } catch { /* fall through to woff2 */ }
-
-        // Fallback: woff2
-        if (!fontDataUrl) {
-          const r = await fetch('/fonts/PatrickHand-Regular.woff2');
+        const r = await fetch('/fonts/PatrickHand-Regular.ttf');
+        if (r.ok) {
           const buf = await r.arrayBuffer();
           const bytes = new Uint8Array(buf);
           let bin = '';
           for (let i = 0; i < bytes.length; i += 8192)
             bin += String.fromCharCode(...bytes.subarray(i, Math.min(i + 8192, bytes.length)));
-          fontDataUrl = `data:font/woff2;base64,${btoa(bin)}`;
-          fontFormat = 'woff2';
+          const base64 = btoa(bin);
+          fontEmbedCSS = [
+            `@font-face {`,
+            `  font-family: 'Patrick Hand';`,
+            `  src: url('data:font/ttf;base64,${base64}') format('truetype');`,
+            `  font-weight: normal; font-style: normal; font-display: block;`,
+            `}`,
+          ].join('\n');
         }
+      } catch { /* proceed without embedded font; canvas will use fallback cursive */ }
 
-        // Inject into <head> — @font-face in a body element is unreliable on iOS
-        injectedStyle = document.createElement('style');
-        injectedStyle.textContent = [
-          `@font-face {`,
-          `  font-family: 'Patrick Hand';`,
-          `  src: url('${fontDataUrl}') format('${fontFormat}');`,
-          `  font-weight: normal; font-style: normal; font-display: block;`,
-          `}`,
-        ].join('\n');
-        document.head.appendChild(injectedStyle);
+      // ── Step 2: Pre-convert any non-data: image URLs, then decode ────────────
+      const imgs = Array.from(el.querySelectorAll<HTMLImageElement>('img'));
+      await Promise.all(
+        imgs.map(async (img) => {
+          if (!img.src.startsWith('data:')) {
+            try { img.src = await urlToDataUrl(img.src); } catch { /* keep original */ }
+          }
+        }),
+      );
+      await Promise.all(imgs.map((img) => img.decode().catch(() => {})));
 
-        // Wait for the browser to fully decode the newly registered font
-        // before handing off to html-to-image (critical on iOS Safari).
-        await Promise.all([
-          document.fonts.load('400 14px "Patrick Hand"'),
-          document.fonts.load('700 14px "Patrick Hand"'),
-        ]);
-        await document.fonts.ready;
-        // Extra breathing room for iOS WKWebView font pipeline
-        await new Promise((r) => setTimeout(r, 200));
-      } catch { /* continue without custom font — system cursive will be used */ }
+      // ── Step 3: Record each image's position relative to the paper element ───
+      // We temporarily force transform:scale(1) so getBoundingClientRect returns
+      // true layout coordinates (not scaled-down display coordinates).
+      const originalTransform = el.style.transform;
+      el.style.transform = 'scale(1)';
+      el.style.transformOrigin = 'top left';
+      const parentRect = el.getBoundingClientRect();
+      const imgData = imgs.map((img) => {
+        const r = img.getBoundingClientRect();
+        return { src: img.src, x: r.left - parentRect.left, y: r.top - parentRect.top, w: r.width, h: r.height };
+      });
+      el.style.transform = originalTransform;
 
-      const png = await toPng(el, {
+      // ── Step 4: Hide images so toCanvas doesn't embed them in the SVG ────────
+      // html-to-image serialises the DOM → SVG data URL → <img> → canvas.
+      // Nesting large data: image URLs inside that SVG data URL breaks rendering
+      // in WKWebView (nested data: URLs are blocked by WebKit's security policy).
+      // We draw images manually onto the canvas in Step 6 instead.
+      imgs.forEach((img) => { img.style.opacity = '0'; });
+      await new Promise((r) => setTimeout(r, 50));
+
+      // ── Step 5: Render the canvas (text + layout, no images) ─────────────────
+      // fontEmbedCSS takes priority over skipFonts in html-to-image's
+      // embedWebFonts() — the @font-face is injected directly into the SVG's
+      // <style> block, making it available in the sandboxed canvas context.
+      const canvas = await toCanvas(el, {
         width: 559,
         height: 794,
         style: { transform: 'scale(1)', transformOrigin: 'top left' },
         pixelRatio: 2,
         backgroundColor: '#ffffff',
-        cacheBust: true,
-        // skipFonts: true keeps html-to-image from crawling external stylesheet
-        // URLs (Google Fonts CDN) which causes CORS failures on iOS Safari.
-        // We've already injected the font manually above.
-        skipFonts: true,
+        cacheBust: false,
+        ...(fontEmbedCSS ? { fontEmbedCSS } : { skipFonts: true }),
       });
 
-      injectedStyle?.remove();
-      imgs.forEach((img, i) => {
-        img.src = originalSrcs[i];
-      });
-      hiddenEls.forEach((el) => (el.style.visibility = ''));
+      // ── Step 6: Draw images directly onto the canvas ──────────────────────────
+      // Loading from data: URL into a plain Image() and calling ctx.drawImage()
+      // is always reliable — no SVG sandboxing involved.
+      const ctx = canvas.getContext('2d')!;
+      const ratio = 2; // matches pixelRatio above
+      await Promise.all(
+        imgData.map(({ src, x, y, w, h }) =>
+          new Promise<void>((resolve) => {
+            const image = new window.Image();
+            image.onload = () => {
+              ctx.drawImage(image, Math.round(x * ratio), Math.round(y * ratio), Math.round(w * ratio), Math.round(h * ratio));
+              resolve();
+            };
+            image.onerror = () => resolve(); // skip broken images gracefully
+            image.src = src;
+          }),
+        ),
+      );
 
+      // ── Step 7: Restore DOM ───────────────────────────────────────────────────
+      imgs.forEach((img) => { img.style.opacity = ''; });
+      hiddenEls.forEach((h) => (h.style.visibility = ''));
+
+      // ── Step 8: Export to PDF ─────────────────────────────────────────────────
+      const png = canvas.toDataURL();
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a5' });
       pdf.addImage(png, 'PNG', 0, 0, 148, 210);
       pdf.save('erklaerungsseite.pdf');
+
     } catch (err) {
-      injectedStyle?.remove();
       console.error('PDF-Export fehlgeschlagen:', err);
       alert('PDF-Export fehlgeschlagen.');
     } finally {
@@ -355,7 +350,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
             boxShadow: '0 4px 32px rgba(0,0,0,0.15)',
             display: 'flex',
             flexDirection: 'column',
-            fontFamily: 'system-ui, -apple-system, sans-serif',
+            fontFamily: "'Patrick Hand', cursive",
             boxSizing: 'border-box',
             overflow: 'hidden',
             transformOrigin: 'top left',
