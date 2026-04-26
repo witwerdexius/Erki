@@ -257,16 +257,7 @@ function ReadonlyLageplan({ planning }: { planning: PlanningInfo }) {
 }
 
 function ReadonlyTabelle({ stations }: { stations: SharedStation[] }) {
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-
-  const toggleRow = (id: string) => {
-    setExpandedRows(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   return (
     <div className="flex-1 overflow-auto p-4 sm:p-12" style={{ overscrollBehavior: 'contain' }}>
@@ -282,13 +273,16 @@ function ReadonlyTabelle({ stations }: { stations: SharedStation[] }) {
                 <th className="max-sm:hidden sm:table-cell p-4 w-40 text-xs font-bold uppercase text-gray-600 tracking-wider">Gesprächsimpulse</th>
                 <th className="max-sm:hidden sm:table-cell p-4 w-28 text-xs font-bold uppercase text-gray-600 tracking-wider">Aufbau</th>
                 <th className="max-sm:hidden sm:table-cell p-4 w-28 text-xs font-bold uppercase text-gray-600 tracking-wider">Durchführung</th>
-                <th className="sm:hidden p-4 w-10"></th>
+                <th className="sm:hidden p-4 w-10" />
               </tr>
             </thead>
             <tbody className="divide-y">
               {stations.map(s => (
                 <React.Fragment key={s.id}>
-                  <tr className="hover:bg-gray-50/50 transition-colors">
+                  <tr
+                    className="hover:bg-gray-50/50 transition-colors cursor-pointer sm:cursor-default"
+                    onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
+                  >
                     <td className="p-4 align-top font-medium text-[#6bbfd4]">{s.number}</td>
                     <td className="p-4 align-top font-bold whitespace-pre-wrap">{s.name}</td>
                     <td className="max-sm:hidden sm:table-cell p-4 align-top text-sm whitespace-pre-wrap">{s.description}</td>
@@ -298,17 +292,17 @@ function ReadonlyTabelle({ stations }: { stations: SharedStation[] }) {
                     <td className="max-sm:hidden sm:table-cell p-4 align-top text-sm whitespace-pre-wrap">{s.conductedBy}</td>
                     <td className="sm:hidden p-4 align-middle">
                       <button
-                        onClick={() => toggleRow(s.id)}
+                        onClick={(e) => { e.stopPropagation(); setExpandedId(expandedId === s.id ? null : s.id); }}
                         className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
                       >
-                        {expandedRows.has(s.id)
+                        {expandedId === s.id
                           ? <ChevronUp className="w-4 h-4" />
                           : <ChevronDown className="w-4 h-4" />
                         }
                       </button>
                     </td>
                   </tr>
-                  {expandedRows.has(s.id) && (
+                  {expandedId === s.id && (
                     <tr className="sm:hidden bg-gray-50/80">
                       <td colSpan={3} className="px-4 pb-4 pt-2 space-y-3">
                         {s.description ? (
