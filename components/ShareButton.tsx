@@ -8,26 +8,6 @@ interface ShareButtonProps {
   planningId: string;
 }
 
-async function copyToClipboard(text: string): Promise<void> {
-  try {
-    if (navigator.clipboard && window.isSecureContext) {
-      await navigator.clipboard.writeText(text);
-      return;
-    }
-  } catch (e) {
-    console.warn('[ShareButton] clipboard API nicht verfügbar, nutze execCommand', e);
-  }
-  const el = document.createElement('textarea');
-  el.value = text;
-  el.setAttribute('readonly', '');
-  el.style.cssText = 'position:absolute;left:-9999px;top:-9999px';
-  document.body.appendChild(el);
-  el.select();
-  const ok = document.execCommand('copy');
-  document.body.removeChild(el);
-  if (!ok) throw new Error('execCommand copy fehlgeschlagen');
-}
-
 export default function ShareButton({ planningId }: ShareButtonProps) {
   const [state, setState] = useState<'idle' | 'loading' | 'copied' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
@@ -38,39 +18,64 @@ export default function ShareButton({ planningId }: ShareButtonProps) {
     setErrorMsg('');
 
     const fallbackUrl = `${window.location.origin}/share/${planningId}`;
-    let shareUrl = fallbackUrl;
+
+    // Fetches the best available share URL — used as async Promise content for ClipboardItem
+    const getShareUrl = async (): Promise<string> => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          console.warn('[ShareButton] Keine Session — nutze Fallback-URL');
+          return fallbackUrl;
+        }
+        const res = await fetch('/api/share/generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ planning_id: planningId }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (res.ok && body.url) return body.url;
+        console.error('[ShareButton] API Fehler:', res.status, body.error ?? body);
+        return fallbackUrl;
+      } catch (e) {
+        console.error('[ShareButton] API Request fehlgeschlagen, nutze Fallback:', e);
+        return fallbackUrl;
+      }
+    };
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (session?.access_token) {
-        try {
-          const res = await fetch('/api/share/generate', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({ planning_id: planningId }),
-          });
-          const body = await res.json().catch(() => ({}));
-          if (res.ok && body.url) {
-            shareUrl = body.url;
-          } else {
-            console.error('[ShareButton] API Fehler:', res.status, body.error ?? body);
-          }
-        } catch (apiErr) {
-          console.error('[ShareButton] API Request fehlgeschlagen, nutze Fallback:', apiErr);
-        }
+      // iOS Safari requires clipboard call to happen synchronously within the gesture handler.
+      // ClipboardItem accepts a Promise as content: write() is called sync, content resolves async.
+      // Supported: iOS 13.4+, Chrome 76+, Safari 13.1+
+      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/plain': getShareUrl().then(url => new Blob([url], { type: 'text/plain' })),
+          }),
+        ]);
+      } else if (navigator.clipboard?.writeText) {
+        // No ClipboardItem: writeText must be called before any await — use fallback URL
+        // (calling it here is synchronous within the gesture context, no prior awaits)
+        await navigator.clipboard.writeText(fallbackUrl);
       } else {
-        console.warn('[ShareButton] Keine Session — nutze Fallback-URL');
+        // Legacy execCommand fallback (synchronous, always within gesture context)
+        const el = document.createElement('textarea');
+        el.value = fallbackUrl;
+        el.setAttribute('readonly', '');
+        el.style.cssText = 'position:absolute;left:-9999px;top:-9999px';
+        document.body.appendChild(el);
+        el.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(el);
+        if (!ok) throw new Error('execCommand fehlgeschlagen');
       }
 
-      await copyToClipboard(shareUrl);
       setState('copied');
       setTimeout(() => setState('idle'), 2500);
     } catch (e) {
-      console.error('[ShareButton] Kopieren in Zwischenablage fehlgeschlagen:', e);
+      console.error('[ShareButton] Kopieren fehlgeschlagen:', e);
       setErrorMsg('Kopieren fehlgeschlagen');
       setState('error');
       setTimeout(() => setState('idle'), 3000);
