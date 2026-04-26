@@ -85,14 +85,14 @@ export default function LoginScreen() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#fdfdfd] flex items-center justify-center p-4">
+    <div className="min-h-[100dvh] bg-[#fdfdfd] flex items-center justify-center p-4 text-gray-900" style={{ colorScheme: 'light' }}>
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-3 mb-8">
           <div className="h-10 w-10 rounded-xl bg-[#6bbfd4] flex items-center justify-center text-white font-bold text-lg shrink-0">
             EK
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Erlebnis Kirche Planner</h1>
+            <h1 className="text-xl font-bold tracking-tight text-gray-900">Erlebnis Kirche Planner</h1>
             <p className="text-sm text-gray-800">
               {mode === 'login' ? 'Anmelden, um fortzufahren' : mode === 'register' ? 'Neues Konto erstellen' : 'Passwort zurücksetzen'}
             </p>
