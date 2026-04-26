@@ -74,7 +74,7 @@ export default function AdminPanel({ community, currentUserId, onClose }: Props)
         <div className="flex items-center justify-between px-5 py-4 border-b">
           <div>
             <h2 className="font-semibold text-gray-900">Verwaltung</h2>
-            {community && <p className="text-xs text-gray-500 mt-0.5">{community.name}</p>}
+            {community && <p className="text-xs text-gray-600 mt-0.5">{community.name}</p>}
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700 transition-colors">
             <X className="w-5 h-5" />
@@ -84,7 +84,7 @@ export default function AdminPanel({ community, currentUserId, onClose }: Props)
         {/* User list */}
         <div className="flex-1 overflow-y-auto">
           {!community ? (
-            <p className="text-center text-gray-500 text-sm py-10">Kein Team zugewiesen – Benutzerverwaltung nicht verfügbar.</p>
+            <p className="text-center text-gray-600 text-sm py-10">Kein Team zugewiesen – Benutzerverwaltung nicht verfügbar.</p>
           ) : loading ? (
             <p className="text-center text-gray-600 text-sm py-10">Wird geladen…</p>
           ) : users.length === 0 ? (
@@ -107,14 +107,14 @@ export default function AdminPanel({ community, currentUserId, onClose }: Props)
                       {u.displayName || u.email || u.id.slice(0, 8) + '…'}
                     </p>
                     {u.displayName && u.email && (
-                      <p className="text-xs text-gray-500 truncate">{u.email}</p>
+                      <p className="text-xs text-gray-600 truncate">{u.email}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                       u.role === 'admin'
                         ? 'bg-[#6bbfd4]/15 text-[#6bbfd4]'
-                        : 'bg-gray-100 text-gray-500'
+                        : 'bg-gray-100 text-gray-600'
                     }`}>
                       {u.role === 'admin' ? 'Admin' : 'Benutzer'}
                     </span>
