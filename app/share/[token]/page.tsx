@@ -377,7 +377,7 @@ export default function SharePage() {
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'map' | 'table'>('map');
+  const [activeTab, setActiveTab] = useState<'map' | 'table'>('table');
 
   useEffect(() => {
     async function init() {
