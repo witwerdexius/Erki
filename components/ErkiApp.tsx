@@ -1680,15 +1680,23 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onSaveNow, onBack, o
                                                     </div>
                                                 </td>
                                                 <td className="sm:hidden p-4 align-middle">
-                                                    <button
-                                                        onClick={() => toggleExpandedRow(s.id)}
-                                                        className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-                                                    >
-                                                        {expandedRows.has(s.id)
-                                                            ? <ChevronUp className="w-4 h-4" />
-                                                            : <ChevronDown className="w-4 h-4" />
-                                                        }
-                                                    </button>
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); deleteStation(s.id); }}
+                                                            className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => toggleExpandedRow(s.id)}
+                                                            className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                                                        >
+                                                            {expandedRows.has(s.id)
+                                                                ? <ChevronUp className="w-4 h-4" />
+                                                                : <ChevronDown className="w-4 h-4" />
+                                                            }
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                             {expandedRows.has(s.id) && (
