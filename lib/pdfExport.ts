@@ -1,5 +1,3 @@
-import { jsPDF } from 'jspdf';
-
 interface LageplanStation {
   x: number;
   y: number;
@@ -311,6 +309,7 @@ export async function exportLageplanPDF(params: LageplanPDFParams): Promise<void
     const dataUrl = canvas.toDataURL('image/png');
     const imgAspect = W / H;
 
+    const { jsPDF } = await import('jspdf');
     const pdf = new jsPDF({ orientation: aspectRatio, unit: 'mm', format: 'a4' });
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
@@ -339,6 +338,7 @@ export async function exportLageplanPDF(params: LageplanPDFParams): Promise<void
 export async function exportTablePDF(params: TablePDFParams): Promise<void> {
   const { title, stations } = params;
   try {
+    const { jsPDF } = await import('jspdf');
     const autoTable = (await import('jspdf-autotable')).default;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const createHyphenator = (await import('hyphen') as any).default ?? (await import('hyphen') as any);

@@ -464,8 +464,45 @@ export default function SharePage() {
 
   if (loading) {
     return (
-      <main className="min-h-[100dvh] flex items-center justify-center bg-[#fdfdfd]">
-        <p className="text-gray-600">Wird geladen…</p>
+      <main className="h-[100dvh] bg-[#fdfdfd] font-sans flex flex-col overflow-hidden">
+        <div className="bg-[#6bbfd4] px-4 py-3 flex items-center justify-between gap-4 shrink-0">
+          <div className="h-4 bg-white/30 rounded-full w-52 animate-pulse" />
+          <div className="h-8 bg-white/30 rounded-full w-36 animate-pulse" />
+        </div>
+        <header className="px-4 sm:px-6 py-4 border-b bg-white shrink-0">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="h-5 bg-gray-200 rounded-full w-64 animate-pulse" />
+              <div className="h-3 bg-gray-100 rounded-full w-32 animate-pulse" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="bg-gray-100 rounded-full p-1 flex items-center gap-1 w-fit">
+              <div className="h-8 w-24 bg-gray-200 rounded-full animate-pulse" />
+              <div className="h-8 w-24 bg-gray-200 rounded-full animate-pulse" />
+            </div>
+          </div>
+        </header>
+        <div className="flex-1 bg-gray-100 overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-auto p-4 sm:p-12">
+            <div className="bg-white rounded-3xl shadow-xl border border-gray-200 overflow-hidden">
+              <div className="p-4 border-b bg-gray-50 flex gap-4">
+                <div className="h-4 bg-gray-200 rounded w-8 animate-pulse" />
+                <div className="h-4 bg-gray-200 rounded w-28 animate-pulse" />
+                <div className="h-4 bg-gray-200 rounded w-44 animate-pulse hidden sm:block" />
+                <div className="h-4 bg-gray-200 rounded w-60 animate-pulse hidden sm:block" />
+              </div>
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="p-4 border-b last:border-0 flex gap-4">
+                  <div className="h-4 bg-gray-100 rounded w-8 animate-pulse" />
+                  <div className="h-4 bg-gray-100 rounded w-28 animate-pulse" />
+                  <div className="h-4 bg-gray-100 rounded w-44 animate-pulse hidden sm:block" />
+                  <div className="h-4 bg-gray-100 rounded w-60 animate-pulse hidden sm:block" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </main>
     );
   }
