@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Map as MapIcon, List, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
+import { exportLageplanPDF, exportTablePDF } from '@/lib/pdfExport';
 import type { User } from '@supabase/supabase-js';
 
 interface SharedStation {
@@ -378,6 +379,7 @@ export default function SharePage() {
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'map' | 'table'>('table');
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -425,6 +427,38 @@ export default function SharePage() {
       console.error('[SharePage] join error:', e);
     } finally {
       setJoining(false);
+    }
+  };
+
+  const handleLageplanPDF = async () => {
+    if (!planning) return;
+    setIsExporting(true);
+    try {
+      await exportLageplanPDF({
+        backgroundImage: planning.backgroundImage,
+        bgZoom: planning.bgZoom,
+        masks: planning.masks,
+        stations: planning.stations,
+        logoOverlay: planning.logoOverlay,
+        labelOverlay: planning.labelOverlay,
+        title: planning.title,
+        aspectRatio: 'landscape',
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleTablePDF = async () => {
+    if (!planning) return;
+    setIsExporting(true);
+    try {
+      await exportTablePDF({
+        title: planning.title,
+        stations: planning.stations,
+      });
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -481,25 +515,45 @@ export default function SharePage() {
             · {STATUS_LABELS[planning.status] ?? planning.status}
           </p>
         </div>
-        <div className="bg-gray-100 rounded-full p-1 flex items-center text-sm shrink-0">
-          <button
-            onClick={() => setActiveTab('map')}
-            className={cn(
-              'px-3 py-1.5 rounded-full font-medium flex items-center gap-1.5 transition-colors',
-              activeTab === 'map' ? 'bg-white shadow-sm text-[#6bbfd4]' : 'text-gray-500 hover:text-gray-700',
-            )}
-          >
-            <MapIcon className="w-4 h-4" /> <span className="hidden xs:inline">Lageplan</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('table')}
-            className={cn(
-              'px-3 py-1.5 rounded-full font-medium flex items-center gap-1.5 transition-colors',
-              activeTab === 'table' ? 'bg-white shadow-sm text-[#6bbfd4]' : 'text-gray-500 hover:text-gray-700',
-            )}
-          >
-            <List className="w-4 h-4" /> <span className="hidden xs:inline">Tabelle</span>
-          </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {activeTab === 'map' && planning.backgroundImage && (
+            <button
+              onClick={handleLageplanPDF}
+              disabled={isExporting}
+              className="bg-[#6bbfd4] text-white px-3 py-1.5 rounded-full text-sm font-medium hover:bg-[#5aaec3] transition-colors disabled:opacity-60 shrink-0"
+            >
+              {isExporting ? 'Wird erstellt…' : 'PDF herunterladen'}
+            </button>
+          )}
+          {activeTab === 'table' && planning.stations.length > 0 && (
+            <button
+              onClick={handleTablePDF}
+              disabled={isExporting}
+              className="bg-[#6bbfd4] text-white px-3 py-1.5 rounded-full text-sm font-medium hover:bg-[#5aaec3] transition-colors disabled:opacity-60 shrink-0"
+            >
+              {isExporting ? 'Wird erstellt…' : 'PDF herunterladen'}
+            </button>
+          )}
+          <div className="bg-gray-100 rounded-full p-1 flex items-center text-sm">
+            <button
+              onClick={() => setActiveTab('map')}
+              className={cn(
+                'px-3 py-1.5 rounded-full font-medium flex items-center gap-1.5 transition-colors',
+                activeTab === 'map' ? 'bg-white shadow-sm text-[#6bbfd4]' : 'text-gray-500 hover:text-gray-700',
+              )}
+            >
+              <MapIcon className="w-4 h-4" /> <span className="hidden xs:inline">Lageplan</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('table')}
+              className={cn(
+                'px-3 py-1.5 rounded-full font-medium flex items-center gap-1.5 transition-colors',
+                activeTab === 'table' ? 'bg-white shadow-sm text-[#6bbfd4]' : 'text-gray-500 hover:text-gray-700',
+              )}
+            >
+              <List className="w-4 h-4" /> <span className="hidden xs:inline">Tabelle</span>
+            </button>
+          </div>
         </div>
       </header>
 
