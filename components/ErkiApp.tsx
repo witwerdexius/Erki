@@ -14,7 +14,6 @@ import { jsPDF } from 'jspdf';
 import TemplatePickerDialog from './TemplatePickerDialog';
 import NachdenktexteTab from '@/components/NachdenktexteTab';
 import ExplanationPage from '@/components/ExplanationPage';
-import ShareButton from '@/components/ShareButton';
 
 // ── computeAutoLayout ──────────────────────────────────────────────────────
 // Verteilt Beschriftungs-Blasen (s.x / s.y) kreuzungsfrei auf dem Perimeter
