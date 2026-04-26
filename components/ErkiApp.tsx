@@ -1525,7 +1525,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onSaveNow, onBack, o
                     ) : activeTab === 'explanation' ? (
                         <ExplanationPage activePlan={activePlan} updateActivePlan={updateActivePlan} />
                     ) : (
-                        <div ref={tableRef} className="flex-1 overflow-auto p-4 sm:p-12" style={{ overscrollBehavior: 'contain' }}>
+                        <div ref={tableRef} className="flex-1 min-h-0 overflow-auto p-4 sm:p-12" style={{ overscrollBehavior: 'contain' }}>
                             <div className="flex justify-end mb-4">
                                 <button
                                     onClick={exportTableToPDF}
@@ -1540,7 +1540,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onSaveNow, onBack, o
                                 animate={{ opacity: 1, y: 0 }}
                                 className="bg-white rounded-3xl shadow-xl border border-gray-200"
                             >
-                                <div className="overflow-x-auto" style={{ overscrollBehavior: 'contain' }}>
+                                <div className="overflow-x-auto" style={{ overflowY: 'clip', overscrollBehaviorX: 'contain' }}>
                                 <table className="w-full text-left border-collapse sm:min-w-[700px]">
                                     <thead>
                                         <tr className="bg-gray-50 border-b">

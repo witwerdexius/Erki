@@ -273,9 +273,9 @@ function ReadonlyTabelle({ stations }: { stations: SharedStation[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   return (
-    <div className="flex-1 overflow-auto p-4 sm:p-12" style={{ overscrollBehavior: 'contain' }}>
+    <div className="flex-1 min-h-0 overflow-auto p-4 sm:p-12" style={{ overscrollBehavior: 'contain' }}>
       <div className="bg-white rounded-3xl shadow-xl border border-gray-200">
-        <div className="overflow-x-auto" style={{ overscrollBehavior: 'contain' }}>
+        <div className="overflow-x-auto" style={{ overflowY: 'clip', overscrollBehaviorX: 'contain' }}>
           <table className="w-full text-left border-collapse sm:min-w-[700px]">
             <thead>
               <tr className="bg-gray-50 border-b">
