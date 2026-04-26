@@ -545,39 +545,15 @@ export default function SharePage() {
       </div>
 
       <header className="px-4 sm:px-6 py-4 border-b bg-white shrink-0">
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-lg sm:text-xl font-bold truncate">{planning.title}</h1>
-            <p className="text-gray-500 text-xs">
-              {planning.stationCount} Station{planning.stationCount !== 1 ? 'en' : ''}{' '}
-              · {STATUS_LABELS[planning.status] ?? planning.status}
-            </p>
-          </div>
-          <div className="shrink-0">
-            {activeTab === 'map' && planning.backgroundImage && (
-              <button
-                onClick={handleLageplanPDF}
-                disabled={isExporting}
-                className="bg-[#6bbfd4] text-white px-2.5 py-1.5 rounded-full text-sm font-medium hover:bg-[#5aaec3] transition-colors disabled:opacity-60 flex items-center gap-1.5"
-              >
-                <Download className="w-4 h-4 shrink-0" />
-                <span className="hidden sm:inline">{isExporting ? 'Wird erstellt…' : 'PDF'}</span>
-              </button>
-            )}
-            {activeTab === 'table' && planning.stations.length > 0 && (
-              <button
-                onClick={handleTablePDF}
-                disabled={isExporting}
-                className="bg-[#6bbfd4] text-white px-2.5 py-1.5 rounded-full text-sm font-medium hover:bg-[#5aaec3] transition-colors disabled:opacity-60 flex items-center gap-1.5"
-              >
-                <Download className="w-4 h-4 shrink-0" />
-                <span className="hidden sm:inline">{isExporting ? 'Wird erstellt…' : 'PDF'}</span>
-              </button>
-            )}
-          </div>
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl font-bold truncate">{planning.title}</h1>
+          <p className="text-gray-500 text-xs">
+            {planning.stationCount} Station{planning.stationCount !== 1 ? 'en' : ''}{' '}
+            · {STATUS_LABELS[planning.status] ?? planning.status}
+          </p>
         </div>
-        <div className="mt-3">
-          <div className="bg-gray-100 rounded-full p-1 flex items-center text-sm w-fit">
+        <div className="mt-3 flex items-center">
+          <div className="bg-gray-100 rounded-full p-1 flex items-center text-sm">
             <button
               onClick={() => setActiveTab('map')}
               className={cn(
@@ -597,6 +573,26 @@ export default function SharePage() {
               <List className="w-4 h-4" /> Tabelle
             </button>
           </div>
+          {activeTab === 'map' && planning.backgroundImage && (
+            <button
+              onClick={handleLageplanPDF}
+              disabled={isExporting}
+              className="ml-auto bg-[#6bbfd4] text-white px-2.5 py-1.5 rounded-full text-sm font-medium hover:bg-[#5aaec3] transition-colors disabled:opacity-60 flex items-center gap-1.5"
+            >
+              <Download className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">{isExporting ? 'Wird erstellt…' : 'PDF'}</span>
+            </button>
+          )}
+          {activeTab === 'table' && planning.stations.length > 0 && (
+            <button
+              onClick={handleTablePDF}
+              disabled={isExporting}
+              className="ml-auto bg-[#6bbfd4] text-white px-2.5 py-1.5 rounded-full text-sm font-medium hover:bg-[#5aaec3] transition-colors disabled:opacity-60 flex items-center gap-1.5"
+            >
+              <Download className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">{isExporting ? 'Wird erstellt…' : 'PDF'}</span>
+            </button>
+          )}
         </div>
       </header>
 
