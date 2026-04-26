@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Map as MapIcon, List, ChevronDown, ChevronUp } from 'lucide-react';
@@ -83,11 +83,24 @@ function simulateLines(text: string, cpl: number) {
 
 function ReadonlyLageplan({ planning }: { planning: PlanningInfo }) {
   const zoom = planning.bgZoom || 1;
-  const mapScale = 1;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(entries => {
+      setContainerWidth(entries[0].contentRect.width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const mapScale = containerWidth > 0 ? containerWidth / 800 : 1;
 
   return (
     <div className="flex-1 overflow-auto p-2 sm:p-8 flex items-center justify-center" style={{ overscrollBehavior: 'contain' }}>
-      <div className="relative bg-white shadow-2xl overflow-hidden border border-gray-200 aspect-[297/210] h-auto w-full max-w-5xl">
+      <div ref={containerRef} className="relative bg-white shadow-2xl overflow-hidden border border-gray-200 aspect-[297/210] h-auto w-full max-w-5xl">
         <div
           className="absolute inset-0 pointer-events-none origin-center"
           style={{ transform: `scale(${zoom})` }}
