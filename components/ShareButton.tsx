@@ -9,11 +9,14 @@ interface ShareButtonProps {
 }
 
 async function copyToClipboard(text: string): Promise<void> {
-  if (navigator.clipboard && window.isSecureContext) {
-    await navigator.clipboard.writeText(text);
-    return;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+  } catch (e) {
+    console.warn('[ShareButton] clipboard API nicht verfügbar, nutze execCommand', e);
   }
-  // HTTP / older browser fallback
   const el = document.createElement('textarea');
   el.value = text;
   el.setAttribute('readonly', '');
@@ -34,46 +37,40 @@ export default function ShareButton({ planningId }: ShareButtonProps) {
     setState('loading');
     setErrorMsg('');
 
+    const fallbackUrl = `${window.location.origin}/share/${planningId}`;
+    let shareUrl = fallbackUrl;
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        setErrorMsg('Nicht angemeldet');
-        setState('error');
-        setTimeout(() => setState('idle'), 3000);
-        return;
+
+      if (session?.access_token) {
+        try {
+          const res = await fetch('/api/share/generate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ planning_id: planningId }),
+          });
+          const body = await res.json().catch(() => ({}));
+          if (res.ok && body.url) {
+            shareUrl = body.url;
+          } else {
+            console.error('[ShareButton] API Fehler:', res.status, body.error ?? body);
+          }
+        } catch (apiErr) {
+          console.error('[ShareButton] API Request fehlgeschlagen, nutze Fallback:', apiErr);
+        }
+      } else {
+        console.warn('[ShareButton] Keine Session — nutze Fallback-URL');
       }
 
-      const res = await fetch('/api/share/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ planning_id: planningId }),
-      });
-
-      const body = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        const msg = body.error ?? 'Fehler beim Erstellen des Links';
-        setErrorMsg(msg);
-        setState('error');
-        setTimeout(() => setState('idle'), 3000);
-        return;
-      }
-
-      if (!body.url) {
-        setErrorMsg('Kein Link erhalten');
-        setState('error');
-        setTimeout(() => setState('idle'), 3000);
-        return;
-      }
-
-      await copyToClipboard(body.url);
+      await copyToClipboard(shareUrl);
       setState('copied');
       setTimeout(() => setState('idle'), 2500);
     } catch (e) {
-      console.error('[ShareButton]', e);
+      console.error('[ShareButton] Kopieren in Zwischenablage fehlgeschlagen:', e);
       setErrorMsg('Kopieren fehlgeschlagen');
       setState('error');
       setTimeout(() => setState('idle'), 3000);
