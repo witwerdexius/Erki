@@ -6,7 +6,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { User } from '@supabase/supabase-js';
 import { Plan, Station, MaskPolygon, LogoOverlay, LabelOverlay, StationTemplate } from '@/lib/types';
 import { importPlanFromUrl } from '@/lib/actions';
-import { loadTemplates, createTemplate, updateTemplate, deleteTemplate } from '@/lib/db';
+import { loadTemplates, createTemplate, updateTemplate, deleteTemplate, loadPlanning } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
+import ShareButton from './ShareButton';
 import { cn } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
 import TemplatePickerDialog from './TemplatePickerDialog';
@@ -488,6 +490,25 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onSaveNow, onBack, o
             ta.style.height = ta.scrollHeight + 'px';
         });
     }, [activeTab, plan.id, activePlan?.stations]);
+
+    // Realtime-Sync: externe Änderungen an der Planung übernehmen
+    useEffect(() => {
+        const channel = supabase
+            .channel(`planning:${plan.id}`)
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'plannings',
+                filter: `id=eq.${plan.id}`,
+            }, () => {
+                loadPlanning(plan.id)
+                    .then(updated => { onPlanUpdate(updated); })
+                    .catch(e => console.error('[Realtime] Reload fehlgeschlagen:', e));
+            })
+            .subscribe();
+        return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [plan.id]);
 
     const handleImport = async () => {
         if (!importUrl) return;
@@ -1431,6 +1452,8 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onSaveNow, onBack, o
                                 <FileText className="w-4 h-4" /> <span className="hidden xs:inline">Erklärung</span>
                             </button>
                         </nav>
+
+                        <ShareButton planningId={plan.id} />
 
                         <div className="hidden sm:flex items-center bg-gray-100 rounded-full px-3 py-1 border focus-within:ring-2 ring-[#6bbfd4]/30 transition-all">
                             <Link className="w-4 h-4 text-gray-500 mr-2" />
