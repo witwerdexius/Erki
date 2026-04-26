@@ -308,6 +308,8 @@ function rowToProfile(row: any): Profile {
     role: (row.role as UserRole) ?? 'user',
     displayName: row.display_name ?? undefined,
     email: row.email ?? undefined,
+    name: row.name ?? undefined,
+    team: row.team ?? undefined,
     createdAt: row.created_at,
   };
 }

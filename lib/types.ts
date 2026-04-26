@@ -61,6 +61,8 @@ export interface Profile {
   role: UserRole;
   displayName?: string;
   email?: string;
+  name?: string;
+  team?: string;
   createdAt?: string;
 }
 

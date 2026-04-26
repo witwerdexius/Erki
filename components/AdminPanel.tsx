@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Shield, User, Mail, Send } from 'lucide-react';
+import { X, Shield, User, Mail, Send, Trash2 } from 'lucide-react';
 import { Profile, Community, UserRole } from '@/lib/types';
 import { loadCommunityUsers, updateUserRole, sendInvite } from '@/lib/db';
 
@@ -19,6 +19,8 @@ export default function AdminPanel({ community, currentUserId, onClose }: Props)
   const [inviting, setSending] = useState(false);
   const [inviteMsg, setInviteMsg] = useState('');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!community?.id) {
@@ -30,6 +32,27 @@ export default function AdminPanel({ community, currentUserId, onClose }: Props)
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [community?.id]);
+
+  const handleDeleteUser = async (userId: string) => {
+    setDeletingId(userId);
+    try {
+      const res = await fetch('/api/admin/delete-user', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? 'Löschen fehlgeschlagen');
+      }
+      setUsers(prev => prev.filter(u => u.id !== userId));
+    } catch (e) {
+      console.error(e);
+      alert('Fehler beim Löschen des Benutzers: ' + (e instanceof Error ? e.message : String(e)));
+    }
+    setDeletingId(null);
+    setConfirmDeleteId(null);
+  };
 
   const handleRoleToggle = async (user: Profile) => {
     const newRole: UserRole = user.role === 'admin' ? 'user' : 'admin';
@@ -104,10 +127,11 @@ export default function AdminPanel({ community, currentUserId, onClose }: Props)
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">
-                      {u.displayName || u.email || u.id.slice(0, 8) + '…'}
+                      {u.name || u.displayName || u.email || u.id.slice(0, 8) + '…'}
                     </p>
-                    {u.displayName && u.email && (
-                      <p className="text-xs text-gray-600 truncate">{u.email}</p>
+                    <p className="text-xs text-gray-600 truncate">{u.email || '—'}</p>
+                    {u.team && (
+                      <p className="text-xs text-gray-500 truncate">Team: {u.team}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -119,13 +143,41 @@ export default function AdminPanel({ community, currentUserId, onClose }: Props)
                       {u.role === 'admin' ? 'Admin' : 'Benutzer'}
                     </span>
                     {u.id !== currentUserId && (
-                      <button
-                        onClick={() => handleRoleToggle(u)}
-                        disabled={updatingId === u.id}
-                        className="text-xs px-3 py-1 border rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-40 text-gray-700"
-                      >
-                        {updatingId === u.id ? '…' : u.role === 'admin' ? '→ Benutzer' : '→ Admin'}
-                      </button>
+                      <>
+                        <button
+                          onClick={() => handleRoleToggle(u)}
+                          disabled={updatingId === u.id || deletingId === u.id}
+                          className="text-xs px-3 py-1 border rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-40 text-gray-700"
+                        >
+                          {updatingId === u.id ? '…' : u.role === 'admin' ? '→ Benutzer' : '→ Admin'}
+                        </button>
+                        {confirmDeleteId === u.id ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleDeleteUser(u.id)}
+                              disabled={deletingId === u.id}
+                              className="text-xs px-2 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-40"
+                            >
+                              {deletingId === u.id ? '…' : 'Ja, löschen'}
+                            </button>
+                            <button
+                              onClick={() => setConfirmDeleteId(null)}
+                              className="text-xs px-2 py-1 border rounded-lg hover:bg-gray-50 transition-colors text-gray-700"
+                            >
+                              Abbrechen
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmDeleteId(u.id)}
+                            disabled={deletingId === u.id}
+                            className="p-1 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-40 rounded"
+                            title="Benutzer löschen"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>

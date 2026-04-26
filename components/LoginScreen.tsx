@@ -5,11 +5,15 @@ import { supabase } from '@/lib/supabase';
 
 type Mode = 'login' | 'register' | 'forgot';
 
+const TEAMS = ['Feucht'];
+
 export default function LoginScreen() {
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
+  const [name, setName] = useState('');
+  const [team, setTeam] = useState(TEAMS[0]);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
@@ -47,7 +51,11 @@ export default function LoginScreen() {
     }
 
     setLoading(true);
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { name, team } },
+    });
     if (error) {
       setError(error.message);
     } else if (data.session) {
@@ -233,6 +241,31 @@ export default function LoginScreen() {
                 placeholder="••••••••"
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 focus:border-[#6bbfd4] transition-all"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-800 mb-1">Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                autoComplete="name"
+                placeholder="Vor- und Nachname"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 focus:border-[#6bbfd4] transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-800 mb-1">Erlebnis-Kirche-Team</label>
+              <select
+                value={team}
+                onChange={(e) => setTeam(e.target.value)}
+                required
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 focus:border-[#6bbfd4] transition-all"
+              >
+                {TEAMS.map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
             </div>
 
             {error && (
