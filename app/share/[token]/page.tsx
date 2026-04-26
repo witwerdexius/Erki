@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Map as MapIcon, List } from 'lucide-react';
+import { Map as MapIcon, List, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import type { User } from '@supabase/supabase-js';
@@ -257,6 +257,17 @@ function ReadonlyLageplan({ planning }: { planning: PlanningInfo }) {
 }
 
 function ReadonlyTabelle({ stations }: { stations: SharedStation[] }) {
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  const toggleRow = (id: string) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   return (
     <div className="flex-1 overflow-auto p-4 sm:p-12" style={{ overscrollBehavior: 'contain' }}>
       <div className="bg-white rounded-3xl shadow-xl border border-gray-200">
@@ -271,23 +282,73 @@ function ReadonlyTabelle({ stations }: { stations: SharedStation[] }) {
                 <th className="max-sm:hidden sm:table-cell p-4 w-40 text-xs font-bold uppercase text-gray-600 tracking-wider">Gesprächsimpulse</th>
                 <th className="max-sm:hidden sm:table-cell p-4 w-28 text-xs font-bold uppercase text-gray-600 tracking-wider">Aufbau</th>
                 <th className="max-sm:hidden sm:table-cell p-4 w-28 text-xs font-bold uppercase text-gray-600 tracking-wider">Durchführung</th>
+                <th className="sm:hidden p-4 w-10"></th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {stations.map(s => (
-                <tr key={s.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="p-4 align-top font-medium text-[#6bbfd4]">{s.number}</td>
-                  <td className="p-4 align-top font-bold whitespace-pre-wrap">{s.name}</td>
-                  <td className="max-sm:hidden sm:table-cell p-4 align-top text-sm whitespace-pre-wrap">{s.description}</td>
-                  <td className="max-sm:hidden sm:table-cell p-4 align-top text-xs whitespace-pre-wrap text-gray-500">{s.material}</td>
-                  <td className="max-sm:hidden sm:table-cell p-4 align-top text-sm whitespace-pre-wrap text-gray-500">{(s.impulses || []).join('\n')}</td>
-                  <td className="max-sm:hidden sm:table-cell p-4 align-top text-sm whitespace-pre-wrap">{s.setupBy}</td>
-                  <td className="max-sm:hidden sm:table-cell p-4 align-top text-sm whitespace-pre-wrap">{s.conductedBy}</td>
-                </tr>
+                <React.Fragment key={s.id}>
+                  <tr className="hover:bg-gray-50/50 transition-colors">
+                    <td className="p-4 align-top font-medium text-[#6bbfd4]">{s.number}</td>
+                    <td className="p-4 align-top font-bold whitespace-pre-wrap">{s.name}</td>
+                    <td className="max-sm:hidden sm:table-cell p-4 align-top text-sm whitespace-pre-wrap">{s.description}</td>
+                    <td className="max-sm:hidden sm:table-cell p-4 align-top text-xs whitespace-pre-wrap text-gray-500">{s.material}</td>
+                    <td className="max-sm:hidden sm:table-cell p-4 align-top text-sm whitespace-pre-wrap text-gray-500">{(s.impulses || []).join('\n')}</td>
+                    <td className="max-sm:hidden sm:table-cell p-4 align-top text-sm whitespace-pre-wrap">{s.setupBy}</td>
+                    <td className="max-sm:hidden sm:table-cell p-4 align-top text-sm whitespace-pre-wrap">{s.conductedBy}</td>
+                    <td className="sm:hidden p-4 align-middle">
+                      <button
+                        onClick={() => toggleRow(s.id)}
+                        className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                      >
+                        {expandedRows.has(s.id)
+                          ? <ChevronUp className="w-4 h-4" />
+                          : <ChevronDown className="w-4 h-4" />
+                        }
+                      </button>
+                    </td>
+                  </tr>
+                  {expandedRows.has(s.id) && (
+                    <tr className="sm:hidden bg-gray-50/80">
+                      <td colSpan={3} className="px-4 pb-4 pt-2 space-y-3">
+                        {s.description ? (
+                          <div>
+                            <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Beschreibung</p>
+                            <p className="text-sm whitespace-pre-wrap text-gray-700">{s.description}</p>
+                          </div>
+                        ) : null}
+                        {s.material ? (
+                          <div>
+                            <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Material</p>
+                            <p className="text-xs whitespace-pre-wrap text-gray-500">{s.material}</p>
+                          </div>
+                        ) : null}
+                        {(s.impulses || []).length > 0 ? (
+                          <div>
+                            <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Gesprächsimpulse</p>
+                            <p className="text-sm whitespace-pre-wrap text-gray-500">{s.impulses.join('\n')}</p>
+                          </div>
+                        ) : null}
+                        {s.setupBy ? (
+                          <div>
+                            <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Aufbau</p>
+                            <p className="text-sm whitespace-pre-wrap text-gray-700">{s.setupBy}</p>
+                          </div>
+                        ) : null}
+                        {s.conductedBy ? (
+                          <div>
+                            <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Durchführung</p>
+                            <p className="text-sm whitespace-pre-wrap text-gray-700">{s.conductedBy}</p>
+                          </div>
+                        ) : null}
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
               {stations.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-gray-400 text-sm">
+                  <td colSpan={8} className="p-8 text-center text-gray-400 text-sm">
                     Keine Stationen vorhanden
                   </td>
                 </tr>
