@@ -1567,8 +1567,8 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onSaveNow, onBack, o
                                             <th className="max-sm:hidden sm:table-cell p-4 w-28 text-xs font-bold uppercase text-gray-600 tracking-wider">Aufbau</th>
                                             <th className="max-sm:hidden sm:table-cell p-4 w-28 text-xs font-bold uppercase text-gray-600 tracking-wider">Durchführung</th>
                                             <th className="max-sm:hidden sm:table-cell p-4 w-12 text-xs font-bold uppercase text-gray-600 tracking-wider">Stempelfeld</th>
-                                            <th className="max-sm:hidden sm:table-cell p-4 w-10"></th>
-                                            <th className="sm:hidden p-4 w-10"></th>
+                                            <th className="max-sm:hidden sm:table-cell p-4 w-20"></th>
+                                            <th className="sm:hidden p-4 w-16"></th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
@@ -1676,7 +1676,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onSaveNow, onBack, o
                                                         className="rounded text-[#6bbfd4] focus:ring-[#6bbfd4] border-gray-300"
                                                     />
                                                 </td>
-                                                <td className="max-sm:hidden sm:table-cell p-4">
+                                                <td className="max-sm:hidden sm:table-cell p-4 w-20">
                                                     <div className="flex items-center gap-2">
                                                         <button
                                                             onClick={() => handleSaveAsTemplate(s)}
