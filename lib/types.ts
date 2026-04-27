@@ -105,4 +105,5 @@ export interface Plan {
   updatedAt?: string;
   nachdenk_template?: string; // base64 data URL of vorlage.pdf
   explanationData?: ExplanationData;
+  sourceUrl?: string;
 }

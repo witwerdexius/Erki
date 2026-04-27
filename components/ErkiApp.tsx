@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, MutableRefObject } from 'react';
-import { ChevronDown, ChevronUp, ChevronLeft, Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Move, Palette, GripVertical, PenLine, Eraser, Image as ImageIcon, Type, ZoomIn, ZoomOut, BookTemplate, Bookmark, Pencil, Loader2, BookOpen, FileText } from 'lucide-react';
+import { ChevronDown, ChevronUp, ChevronLeft, Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Move, Palette, GripVertical, PenLine, Eraser, Image as ImageIcon, Type, ZoomIn, ZoomOut, BookTemplate, Bookmark, Pencil, Loader2, BookOpen, FileText, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { User } from '@supabase/supabase-js';
 import { Plan, Station, MaskPolygon, LogoOverlay, LabelOverlay, StationTemplate } from '@/lib/types';
@@ -1630,6 +1630,38 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                                 animate={{ opacity: 1, y: 0 }}
                                 className="bg-white rounded-3xl shadow-xl border border-gray-200"
                             >
+                                <div className="px-4 sm:px-6 pt-4 pb-2 flex flex-col gap-1">
+                                    {activePlan.sourceUrl && (
+                                        <a
+                                            href={activePlan.sourceUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-1 text-sm text-gray-500 hover:text-[#6bbfd4] transition-colors w-fit"
+                                        >
+                                            <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
+                                            <span className="truncate max-w-xs">
+                                                {(() => { try { const u = new URL(activePlan.sourceUrl); return u.hostname + (u.pathname.length > 1 ? '/…' : ''); } catch { return activePlan.sourceUrl; } })()}
+                                            </span>
+                                        </a>
+                                    )}
+                                    <input
+                                        type="url"
+                                        placeholder="Quell-URL hinzufügen…"
+                                        defaultValue={activePlan.sourceUrl ?? ''}
+                                        key={activePlan.id}
+                                        className="text-sm text-gray-500 placeholder-gray-300 bg-transparent border-none outline-none w-full max-w-sm focus:text-gray-700"
+                                        onBlur={(e) => {
+                                            const val = e.target.value.trim() || undefined;
+                                            if (val !== activePlan.sourceUrl) {
+                                                updateActivePlan({ sourceUrl: val });
+                                                void onSaveNow({ ...(latestPlanRef.current ?? activePlan), sourceUrl: val });
+                                            }
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                        }}
+                                    />
+                                </div>
                                 <div className="overflow-x-auto" style={{ overflowY: 'clip', overscrollBehaviorX: 'contain' }}>
                                 <table className="w-full table-fixed text-left border-collapse sm:min-w-[700px]">
                                     <thead>

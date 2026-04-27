@@ -16,6 +16,7 @@ function rowToPlan(row: any, stations: Station[]): Plan {
     labelOverlay: row.label_overlay ?? undefined,
     bgZoom: row.bg_zoom ?? 1,
     explanationData: row.explanation_data ?? undefined,
+    sourceUrl: row.source_url ?? undefined,
     stations,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -154,6 +155,7 @@ export async function savePlanning(plan: Plan): Promise<void> {
       logo_overlay: plan.logoOverlay ?? null,
       label_overlay: plan.labelOverlay ?? null,
       bg_zoom: plan.bgZoom ?? 1,
+      source_url: plan.sourceUrl ?? null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', plan.id);
@@ -162,7 +164,6 @@ export async function savePlanning(plan: Plan): Promise<void> {
     : Promise.resolve({ error: null });
 
   const [{ error: planError }, { error: upsertError }] = await Promise.all([planUpdate, stationsUpsert]);
-
   if (planError) {
     console.error('[savePlanning] plannings UPDATE Fehler:', planError);
     console.error('[savePlanning] plannings UPDATE Fehler detail:', JSON.stringify(planError));
