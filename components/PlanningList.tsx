@@ -137,7 +137,7 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-600 hidden sm:block">{user.email}</span>
+          <span className="text-sm text-gray-600 max-w-[140px] sm:max-w-none truncate">{profile?.name || profile?.displayName || user.email}</span>
           {isAdmin && (
             <button
               onClick={() => setShowAdmin(true)}
