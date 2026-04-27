@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { X, Shield, User, Mail, Send, Trash2 } from 'lucide-react';
 import { Profile, Community, UserRole } from '@/lib/types';
-import { loadTeamUsers, updateUserRole, sendInvite } from '@/lib/db';
+import { loadTeamUsers, sendInvite } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 
 interface Props {
   community: Community | null;
@@ -59,11 +60,23 @@ export default function AdminPanel({ community, currentUserId, adminProfile, onC
     const newRole: UserRole = user.role === 'admin' ? 'user' : 'admin';
     setUpdatingId(user.id);
     try {
-      await updateUserRole(user.id, newRole);
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/admin/set-role', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token ?? ''}`,
+        },
+        body: JSON.stringify({ userId: user.id, role: newRole }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? 'Fehler beim Ändern der Rolle');
+      }
       setUsers(prev => prev.map(u => u.id === user.id ? { ...u, role: newRole } : u));
     } catch (e) {
       console.error(e);
-      alert('Fehler beim Aktualisieren der Rolle.');
+      alert('Fehler beim Aktualisieren der Rolle: ' + (e instanceof Error ? e.message : String(e)));
     }
     setUpdatingId(null);
   };
