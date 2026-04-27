@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, FolderOpen, Trash2, Upload, Download, LogOut, Settings } from 'lucide-react';
+import { Plus, FolderOpen, Trash2, Upload, Download, LogOut, Settings, History } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import { loadPlannings, createPlanning, deletePlanning, updatePlanningStatus, importPlannings } from '@/lib/db';
+import { loadPlannings, createPlanning, updatePlanningStatus, importPlannings } from '@/lib/db';
 import { Plan, PlanStatus, Profile, Community } from '@/lib/types';
 import AdminPanel from '@/components/AdminPanel';
+import PlanningHistory from '@/components/PlanningHistory';
 
 const STATUS_LABELS: Record<PlanStatus, string> = {
   draft: 'Entwurf',
@@ -32,6 +33,7 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [historyPlan, setHistoryPlan] = useState<{ id: string; title: string } | null>(null);
 
   const isAdmin = profile?.role === 'admin';
 
@@ -57,11 +59,19 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
   const handleDelete = async (id: string, title: string) => {
     if (!confirm(`Planung „${title}" wirklich löschen?`)) return;
     try {
-      await deletePlanning(id);
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/admin/plannings/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? 'Löschen fehlgeschlagen');
+      }
       setPlans(prev => prev.filter(p => p.id !== id));
     } catch (e) {
       console.error(e);
-      alert('Fehler beim Löschen.');
+      alert('Fehler beim Löschen: ' + (e instanceof Error ? e.message : String(e)));
     }
   };
 
@@ -232,13 +242,24 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => handleDelete(plan.id, plan.title)}
-                    className="p-2 text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                    title="Planung löschen"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {isAdmin && (
+                    <>
+                      <button
+                        onClick={() => setHistoryPlan({ id: plan.id, title: plan.title })}
+                        className="p-2 text-gray-400 hover:text-[#6bbfd4] transition-colors opacity-0 group-hover:opacity-100"
+                        title="Verlauf anzeigen"
+                      >
+                        <History className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(plan.id, plan.title)}
+                        className="p-2 text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                        title="Planung löschen"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
                   <button
                     onClick={() => onOpenPlan(plan.id)}
                     className="flex items-center gap-2 px-4 py-2 bg-[#6bbfd4] text-white text-sm rounded-xl hover:bg-[#5aaec3] active:scale-[0.98] transition-all font-medium"
@@ -263,6 +284,18 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
           currentUserId={user.id}
           adminProfile={profile}
           onClose={() => setShowAdmin(false)}
+        />
+      )}
+
+      {historyPlan && isAdmin && (
+        <PlanningHistory
+          planningId={historyPlan.id}
+          planningTitle={historyPlan.title}
+          onClose={() => setHistoryPlan(null)}
+          onRestored={async () => {
+            const refreshed = await loadPlannings();
+            setPlans(refreshed);
+          }}
         />
       )}
     </div>

@@ -80,6 +80,15 @@ export interface ExplanationData {
   feedbackText?: string;
 }
 
+export interface PlanningSnapshot {
+  id: string;
+  planningId: string;
+  stationsJson: Record<string, unknown>[];
+  createdAt: string;
+  createdBy: string | null;
+  triggerAction: string;
+}
+
 export interface Plan {
   id: string;
   title: string;
