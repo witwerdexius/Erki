@@ -10,17 +10,20 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
 
-  const role = isAdmin ? 'admin' : 'user';
-
   const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-    data: { role, community_id: communityId ?? null },
+    data: { community_id: communityId ?? null },
   });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  if (communityId && data?.user?.id) {
+  if (data?.user?.id) {
+    const profileUpdate: Record<string, unknown> = {
+      id: data.user.id,
+      role: isAdmin ? 'admin' : 'user',
+    };
+    if (communityId) profileUpdate.community_id = communityId;
     await supabaseAdmin
       .from('profiles')
-      .upsert({ id: data.user.id, community_id: communityId, role }, { onConflict: 'id' });
+      .upsert(profileUpdate, { onConflict: 'id' });
   }
 
   return NextResponse.json({ success: true });
