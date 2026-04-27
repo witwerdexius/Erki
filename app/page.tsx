@@ -165,6 +165,12 @@ export default function Home() {
     }, 1500);
   }, [runSave]);
 
+  // Externes Realtime-Update von einem anderen Client – kein Auto-Save, kein dirty-Flag.
+  const handleExternalPlanUpdate = useCallback((updatedPlan: Plan) => {
+    latestPlanRef.current = updatedPlan;
+    setActivePlan(updatedPlan);
+  }, []);
+
   // Direkt-Speichern mit EXPLIZIT übergebenem Plan – keine Ref-Reads, keine Timing-Risiken.
   // Wird z.B. von addStation aufgerufen, damit der neue Zustand sofort persistiert ist,
   // selbst wenn der User unmittelbar danach "Zurück" klickt.
@@ -293,6 +299,7 @@ export default function Home() {
           plan={activePlan}
           user={user}
           onPlanUpdate={handlePlanUpdate}
+          onExternalPlanUpdate={handleExternalPlanUpdate}
           onSaveNow={handleSaveNow}
           onBack={handleBack}
           onImmediateSave={handleImmediateSave}

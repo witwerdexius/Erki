@@ -266,6 +266,8 @@ interface ErkiAppProps {
     plan: Plan;
     user: User;
     onPlanUpdate: (plan: Plan) => void;
+    // Externes Update durch anderen Client (Realtime) – triggert keinen Auto-Save.
+    onExternalPlanUpdate?: (plan: Plan) => void;
     // Sofort-Speichern mit explizitem Plan-Argument (umgeht Ref-Timing-Probleme,
     // die bei addStation zu verlorenen Stationen führten, wenn der User direkt
     // danach "Zurück" klickte).
@@ -277,7 +279,7 @@ interface ErkiAppProps {
     isDirtyRef: MutableRefObject<boolean>;
 }
 
-export default function ErkiApp({ plan, user, onPlanUpdate, onSaveNow, onBack, onImmediateSave, isSaving = false, latestPlanRef, isDirtyRef }: ErkiAppProps) {
+export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate, onSaveNow, onBack, onImmediateSave, isSaving = false, latestPlanRef, isDirtyRef }: ErkiAppProps) {
     const [importUrl, setImportUrl] = useState('');
     const [isImporting, setIsImporting] = useState(false);
     const tabKey = `activeTab_${plan.id}`;
@@ -505,6 +507,80 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onSaveNow, onBack, o
                 loadPlanning(plan.id)
                     .then(updated => { onPlanUpdate(updated); })
                     .catch(e => console.error('[Realtime] Reload fehlgeschlagen:', e));
+            })
+            .subscribe();
+        return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [plan.id]);
+
+    // Realtime-Sync: granulare Station-Änderungen anderer Clients übernehmen
+    useEffect(() => {
+        if (!onExternalPlanUpdate) return;
+        const channel = supabase
+            .channel(`stations:${plan.id}`)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'stations',
+                filter: `planning_id=eq.${plan.id}`,
+            }, (payload) => {
+                const current = latestPlanRef.current;
+                if (!current) return;
+
+                if (payload.eventType === 'DELETE') {
+                    const deletedId = (payload.old as { id: string }).id;
+                    if (!current.stations.some(s => s.id === deletedId)) return;
+                    onExternalPlanUpdate({ ...current, stations: current.stations.filter(s => s.id !== deletedId) });
+                    return;
+                }
+
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const row = payload.new as Record<string, any>;
+                const incoming: Station = {
+                    id: row.id,
+                    number: row.number,
+                    name: row.name,
+                    description: row.description,
+                    material: row.material,
+                    instructions: row.instructions,
+                    impulses: row.impulses ?? [],
+                    setupBy: row.setup_by,
+                    conductedBy: row.conducted_by,
+                    x: row.x,
+                    y: row.y,
+                    targetX: row.target_x,
+                    targetY: row.target_y,
+                    isFilled: row.is_filled,
+                    colorVariant: row.color_variant,
+                };
+
+                const existing = current.stations.find(s => s.id === incoming.id);
+
+                if (payload.eventType === 'UPDATE') {
+                    if (!existing) return;
+                    // Eigene Änderungen ignorieren wenn Daten identisch (Echo vom eigenen Save)
+                    if (
+                        existing.number === incoming.number &&
+                        existing.name === incoming.name &&
+                        existing.description === incoming.description &&
+                        existing.material === incoming.material &&
+                        existing.instructions === incoming.instructions &&
+                        JSON.stringify(existing.impulses) === JSON.stringify(incoming.impulses) &&
+                        existing.setupBy === incoming.setupBy &&
+                        existing.conductedBy === incoming.conductedBy &&
+                        existing.x === incoming.x &&
+                        existing.y === incoming.y &&
+                        existing.targetX === incoming.targetX &&
+                        existing.targetY === incoming.targetY &&
+                        existing.isFilled === incoming.isFilled &&
+                        existing.colorVariant === incoming.colorVariant
+                    ) return;
+                    onExternalPlanUpdate({ ...current, stations: current.stations.map(s => s.id === incoming.id ? incoming : s) });
+                } else {
+                    // INSERT
+                    if (existing) return;
+                    onExternalPlanUpdate({ ...current, stations: [...current.stations, incoming] });
+                }
             })
             .subscribe();
         return () => { supabase.removeChannel(channel); };

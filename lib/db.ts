@@ -121,37 +121,71 @@ export async function savePlanning(plan: Plan): Promise<void> {
   if (!plan || !plan.id) return;
   console.log('[savePlanning] starte für:', plan.id, '|', plan.title, '| status:', plan.status, '| Stationen:', plan.stations.length);
 
-  // plannings UPDATE (ohne explanation_data) und stations DELETE parallel ausführen
-  const [{ error: planError }, { error: deleteError }] = await Promise.all([
-    supabase
-      .from('plannings')
-      .update({
-        title: plan.title,
-        status: plan.status,
-        url: plan.url ?? null,
-        background_image: plan.backgroundImage ?? null,
-        masks: plan.masks ?? [],
-        logo_overlay: plan.logoOverlay ?? null,
-        label_overlay: plan.labelOverlay ?? null,
-        bg_zoom: plan.bgZoom ?? 1,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', plan.id),
-    supabase
-      .from('stations')
-      .delete()
-      .eq('planning_id', plan.id),
-  ]);
+  // Sicherstellen dass alle IDs gültige UUIDs sind (alte .rki-Importe können Non-UUIDs enthalten)
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const stations = plan.stations.map(s => ({
+    ...s,
+    id: UUID_RE.test(s.id) ? s.id : crypto.randomUUID(),
+  }));
+
+  // Aktuelle Station-IDs aus DB laden, um entfernte Stationen gezielt zu löschen
+  const { data: existingRows, error: fetchError } = await supabase
+    .from('stations')
+    .select('id')
+    .eq('planning_id', plan.id);
+  if (fetchError) {
+    console.error('[savePlanning] stations ID-Fetch Fehler:', fetchError);
+    throw fetchError;
+  }
+  const existingIds = new Set((existingRows ?? []).map((r: { id: string }) => r.id));
+  const newIds = new Set(stations.map(s => s.id));
+  const idsToDelete = [...existingIds].filter(id => !newIds.has(id));
+
+  // plannings UPDATE und stations UPSERT parallel ausführen
+  const rows = stations.map((s, i) => stationToRow(s, plan.id, i));
+  const planUpdate = supabase
+    .from('plannings')
+    .update({
+      title: plan.title,
+      status: plan.status,
+      url: plan.url ?? null,
+      background_image: plan.backgroundImage ?? null,
+      masks: plan.masks ?? [],
+      logo_overlay: plan.logoOverlay ?? null,
+      label_overlay: plan.labelOverlay ?? null,
+      bg_zoom: plan.bgZoom ?? 1,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', plan.id);
+  const stationsUpsert = rows.length > 0
+    ? supabase.from('stations').upsert(rows, { onConflict: 'id' })
+    : Promise.resolve({ error: null });
+
+  const [{ error: planError }, { error: upsertError }] = await Promise.all([planUpdate, stationsUpsert]);
+
   if (planError) {
     console.error('[savePlanning] plannings UPDATE Fehler:', planError);
     console.error('[savePlanning] plannings UPDATE Fehler detail:', JSON.stringify(planError));
     throw planError;
   }
-  if (deleteError) {
-    console.error('[savePlanning] stations DELETE Fehler:', deleteError);
-    throw deleteError;
+  if (upsertError) {
+    console.error('[savePlanning] stations UPSERT Fehler:', upsertError);
+    throw upsertError;
   }
-  console.log('[savePlanning] plannings UPDATE + stations DELETE ok (parallel)');
+  console.log('[savePlanning] plannings UPDATE + stations UPSERT ok (' + rows.length + ' Zeilen)');
+
+  // Entfernte Stationen gezielt löschen (nicht mehr im neuen Array vorhanden)
+  if (idsToDelete.length > 0) {
+    const { error: deleteError } = await supabase
+      .from('stations')
+      .delete()
+      .in('id', idsToDelete);
+    if (deleteError) {
+      console.error('[savePlanning] stations DELETE Fehler:', deleteError);
+      throw deleteError;
+    }
+    console.log('[savePlanning] entfernte Stationen gelöscht:', idsToDelete.length);
+  }
 
   // explanation_data separat updaten (kann bei großen Base64-Bildern timeoutten)
   try {
@@ -163,24 +197,6 @@ export async function savePlanning(plan: Plan): Promise<void> {
     console.log('[savePlanning] explanation_data UPDATE ok');
   } catch (e) {
     console.error('[savePlanning] explanation_data UPDATE Fehler (ignoriert):', e);
-  }
-
-  if (plan.stations.length > 0) {
-    // Sicherstellen dass alle IDs gültige UUIDs sind (alte .rki-Importe können Non-UUIDs enthalten)
-    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const stations = plan.stations.map(s => ({
-      ...s,
-      id: UUID_RE.test(s.id) ? s.id : crypto.randomUUID(),
-    }));
-    const rows = stations.map((s, i) => stationToRow(s, plan.id, i));
-    const { error: upsertError } = await supabase
-      .from('stations')
-      .upsert(rows, { onConflict: 'id' });
-    if (upsertError) {
-      console.error('[savePlanning] stations UPSERT Fehler:', upsertError);
-      throw upsertError;
-    }
-    console.log('[savePlanning] stations UPSERT ok (' + rows.length + ' Zeilen)');
   }
 
   console.log('[savePlanning] komplett abgeschlossen');
