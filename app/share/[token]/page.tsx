@@ -273,7 +273,7 @@ function ReadonlyTabelle({ stations }: { stations: SharedStation[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   return (
-    <div className="flex-1 min-h-0 overflow-auto p-4 sm:p-12" style={{ overscrollBehavior: 'contain' }}>
+    <div className="flex-1 min-h-0 overflow-auto p-2 sm:p-4 lg:p-12" style={{ overscrollBehavior: 'contain' }}>
       <div className="bg-white rounded-3xl shadow-xl border border-gray-200">
         <div className="overflow-x-auto" style={{ overflowY: 'clip', overscrollBehaviorX: 'contain' }}>
           <table className="w-full table-fixed text-left border-collapse sm:min-w-[700px]">
@@ -465,18 +465,18 @@ export default function SharePage() {
   if (loading) {
     return (
       <main className="h-[100dvh] bg-[#fdfdfd] font-sans flex flex-col overflow-hidden">
-        <div className="bg-[#6bbfd4] px-4 py-3 flex items-center justify-between gap-4 shrink-0">
+        <div className="bg-[#6bbfd4] px-4 py-2 sm:py-3 flex items-center justify-between gap-4 shrink-0">
           <div className="h-4 bg-white/30 rounded-full w-52 animate-pulse" />
-          <div className="h-8 bg-white/30 rounded-full w-36 animate-pulse" />
+          <div className="h-7 bg-white/30 rounded-full w-28 animate-pulse" />
         </div>
-        <header className="px-4 sm:px-6 py-4 border-b bg-white shrink-0">
+        <header className="px-4 sm:px-6 py-2 sm:py-4 border-b bg-white shrink-0">
           <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0 flex-1 space-y-2">
+            <div className="min-w-0 flex-1 space-y-1.5">
               <div className="h-5 bg-gray-200 rounded-full w-64 animate-pulse" />
               <div className="h-3 bg-gray-100 rounded-full w-32 animate-pulse" />
             </div>
           </div>
-          <div className="mt-3">
+          <div className="mt-1.5 sm:mt-3">
             <div className="bg-gray-100 rounded-full p-1 flex items-center gap-1 w-fit">
               <div className="h-8 w-24 bg-gray-200 rounded-full animate-pulse" />
               <div className="h-8 w-24 bg-gray-200 rounded-full animate-pulse" />
@@ -520,8 +520,8 @@ export default function SharePage() {
 
   return (
     <main className="h-[100dvh] bg-[#fdfdfd] text-[#1a1a1a] font-sans flex flex-col overflow-hidden">
-      <div className="bg-[#6bbfd4] text-white px-4 py-3 flex items-center justify-between gap-4 shrink-0">
-        <span className="text-sm font-medium">
+      <div className="bg-[#6bbfd4] text-white px-4 py-2 sm:py-3 flex items-center justify-between gap-3 shrink-0">
+        <span className="text-xs sm:text-sm font-medium leading-tight">
           {user
             ? 'Diese Planung wurde mit dir geteilt'
             : 'Melde dich an um diese Planung zu bearbeiten'}
@@ -530,29 +530,34 @@ export default function SharePage() {
           <button
             onClick={handleJoin}
             disabled={joining}
-            className="bg-white text-[#6bbfd4] px-4 py-1.5 rounded-full text-sm font-semibold hover:bg-gray-50 transition-colors disabled:opacity-70 shrink-0"
+            className="bg-white text-[#6bbfd4] px-3 py-1 sm:px-4 sm:py-1.5 rounded-full text-xs sm:text-sm font-semibold hover:bg-gray-50 transition-colors disabled:opacity-70 shrink-0"
           >
-            {joining ? '…' : 'Zu meiner Planung hinzufügen'}
+            {joining ? '…' : (
+              <>
+                <span className="sm:hidden">Hinzufügen</span>
+                <span className="hidden sm:inline">Zu meiner Planung hinzufügen</span>
+              </>
+            )}
           </button>
         ) : (
           <Link
             href="/"
-            className="bg-white text-[#6bbfd4] px-4 py-1.5 rounded-full text-sm font-semibold hover:bg-gray-50 transition-colors shrink-0"
+            className="bg-white text-[#6bbfd4] px-3 py-1 sm:px-4 sm:py-1.5 rounded-full text-xs sm:text-sm font-semibold hover:bg-gray-50 transition-colors shrink-0"
           >
             Zum Login
           </Link>
         )}
       </div>
 
-      <header className="px-4 sm:px-6 py-4 border-b bg-white shrink-0">
+      <header className="px-4 sm:px-6 py-2 sm:py-4 border-b bg-white shrink-0">
         <div className="min-w-0">
-          <h1 className="text-lg sm:text-xl font-bold">{planning.title}</h1>
-          <p className="text-gray-500 text-xs">
+          <h1 className="text-base sm:text-xl font-bold leading-tight">{planning.title}</h1>
+          <p className="text-gray-500 text-xs mt-0.5">
             {planning.stationCount} Station{planning.stationCount !== 1 ? 'en' : ''}{' '}
             · {STATUS_LABELS[planning.status] ?? planning.status}
           </p>
         </div>
-        <div className="mt-3 flex items-center">
+        <div className="mt-1.5 sm:mt-3 flex items-center">
           <div className="bg-gray-100 rounded-full p-1 flex items-center text-sm">
             <button
               onClick={() => setActiveTab('map')}
