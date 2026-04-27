@@ -29,7 +29,7 @@ export default function AdminPanel({ community, currentUserId, adminProfile, onC
       setLoading(false);
       return;
     }
-    loadTeamUsers(adminProfile.team)
+    loadTeamUsers(adminProfile.team, adminProfile.communityId ?? undefined)
       .then(setUsers)
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -144,9 +144,9 @@ export default function AdminPanel({ community, currentUserId, adminProfile, onC
                       {u.name || u.displayName || u.email || u.id.slice(0, 8) + '…'}
                     </p>
                     <p className="text-xs text-gray-600 truncate">{u.email || '—'}</p>
-                    {u.team && (
-                      <p className="text-xs text-gray-500 truncate">Team: {u.team}</p>
-                    )}
+                    <p className="text-xs truncate" style={{ color: u.team ? undefined : '#f59e0b' }}>
+                      {u.team ? `Team: ${u.team}` : 'Kein Team'}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
