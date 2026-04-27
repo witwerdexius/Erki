@@ -20,6 +20,7 @@ export default function AdminPanel({ community, currentUserId, adminProfile, onC
   const [inviteAsAdmin, setInviteAsAdmin] = useState(false);
   const [inviting, setSending] = useState(false);
   const [inviteMsg, setInviteMsg] = useState('');
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -32,13 +33,14 @@ export default function AdminPanel({ community, currentUserId, adminProfile, onC
     (async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        const res = await fetch(
-          `/api/admin/users?team=${encodeURIComponent(adminProfile.team!)}`,
-          { headers: { Authorization: `Bearer ${session?.access_token ?? ''}` } }
-        );
+        const params = new URLSearchParams({ team: adminProfile.team! });
+        if (adminProfile.communityId) params.set('communityId', adminProfile.communityId);
+        const res = await fetch(`/api/admin/users?${params}`, {
+          headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+        });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
-          throw new Error(body.error ?? 'Fehler beim Laden der Benutzer');
+          throw new Error(body.error ?? `HTTP ${res.status}`);
         }
         const body = await res.json();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -53,7 +55,8 @@ export default function AdminPanel({ community, currentUserId, adminProfile, onC
           createdAt: row.created_at,
         })));
       } catch (e) {
-        console.error(e);
+        console.error('[AdminPanel] Fehler beim Laden der Benutzer:', e);
+        setLoadError(e instanceof Error ? e.message : String(e));
       } finally {
         setLoading(false);
       }
@@ -149,6 +152,8 @@ export default function AdminPanel({ community, currentUserId, adminProfile, onC
             <p className="text-center text-gray-700 text-sm py-10">Kein Team zugewiesen – Benutzerverwaltung nicht verfügbar.</p>
           ) : loading ? (
             <p className="text-center text-gray-700 text-sm py-10">Wird geladen…</p>
+          ) : loadError ? (
+            <p className="text-center text-red-500 text-sm py-10 px-5">Fehler: {loadError}</p>
           ) : users.length === 0 ? (
             <p className="text-center text-gray-700 text-sm py-10">Keine Benutzer gefunden.</p>
           ) : (
