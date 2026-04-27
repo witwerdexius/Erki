@@ -350,20 +350,16 @@ export async function loadCommunityUsers(communityId: string): Promise<Profile[]
 }
 
 export async function loadTeamUsers(team: string, communityId?: string): Promise<Profile[]> {
-  const queries: Promise<{ data: unknown[] | null; error: unknown }>[] = [
-    supabase.from('profiles').select('*').eq('team', team).order('created_at') as Promise<{ data: unknown[] | null; error: unknown }>,
-  ];
-  if (communityId) {
-    queries.push(
-      supabase.from('profiles').select('*').is('team', null).eq('community_id', communityId).order('created_at') as Promise<{ data: unknown[] | null; error: unknown }>,
-    );
-  }
-  const results = await Promise.all(queries);
-  for (const { error } of results) {
-    if (error) throw error;
-  }
+  const [teamResult, noTeamResult] = await Promise.all([
+    supabase.from('profiles').select('*').eq('team', team).order('created_at'),
+    communityId
+      ? supabase.from('profiles').select('*').is('team', null).eq('community_id', communityId).order('created_at')
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (teamResult.error) throw teamResult.error;
+  if (noTeamResult.error) throw noTeamResult.error;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rows = results.flatMap(r => (r.data ?? []) as any[]);
+  const rows = [...(teamResult.data ?? []), ...(noTeamResult.data ?? [])] as any[];
   return rows.map(rowToProfile);
 }
 
