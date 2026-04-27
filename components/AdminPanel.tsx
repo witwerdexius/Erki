@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Shield, User, Mail, Send, Trash2 } from 'lucide-react';
 import { Profile, Community, UserRole } from '@/lib/types';
-import { loadTeamUsers, sendInvite } from '@/lib/db';
+import { sendInvite } from '@/lib/db';
 import { supabase } from '@/lib/supabase';
 
 interface Props {
@@ -29,10 +29,35 @@ export default function AdminPanel({ community, currentUserId, adminProfile, onC
       setLoading(false);
       return;
     }
-    loadTeamUsers(adminProfile.team, adminProfile.communityId ?? undefined)
-      .then(setUsers)
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch(
+          `/api/admin/users?team=${encodeURIComponent(adminProfile.team!)}`,
+          { headers: { Authorization: `Bearer ${session?.access_token ?? ''}` } }
+        );
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error ?? 'Fehler beim Laden der Benutzer');
+        }
+        const body = await res.json();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setUsers((body.users ?? []).map((row: any) => ({
+          id: row.id,
+          communityId: row.community_id,
+          role: row.role ?? 'user',
+          displayName: row.display_name ?? undefined,
+          email: row.email ?? undefined,
+          name: row.name ?? undefined,
+          team: row.team ?? undefined,
+          createdAt: row.created_at,
+        })));
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [adminProfile?.team]);
 
   const handleDeleteUser = async (userId: string) => {
