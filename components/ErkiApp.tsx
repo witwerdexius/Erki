@@ -683,6 +683,20 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onSaveNow, onBack, o
 
     const deleteStation = (id: string) => {
         if (!activePlan) return;
+        const planId = activePlan.id;
+        // Snapshot vor dem Löschen anlegen (fire-and-forget, blockiert die UI nicht)
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session?.access_token) {
+                fetch('/api/admin/snapshots', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${session.access_token}`,
+                    },
+                    body: JSON.stringify({ planningId: planId, triggerAction: 'before_station_delete' }),
+                }).catch(() => {});
+            }
+        });
         updateActivePlan({ stations: activePlan.stations.filter(s => s.id !== id) });
     };
 
