@@ -32,11 +32,14 @@ export default function AdminPanel({ community, currentUserId, adminProfile, onC
     }
     (async () => {
       try {
+        const { data: { session } } = await supabase.auth.getSession();
         const res = await fetch('/api/admin/users', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token ?? ''}`,
+          },
           body: JSON.stringify({
-            callerId: currentUserId,
             team: adminProfile.team!,
             communityId: adminProfile.communityId ?? null,
           }),
