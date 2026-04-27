@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
   const token = req.headers.get('Authorization')?.replace('Bearer ', '').trim();
   if (!token) {
-    return NextResponse.json({ error: 'Nicht authentifiziert' }, { status: 401 });
+    return NextResponse.json({ error: 'Nicht authentifiziert – kein Token' }, { status: 401 });
   }
 
   const team = req.nextUrl.searchParams.get('team');
@@ -16,14 +19,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'team-Parameter fehlt' }, { status: 400 });
   }
 
+  // Verify JWT with anon key client (standard pattern – service role key
+  // is only for DB operations, not for verifying user JWTs)
+  const verifyClient = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data: { user }, error: authError } = await verifyClient.auth.getUser(token);
+  if (authError || !user) {
+    return NextResponse.json({ error: `Nicht authentifiziert – ${authError?.message ?? 'kein User'}` }, { status: 401 });
+  }
+
+  // Use service role client for all DB operations (bypasses RLS)
   const adminClient = createClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-
-  const { data: { user }, error: authError } = await adminClient.auth.getUser(token);
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Nicht authentifiziert' }, { status: 401 });
-  }
 
   const { data: callerProfile, error: profileError } = await adminClient
     .from('profiles')
@@ -38,14 +47,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
   }
 
-  const teamQuery = adminClient
-    .from('profiles')
-    .select('*')
-    .eq('team', team)
-    .order('created_at');
-
   const [teamResult, noTeamResult] = await Promise.all([
-    teamQuery,
+    adminClient
+      .from('profiles')
+      .select('*')
+      .eq('team', team)
+      .order('created_at'),
     communityId
       ? adminClient
           .from('profiles')
