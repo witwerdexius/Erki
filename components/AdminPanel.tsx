@@ -3,15 +3,16 @@
 import { useState, useEffect } from 'react';
 import { X, Shield, User, Mail, Send, Trash2 } from 'lucide-react';
 import { Profile, Community, UserRole } from '@/lib/types';
-import { loadCommunityUsers, updateUserRole, sendInvite } from '@/lib/db';
+import { loadTeamUsers, updateUserRole, sendInvite } from '@/lib/db';
 
 interface Props {
   community: Community | null;
   currentUserId: string;
+  adminProfile: Profile | null;
   onClose: () => void;
 }
 
-export default function AdminPanel({ community, currentUserId, onClose }: Props) {
+export default function AdminPanel({ community, currentUserId, adminProfile, onClose }: Props) {
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -23,15 +24,15 @@ export default function AdminPanel({ community, currentUserId, onClose }: Props)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!community?.id) {
+    if (!adminProfile?.team) {
       setLoading(false);
       return;
     }
-    loadCommunityUsers(community.id)
+    loadTeamUsers(adminProfile.team)
       .then(setUsers)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [community?.id]);
+  }, [adminProfile?.team]);
 
   const handleDeleteUser = async (userId: string) => {
     setDeletingId(userId);
@@ -106,7 +107,7 @@ export default function AdminPanel({ community, currentUserId, onClose }: Props)
 
         {/* User list */}
         <div className="flex-1 overflow-y-auto">
-          {!community ? (
+          {!adminProfile?.team ? (
             <p className="text-center text-gray-700 text-sm py-10">Kein Team zugewiesen – Benutzerverwaltung nicht verfügbar.</p>
           ) : loading ? (
             <p className="text-center text-gray-700 text-sm py-10">Wird geladen…</p>

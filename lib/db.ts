@@ -349,6 +349,24 @@ export async function loadCommunityUsers(communityId: string): Promise<Profile[]
   return (data ?? []).map(rowToProfile);
 }
 
+export async function loadTeamUsers(team: string): Promise<Profile[]> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('team', team)
+    .order('created_at');
+  if (error) throw error;
+  return (data ?? []).map(rowToProfile);
+}
+
+export async function updateProfileNameAndTeam(userId: string, name: string, team: string): Promise<void> {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ name, team })
+    .eq('id', userId);
+  if (error) throw error;
+}
+
 export async function updateUserRole(userId: string, role: UserRole): Promise<void> {
   const { error } = await supabase
     .from('profiles')

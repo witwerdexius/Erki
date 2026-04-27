@@ -13,11 +13,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ErKi – Erstkommunion-Planung",
-  description: "Planung für die Erstkommunion",
+  title: "ErKi – ErlebnisKirche-Planung",
+  description: "Planung für die ErlebnisKirche",
   openGraph: {
-    title: "ErKi – Erstkommunion-Planung",
-    description: "Planung für die Erstkommunion",
+    title: "ErKi – ErlebnisKirche-Planung",
+    description: "Planung für die ErlebnisKirche",
     url: "https://erki.vercel.app",
     siteName: "ErKi",
   },

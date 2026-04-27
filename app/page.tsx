@@ -6,8 +6,9 @@ import { supabase } from '@/lib/supabase';
 import LoginScreen from '@/components/LoginScreen';
 import PlanningList from '@/components/PlanningList';
 import ErkiApp from '@/components/ErkiApp';
-import { loadPlanning, savePlanning, loadProfile, loadCommunity } from '@/lib/db';
+import { loadPlanning, savePlanning, loadProfile, loadCommunity, updateProfileNameAndTeam } from '@/lib/db';
 import { Plan, Profile, Community } from '@/lib/types';
+import OnboardingModal from '@/components/OnboardingModal';
 
 type View = 'login' | 'list' | 'editor';
 
@@ -19,6 +20,7 @@ export default function Home() {
   const viewRef = useRef<View>('login');
   const [activePlan, setActivePlan] = useState<Plan | null>(null);
   const [loadingPlan, setLoadingPlan] = useState(false);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   // Ref hält immer den neuesten Plan-Stand synchron (unabhängig von React-State-Batching)
@@ -41,6 +43,9 @@ export default function Home() {
       if (p?.communityId) {
         const c = await loadCommunity(p.communityId);
         setCommunity(c);
+      }
+      if (p && !p.team) {
+        setNeedsOnboarding(true);
       }
     } catch (e) {
       console.error('[loadUserProfile] Fehler:', e);
@@ -260,12 +265,24 @@ export default function Home() {
 
   if (view === 'list' && user) {
     return (
-      <PlanningList
-        user={user}
-        profile={profile}
-        community={community}
-        onOpenPlan={handleOpenPlan}
-      />
+      <>
+        <PlanningList
+          user={user}
+          profile={profile}
+          community={community}
+          onOpenPlan={handleOpenPlan}
+        />
+        {needsOnboarding && (
+          <OnboardingModal
+            initialName={profile?.name || profile?.displayName || user.user_metadata?.name || ''}
+            onComplete={async (name, team) => {
+              await updateProfileNameAndTeam(user.id, name, team);
+              setProfile(p => p ? { ...p, name, team } : p);
+              setNeedsOnboarding(false);
+            }}
+          />
+        )}
+      </>
     );
   }
 

@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "ErKi – Geteilte Planung",
-  description: "Planung für die Erstkommunion",
+  description: "Planung für die ErlebnisKirche",
   openGraph: {
     title: "ErKi – Geteilte Planung",
-    description: "Planung für die Erstkommunion",
+    description: "Planung für die ErlebnisKirche",
     url: "https://erki.vercel.app",
     siteName: "ErKi",
   },
