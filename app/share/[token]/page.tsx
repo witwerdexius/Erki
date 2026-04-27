@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Map as MapIcon, List, ChevronDown, ChevronUp, Download } from 'lucide-react';
+import { Map as MapIcon, List, ChevronDown, ChevronUp, Download, ExternalLink } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { exportLageplanPDF, exportTablePDF } from '@/lib/pdfExport';
@@ -55,6 +55,7 @@ interface PlanningInfo {
   logoOverlay: LogoOverlay | null;
   labelOverlay: LabelOverlay | null;
   bgZoom: number;
+  sourceUrl: string | null;
   stations: SharedStation[];
 }
 
@@ -269,12 +270,27 @@ function ReadonlyLageplan({ planning }: { planning: PlanningInfo }) {
   );
 }
 
-function ReadonlyTabelle({ stations }: { stations: SharedStation[] }) {
+function ReadonlyTabelle({ stations, sourceUrl }: { stations: SharedStation[]; sourceUrl: string | null }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   return (
     <div className="flex-1 min-h-0 overflow-auto p-2 sm:p-4 lg:p-12" style={{ overscrollBehavior: 'contain' }}>
       <div className="bg-white rounded-3xl shadow-xl border border-gray-200">
+        {sourceUrl && (
+          <div className="px-4 sm:px-6 pt-4 pb-2">
+            <a
+              href={sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-sm text-gray-500 hover:text-[#6bbfd4] transition-colors w-fit"
+            >
+              <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="truncate max-w-xs">
+                {(() => { try { const u = new URL(sourceUrl); return u.hostname + (u.pathname.length > 1 ? '/…' : ''); } catch { return sourceUrl; } })()}
+              </span>
+            </a>
+          </div>
+        )}
         <div className="overflow-x-auto" style={{ overflowY: 'clip', overscrollBehaviorX: 'contain' }}>
           <table className="w-full table-fixed text-left border-collapse sm:min-w-[700px]">
             <thead>
@@ -605,7 +621,7 @@ export default function SharePage() {
         {activeTab === 'map' ? (
           <ReadonlyLageplan planning={planning} />
         ) : (
-          <ReadonlyTabelle stations={planning.stations} />
+          <ReadonlyTabelle stations={planning.stations} sourceUrl={planning.sourceUrl} />
         )}
       </div>
     </main>

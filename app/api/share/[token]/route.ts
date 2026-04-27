@@ -35,7 +35,7 @@ export async function GET(
   ] = await Promise.all([
     supabase
       .from('plannings')
-      .select('id, title, status, updated_at, background_image, masks, logo_overlay, label_overlay, bg_zoom')
+      .select('id, title, status, updated_at, background_image, masks, logo_overlay, label_overlay, bg_zoom, source_url')
       .eq('id', planningId)
       .maybeSingle(),
     supabase
@@ -85,6 +85,7 @@ export async function GET(
     logoOverlay: planning.logo_overlay ?? null,
     labelOverlay: planning.label_overlay ?? null,
     bgZoom: planning.bg_zoom ?? 1,
+    sourceUrl: planning.source_url ?? null,
     stations,
   });
 }
