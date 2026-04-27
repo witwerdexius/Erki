@@ -148,7 +148,7 @@ export default function AdminPanel({ community, currentUserId, adminProfile, onC
                       <p className="text-xs text-gray-500 truncate">Team: {u.team}</p>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0 ml-auto">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                       u.role === 'admin'
                         ? 'bg-[#6bbfd4]/15 text-[#6bbfd4]'
