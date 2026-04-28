@@ -69,31 +69,25 @@ function stationToRow(station: Station, planningId: string, sortOrder: number) {
 // ── Public API ──────────────────────────────────────────────────
 
 export async function loadPlannings(): Promise<Plan[]> {
+  // Nur Listenfelder laden — background_image/explanation_data/masks etc. werden hier nicht benötigt
   const { data, error } = await supabase
     .from('plannings')
-    .select('*')
+    .select('id, title, status, updated_at, created_at, stations(count)')
     .order('updated_at', { ascending: false });
   if (error) throw error;
 
-  const plans = data ?? [];
-  if (plans.length === 0) return [];
-
-  // Station-Anzahl per separater Query laden (nur planning_id, kein Daten-Overhead)
-  const planIds = plans.map(p => p.id);
-  const { data: stationRows } = await supabase
-    .from('stations')
-    .select('planning_id')
-    .in('planning_id', planIds);
-
-  const countMap = new Map<string, number>();
-  for (const row of stationRows ?? []) {
-    countMap.set(row.planning_id, (countMap.get(row.planning_id) ?? 0) + 1);
-  }
-
-  return plans.map(row => ({
-    ...rowToPlan(row, []),
-    stationCount: countMap.get(row.id) ?? 0,
-  }));
+  return (data ?? []).map(row => {
+    const countArr = row.stations as unknown as { count: number }[] | null;
+    return {
+      id: row.id,
+      title: row.title,
+      status: row.status as PlanStatus,
+      stations: [],
+      stationCount: countArr?.[0]?.count ?? 0,
+      updatedAt: row.updated_at,
+      createdAt: row.created_at,
+    };
+  });
 }
 
 export async function loadPlanning(id: string): Promise<Plan> {
