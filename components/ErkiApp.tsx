@@ -4,9 +4,9 @@ import React, { useState, useEffect, useRef, MutableRefObject } from 'react';
 import { ChevronDown, ChevronUp, ChevronLeft, Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Move, Palette, GripVertical, PenLine, Eraser, Image as ImageIcon, Type, ZoomIn, ZoomOut, BookTemplate, Bookmark, Pencil, Loader2, BookOpen, FileText, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { User } from '@supabase/supabase-js';
-import { Plan, Station, MaskPolygon, LogoOverlay, LabelOverlay, StationTemplate } from '@/lib/types';
+import { Plan, PlanStatus, Station, MaskPolygon, LogoOverlay, LabelOverlay, StationTemplate } from '@/lib/types';
 import { importPlanFromUrl } from '@/lib/actions';
-import { loadTemplates, createTemplate, updateTemplate, deleteTemplate, loadPlanning } from '@/lib/db';
+import { loadTemplates, createTemplate, updateTemplate, deleteTemplate, loadPlanningFull } from '@/lib/db';
 import { supabase } from '@/lib/supabase';
 import ShareButton from './ShareButton';
 import { cn } from '@/lib/utils';
@@ -319,6 +319,45 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
     const activePlan = latestPlanRef.current ?? plan;
     const mapScale = containerWidth > 0 ? containerWidth / 800 : 1;
 
+    // Ref that always holds the current activeTab value — used inside realtime callbacks.
+    const activeTabRef = useRef(activeTab);
+    useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
+
+    // Track whether background_image / explanation_data / masks / overlays have been loaded.
+    // Reset whenever a different plan is opened.
+    const fullDataLoadedRef = useRef(false);
+    useEffect(() => { fullDataLoadedRef.current = false; }, [plan.id]);
+
+    // If the session-restored tab is already a heavy tab, kick off the load immediately.
+    useEffect(() => {
+        if (activeTab === 'map' || activeTab === 'explanation') {
+            void ensureFullDataLoaded();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [plan.id]);
+
+    // Loads heavy fields (background_image, masks, overlays, explanation_data) from the DB
+    // and merges them into the current plan state without marking the plan as dirty.
+    const ensureFullDataLoaded = async () => {
+        if (fullDataLoadedRef.current) return;
+        fullDataLoadedRef.current = true;
+        try {
+            const full = await loadPlanningFull((latestPlanRef.current ?? plan).id);
+            const base = latestPlanRef.current ?? plan;
+            onExternalPlanUpdate?.({
+                ...base,
+                backgroundImage: base.backgroundImage ?? full.backgroundImage,
+                masks: (base.masks && base.masks.length > 0) ? base.masks : (full.masks ?? []),
+                logoOverlay: base.logoOverlay ?? full.logoOverlay,
+                labelOverlay: base.labelOverlay ?? full.labelOverlay,
+                explanationData: base.explanationData ?? full.explanationData,
+            });
+        } catch (e) {
+            fullDataLoadedRef.current = false;
+            console.error('[LazyLoad] Fehler beim Laden der Bilddaten:', e);
+        }
+    };
+
     // Templates lazy-laden beim ersten Wechsel zum Vorlagen-Tab oder beim Öffnen des Pickers
     const ensureTemplatesLoaded = async () => {
         if (templatesLoaded) return;
@@ -494,7 +533,9 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
         });
     }, [activeTab, plan.id, activePlan?.stations]);
 
-    // Realtime-Sync: externe Änderungen an der Planung übernehmen
+    // Realtime-Sync: externe Änderungen an der Planung übernehmen.
+    // Nutzt payload.new für Metadaten (kein Extra-Query); lädt schwere Felder
+    // nur neu wenn der User gerade den Lageplan- oder Erklärungsseite-Tab hat.
     useEffect(() => {
         const channel = supabase
             .channel(`planning:${plan.id}`)
@@ -503,10 +544,30 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                 schema: 'public',
                 table: 'plannings',
                 filter: `id=eq.${plan.id}`,
-            }, () => {
-                loadPlanning(plan.id)
-                    .then(updated => { onPlanUpdate(updated); })
-                    .catch(e => console.error('[Realtime] Reload fehlgeschlagen:', e));
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            }, (payload) => {
+                if (!onExternalPlanUpdate) return;
+                const current = latestPlanRef.current;
+                if (!current) return;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const row = payload.new as Record<string, any>;
+                const onHeavyTab = activeTabRef.current === 'map' || activeTabRef.current === 'explanation';
+                onExternalPlanUpdate({
+                    ...current,
+                    title: row.title ?? current.title,
+                    status: (row.status ?? current.status) as PlanStatus,
+                    url: row.url ?? current.url,
+                    bgZoom: row.bg_zoom ?? current.bgZoom,
+                    sourceUrl: row.source_url ?? current.sourceUrl,
+                    updatedAt: row.updated_at ?? current.updatedAt,
+                    ...(onHeavyTab ? {
+                        backgroundImage: row.background_image ?? undefined,
+                        masks: row.masks ?? [],
+                        logoOverlay: row.logo_overlay ?? undefined,
+                        labelOverlay: row.label_overlay ?? undefined,
+                        explanationData: row.explanation_data ?? undefined,
+                    } : {}),
+                });
             })
             .subscribe();
         return () => { supabase.removeChannel(channel); };
@@ -1087,7 +1148,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                     <div className="flex items-center gap-3 sm:gap-6">
                         <nav className="flex bg-gray-100 rounded-full p-1 border">
                             <button
-                                onClick={() => setActiveTab('map')}
+                                onClick={() => { setActiveTab('map'); void ensureFullDataLoaded(); }}
                                 className={cn(
                                     "flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-full text-sm font-medium transition-all",
                                     activeTab === 'map' ? "bg-white shadow-sm text-[#6bbfd4]" : "text-gray-500 hover:text-gray-700"
@@ -1119,7 +1180,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                                 <BookOpen className="w-4 h-4" /> <span className="hidden xs:inline">Nachdenk-Texte</span>
                             </button>
                             <button
-                                onClick={() => setActiveTab('explanation')}
+                                onClick={() => { setActiveTab('explanation'); void ensureFullDataLoaded(); }}
                                 className={cn(
                                     "flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-all",
                                     activeTab === 'explanation' ? "bg-white shadow-sm text-[#6bbfd4]" : "text-gray-500 hover:text-gray-700"

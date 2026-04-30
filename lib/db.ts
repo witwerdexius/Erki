@@ -90,7 +90,26 @@ export async function loadPlannings(): Promise<Plan[]> {
   });
 }
 
-export async function loadPlanning(id: string): Promise<Plan> {
+// Loads only lightweight metadata — no background_image, explanation_data, masks, logo_overlay, label_overlay.
+// Use for initial open; switch to loadPlanningFull when the map or explanation tab is needed.
+export async function loadPlanningMeta(id: string): Promise<Plan> {
+  const [{ data: planRow, error: planError }, { data: stationRows, error: stationError }] =
+    await Promise.all([
+      supabase
+        .from('plannings')
+        .select('id, title, status, url, bg_zoom, source_url, created_at, updated_at')
+        .eq('id', id)
+        .single(),
+      supabase.from('stations').select('*').eq('planning_id', id).order('sort_order'),
+    ]);
+  if (planError) throw planError;
+  if (stationError) throw stationError;
+  const stations = (stationRows ?? []).map(rowToStation);
+  return rowToPlan(planRow, stations);
+}
+
+// Loads all fields including background_image, explanation_data, masks, logo_overlay, label_overlay.
+export async function loadPlanningFull(id: string): Promise<Plan> {
   const [{ data: planRow, error: planError }, { data: stationRows, error: stationError }] =
     await Promise.all([
       supabase.from('plannings').select('*').eq('id', id).single(),

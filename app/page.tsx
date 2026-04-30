@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import LoginScreen from '@/components/LoginScreen';
 import PlanningList from '@/components/PlanningList';
 import ErkiApp from '@/components/ErkiApp';
-import { loadPlanning, savePlanning, loadProfile, loadCommunity, updateProfileNameAndTeam } from '@/lib/db';
+import { loadPlanningMeta, savePlanning, loadProfile, loadCommunity, updateProfileNameAndTeam } from '@/lib/db';
 import { Plan, Profile, Community } from '@/lib/types';
 import OnboardingModal from '@/components/OnboardingModal';
 
@@ -88,7 +88,7 @@ export default function Home() {
   const handleOpenPlan = async (planId: string) => {
     setLoadingPlan(true);
     try {
-      const plan = await loadPlanning(planId);
+      const plan = await loadPlanningMeta(planId);
       latestPlanRef.current = plan;
       isDirtyRef.current = false;
       sessionStorage.setItem('activePlanId', planId);
