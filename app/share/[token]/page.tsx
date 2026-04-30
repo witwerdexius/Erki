@@ -44,19 +44,22 @@ interface LabelOverlay {
   fontSize: number;
 }
 
-interface PlanningInfo {
+interface PlanningInfoPartial {
   planningId: string;
   title: string;
   status: string;
   updatedAt: string;
   stationCount: number;
+  bgZoom: number;
+  sourceUrl: string | null;
+  stations: SharedStation[];
+}
+
+interface FullImageData {
   backgroundImage: string | null;
   masks: MaskPolygon[];
   logoOverlay: LogoOverlay | null;
   labelOverlay: LabelOverlay | null;
-  bgZoom: number;
-  sourceUrl: string | null;
-  stations: SharedStation[];
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -83,7 +86,13 @@ function simulateLines(text: string, cpl: number) {
   return lines;
 }
 
-function ReadonlyLageplan({ planning }: { planning: PlanningInfo }) {
+function ReadonlyLageplan({
+  planning,
+  fullData,
+}: {
+  planning: PlanningInfoPartial;
+  fullData: FullImageData | null;
+}) {
   const zoom = planning.bgZoom || 1;
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -97,7 +106,15 @@ function ReadonlyLageplan({ planning }: { planning: PlanningInfo }) {
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [fullData]);
+
+  if (!fullData) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#6bbfd4] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 overflow-auto p-2 sm:p-8 flex items-center justify-center" style={{ overscrollBehavior: 'contain' }}>
@@ -106,25 +123,25 @@ function ReadonlyLageplan({ planning }: { planning: PlanningInfo }) {
           className="absolute inset-0 pointer-events-none origin-center"
           style={{ transform: `scale(${zoom})` }}
         >
-          {planning.backgroundImage && (
+          {fullData.backgroundImage && (
             <div className="absolute inset-0 select-none overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={planning.backgroundImage}
+                src={fullData.backgroundImage}
                 className="w-full h-full object-contain opacity-50"
                 alt="Lageplan"
               />
             </div>
           )}
 
-          {planning.masks.length > 0 && (
+          {fullData.masks.length > 0 && (
             <svg
               className="absolute z-10"
               style={{ inset: '-1px', width: 'calc(100% + 2px)', height: 'calc(100% + 2px)' }}
               viewBox="0 0 100 100"
               preserveAspectRatio="none"
             >
-              {planning.masks.map((mask, mi) => (
+              {fullData.masks.map((mask, mi) => (
                 <path
                   key={mi}
                   fillRule="evenodd"
@@ -136,7 +153,7 @@ function ReadonlyLageplan({ planning }: { planning: PlanningInfo }) {
           )}
         </div>
 
-        {!planning.backgroundImage && (
+        {!fullData.backgroundImage && (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500 bg-gray-50/50 pointer-events-none">
             <MapIcon className="w-16 h-16 mb-4 opacity-10" />
             <p className="text-lg font-medium">Kein Lageplan vorhanden</p>
@@ -238,13 +255,13 @@ function ReadonlyLageplan({ planning }: { planning: PlanningInfo }) {
           })}
         </div>
 
-        {planning.logoOverlay && (
+        {fullData.logoOverlay && (
           <div
             className="absolute z-40 pointer-events-none"
             style={{
-              left: `${planning.logoOverlay.x}%`,
-              top: `${planning.logoOverlay.y}%`,
-              width: `${planning.logoOverlay.size}%`,
+              left: `${fullData.logoOverlay.x}%`,
+              top: `${fullData.logoOverlay.y}%`,
+              width: `${fullData.logoOverlay.size}%`,
             }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -252,16 +269,16 @@ function ReadonlyLageplan({ planning }: { planning: PlanningInfo }) {
           </div>
         )}
 
-        {planning.labelOverlay && (
+        {fullData.labelOverlay && (
           <div
             className="absolute z-40 pointer-events-none"
-            style={{ left: `${planning.labelOverlay.x}%`, top: `${planning.labelOverlay.y}%` }}
+            style={{ left: `${fullData.labelOverlay.x}%`, top: `${fullData.labelOverlay.y}%` }}
           >
             <div
               className="font-bold uppercase tracking-widest whitespace-nowrap"
-              style={{ fontSize: planning.labelOverlay.fontSize * mapScale, color: '#1a1a1a' }}
+              style={{ fontSize: fullData.labelOverlay.fontSize * mapScale, color: '#1a1a1a' }}
             >
-              {planning.labelOverlay.text}
+              {fullData.labelOverlay.text}
             </div>
           </div>
         )}
@@ -389,7 +406,8 @@ export default function SharePage() {
   const router = useRouter();
   const token = params.token as string;
 
-  const [planning, setPlanning] = useState<PlanningInfo | null>(null);
+  const [planning, setPlanning] = useState<PlanningInfoPartial | null>(null);
+  const [fullData, setFullData] = useState<FullImageData | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
@@ -417,6 +435,27 @@ export default function SharePage() {
     }
     init();
   }, [token]);
+
+  const loadFullData = async (): Promise<FullImageData | null> => {
+    const res = await fetch(`/api/share/${token}?full=1`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const fd: FullImageData = {
+      backgroundImage: data.backgroundImage ?? null,
+      masks: data.masks ?? [],
+      logoOverlay: data.logoOverlay ?? null,
+      labelOverlay: data.labelOverlay ?? null,
+    };
+    setFullData(fd);
+    return fd;
+  };
+
+  const handleMapTabClick = async () => {
+    setActiveTab('map');
+    if (!fullData) {
+      await loadFullData();
+    }
+  };
 
   const handleJoin = async () => {
     if (!user) return;
@@ -450,13 +489,15 @@ export default function SharePage() {
     if (!planning) return;
     setIsExporting(true);
     try {
+      const fd = fullData ?? await loadFullData();
+      if (!fd) return;
       await exportLageplanPDF({
-        backgroundImage: planning.backgroundImage,
+        backgroundImage: fd.backgroundImage,
         bgZoom: planning.bgZoom,
-        masks: planning.masks,
+        masks: fd.masks,
         stations: planning.stations,
-        logoOverlay: planning.logoOverlay,
-        labelOverlay: planning.labelOverlay,
+        logoOverlay: fd.logoOverlay,
+        labelOverlay: fd.labelOverlay,
         title: planning.title,
         aspectRatio: 'landscape',
       });
@@ -576,7 +617,7 @@ export default function SharePage() {
         <div className="mt-1.5 sm:mt-3 flex items-center">
           <div className="bg-gray-100 rounded-full p-1 flex items-center text-sm">
             <button
-              onClick={() => setActiveTab('map')}
+              onClick={handleMapTabClick}
               className={cn(
                 'px-3 py-1.5 rounded-full font-medium flex items-center gap-1.5 transition-colors',
                 activeTab === 'map' ? 'bg-white shadow-sm text-[#6bbfd4]' : 'text-gray-500 hover:text-gray-700',
@@ -594,7 +635,7 @@ export default function SharePage() {
               <List className="w-4 h-4" /> Tabelle
             </button>
           </div>
-          {activeTab === 'map' && planning.backgroundImage && (
+          {activeTab === 'map' && fullData?.backgroundImage && (
             <button
               onClick={handleLageplanPDF}
               disabled={isExporting}
@@ -619,7 +660,7 @@ export default function SharePage() {
 
       <div className="flex-1 bg-gray-100 overflow-hidden flex flex-col">
         {activeTab === 'map' ? (
-          <ReadonlyLageplan planning={planning} />
+          <ReadonlyLageplan planning={planning} fullData={fullData} />
         ) : (
           <ReadonlyTabelle stations={planning.stations} sourceUrl={planning.sourceUrl} />
         )}

@@ -1,12 +1,13 @@
-// v0.7.107
+// v0.7.151
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ token: string }> },
 ) {
   const { token } = await params;
+  const full = req.nextUrl.searchParams.get('full') === '1';
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,13 +30,17 @@ export async function GET(
     planningId = shareRow.planning_id;
   }
 
+  const planningSelect = full
+    ? 'id, title, status, updated_at, background_image, masks, logo_overlay, label_overlay, bg_zoom, source_url'
+    : 'id, title, status, updated_at, bg_zoom, source_url';
+
   const [
     { data: planning, error: planningError },
     { data: stationRows, error: stationsError },
   ] = await Promise.all([
     supabase
       .from('plannings')
-      .select('id, title, status, updated_at, background_image, masks, logo_overlay, label_overlay, bg_zoom, source_url')
+      .select(planningSelect)
       .eq('id', planningId)
       .maybeSingle(),
     supabase
@@ -74,18 +79,26 @@ export async function GET(
     colorVariant: r.color_variant,
   }));
 
-  return NextResponse.json({
-    planningId: planning.id,
-    title: planning.title,
-    status: planning.status,
-    updatedAt: planning.updated_at,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const p = planning as any;
+
+  const response: Record<string, unknown> = {
+    planningId: p.id,
+    title: p.title,
+    status: p.status,
+    updatedAt: p.updated_at,
     stationCount: stations.length,
-    backgroundImage: planning.background_image ?? null,
-    masks: planning.masks ?? [],
-    logoOverlay: planning.logo_overlay ?? null,
-    labelOverlay: planning.label_overlay ?? null,
-    bgZoom: planning.bg_zoom ?? 1,
-    sourceUrl: planning.source_url ?? null,
+    bgZoom: p.bg_zoom ?? 1,
+    sourceUrl: p.source_url ?? null,
     stations,
-  });
+  };
+
+  if (full) {
+    response.backgroundImage = p.background_image ?? null;
+    response.masks = p.masks ?? [];
+    response.logoOverlay = p.logo_overlay ?? null;
+    response.labelOverlay = p.label_overlay ?? null;
+  }
+
+  return NextResponse.json(response);
 }
