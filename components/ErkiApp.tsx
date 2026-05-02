@@ -1398,6 +1398,8 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                             <div className="flex-1 overflow-auto p-2 sm:p-8 flex items-center justify-center" style={{ overscrollBehavior: 'contain' }}>
                                 <div
                                     ref={containerRef}
+                                    role="application"
+                                    aria-label="Karten-Editor"
                                     className={cn(
                                         "relative bg-white shadow-2xl overflow-hidden border border-gray-200 transition-all duration-500",
                                         aspectRatio === 'landscape' ? "aspect-[297/210] h-auto w-full max-w-5xl" : "aspect-[210/297] w-auto h-full max-h-[80vh]"
@@ -1409,6 +1411,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                                     onTouchEnd={() => { handleMouseUp(); stopOverlayDrag(); }}
                                     onClick={handleMapClick}
                                     onDoubleClick={handleMapDoubleClick}
+                                    onKeyDown={(e) => { if (e.key === 'Escape') { handleMouseUp(); stopOverlayDrag(); } }}
                                     style={{ cursor: maskDrawing ? 'crosshair' : undefined, touchAction: 'none' }}
                                 >
                                     {/* Zoom-Wrapper: Hintergrundbild + Masken skalieren gemeinsam */}
