@@ -11,6 +11,13 @@ export default defineConfig({
       NEXT_PUBLIC_SUPABASE_URL: 'https://dummy.supabase.co',
       NEXT_PUBLIC_SUPABASE_ANON_KEY: 'dummy-anon-key',
     },
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov'],
+      reportsDirectory: './coverage',
+      include: ['lib/**/*.ts'],
+      exclude: ['lib/**/*.test.ts', 'lib/__fixtures__/**', 'lib/logoData.ts'],
+    },
   },
   resolve: {
     alias: { '@': path.resolve(__dirname, '.') },
