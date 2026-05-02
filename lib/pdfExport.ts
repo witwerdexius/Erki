@@ -322,7 +322,7 @@ export async function exportLageplanPDF(params: LageplanPDFParams): Promise<void
     const sanitizedTitle = title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'lageplan';
+      .replace(/(?:^-+)|(?:-+$)/g, '') || 'lageplan';
 
     console.log('[PDF] Step 3: saving');
     pdf.addImage(dataUrl, 'PNG', offsetX, offsetY, drawW, drawH);
@@ -344,7 +344,6 @@ export async function exportTablePDF(params: TablePDFParams): Promise<void> {
     const createHyphenator = (await import('hyphen') as any).default ?? (await import('hyphen') as any);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const dePatterns = ((await import('hyphen/patterns/de-1996')) as any).default ?? (await import('hyphen/patterns/de-1996'));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const hyphenate: (word: string) => string = createHyphenator(dePatterns);
 
     const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
@@ -400,7 +399,7 @@ export async function exportTablePDF(params: TablePDFParams): Promise<void> {
     const sanitizedTitle = title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'tabelle';
+      .replace(/(?:^-+)|(?:-+$)/g, '') || 'tabelle';
 
     pdf.setFontSize(16);
     pdf.setFont('helvetica', 'bold');
