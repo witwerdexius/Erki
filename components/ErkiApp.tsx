@@ -544,7 +544,6 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                 schema: 'public',
                 table: 'plannings',
                 filter: `id=eq.${plan.id}`,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             }, (payload) => {
                 if (!onExternalPlanUpdate) return;
                 const current = latestPlanRef.current;

@@ -344,7 +344,6 @@ export async function exportTablePDF(params: TablePDFParams): Promise<void> {
     const createHyphenator = (await import('hyphen') as any).default ?? (await import('hyphen') as any);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const dePatterns = ((await import('hyphen/patterns/de-1996')) as any).default ?? (await import('hyphen/patterns/de-1996'));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const hyphenate: (word: string) => string = createHyphenator(dePatterns);
 
     const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
