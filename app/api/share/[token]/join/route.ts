@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { extractUuid } from '@/lib/slugify';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -10,6 +11,7 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> },
 ) {
   const { token } = await params;
+  const uuid = extractUuid(token);
 
   const authHeader = req.headers.get('authorization');
   const accessToken = authHeader?.replace(/^Bearer\s+/i, '').trim();
@@ -20,13 +22,13 @@ export async function POST(
   const { data: { user }, error: authError } = await db.auth.getUser(accessToken);
   if (authError || !user) return NextResponse.json({ error: 'Nicht authentifiziert' }, { status: 401 });
 
-  // Resolve token → planning_id (same fallback as GET route)
-  let planningId: string = token;
+  // Resolve uuid → planning_id (same fallback as GET route)
+  let planningId: string = uuid;
 
   const { data: tokenRow } = await db
     .from('share_tokens')
     .select('planning_id')
-    .eq('token', token)
+    .eq('token', uuid)
     .maybeSingle();
 
   if (tokenRow?.planning_id) {

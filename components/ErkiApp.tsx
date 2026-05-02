@@ -1189,7 +1189,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                             </button>
                         </nav>
 
-                        <ShareButton planningId={plan.id} />
+                        <ShareButton planningId={plan.id} planningTitle={plan.title} />
 
                         <div className="hidden sm:flex items-center bg-gray-100 rounded-full px-3 py-1 border focus-within:ring-2 ring-[#6bbfd4]/30 transition-all">
                             <Link className="w-4 h-4 text-gray-500 mr-2" />

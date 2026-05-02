@@ -7,6 +7,7 @@ import { Map as MapIcon, List, ChevronDown, ChevronUp, Download, ExternalLink } 
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { exportLageplanPDF, exportTablePDF } from '@/lib/pdfExport';
+import { extractUuid } from '@/lib/slugify';
 import type { User } from '@supabase/supabase-js';
 
 interface SharedStation {
@@ -405,6 +406,7 @@ export default function SharePage() {
   const params = useParams();
   const router = useRouter();
   const token = params.token as string;
+  const uuid = extractUuid(token);
 
   const [planning, setPlanning] = useState<PlanningInfoPartial | null>(null);
   const [fullData, setFullData] = useState<FullImageData | null>(null);
@@ -418,7 +420,7 @@ export default function SharePage() {
   useEffect(() => {
     async function init() {
       const [planRes, { data: { session } }] = await Promise.all([
-        fetch(`/api/share/${token}`),
+        fetch(`/api/share/${uuid}`),
         supabase.auth.getSession(),
       ]);
 
@@ -464,7 +466,7 @@ export default function SharePage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const res = await fetch(`/api/share/${token}/join`, {
+      const res = await fetch(`/api/share/${uuid}/join`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${session.access_token}` },
       });

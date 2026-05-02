@@ -1,6 +1,6 @@
-// v0.7.151
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { extractUuid } from '@/lib/slugify';
 
 export async function GET(
   req: NextRequest,
@@ -8,18 +8,19 @@ export async function GET(
 ) {
   const { token } = await params;
   const full = req.nextUrl.searchParams.get('full') === '1';
+  const uuid = extractUuid(token);
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   );
 
-  let planningId: string = token;
+  let planningId: string = uuid;
 
   const { data: shareRow, error: shareError } = await supabase
     .from('share_tokens')
     .select('planning_id')
-    .eq('token', token)
+    .eq('token', uuid)
     .maybeSingle();
 
   if (shareError) {

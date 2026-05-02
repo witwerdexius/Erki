@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+import { slugify } from '@/lib/slugify'
 
-// v0.7.104
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { planning_id } = body
+    const { planning_id, planning_title } = body
 
     if (!planning_id) {
       return NextResponse.json({ error: 'planning_id is required' }, { status: 400 })
@@ -76,7 +76,9 @@ export async function POST(request: NextRequest) {
         ? `https://${request.headers.get('x-forwarded-host')}`
         : `https://${request.headers.get('host')}`)
 
-    return NextResponse.json({ url: `${base}/share/${token}` })
+    const slug = planning_title ? slugify(planning_title) : '';
+    const path = slug ? `${slug}-${token}` : token;
+    return NextResponse.json({ url: `${base}/share/${path}` })
   } catch (err) {
     console.error('Share generate error:', JSON.stringify(err))
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -3,12 +3,14 @@
 import { useState } from 'react';
 import { Share2, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { slugify } from '@/lib/slugify';
 
 interface ShareButtonProps {
   planningId: string;
+  planningTitle?: string;
 }
 
-export default function ShareButton({ planningId }: ShareButtonProps) {
+export default function ShareButton({ planningId, planningTitle }: ShareButtonProps) {
   const [state, setState] = useState<'idle' | 'loading' | 'copied' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -17,7 +19,9 @@ export default function ShareButton({ planningId }: ShareButtonProps) {
     setState('loading');
     setErrorMsg('');
 
-    const fallbackUrl = `${window.location.origin}/share/${planningId}`;
+    const slug = planningTitle ? slugify(planningTitle) : '';
+    const fallbackPath = slug ? `${slug}-${planningId}` : planningId;
+    const fallbackUrl = `${window.location.origin}/share/${fallbackPath}`;
 
     // Fetches the best available share URL — used as async Promise content for ClipboardItem
     const getShareUrl = async (): Promise<string> => {
@@ -33,7 +37,7 @@ export default function ShareButton({ planningId }: ShareButtonProps) {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({ planning_id: planningId }),
+          body: JSON.stringify({ planning_id: planningId, planning_title: planningTitle }),
         });
         const body = await res.json().catch(() => ({}));
         if (res.ok && body.url) return body.url;
