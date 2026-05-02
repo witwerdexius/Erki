@@ -322,7 +322,7 @@ export async function exportLageplanPDF(params: LageplanPDFParams): Promise<void
     const sanitizedTitle = title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'lageplan';
+      .replace(/(?:^-+)|(?:-+$)/g, '') || 'lageplan';
 
     console.log('[PDF] Step 3: saving');
     pdf.addImage(dataUrl, 'PNG', offsetX, offsetY, drawW, drawH);
@@ -399,7 +399,7 @@ export async function exportTablePDF(params: TablePDFParams): Promise<void> {
     const sanitizedTitle = title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'tabelle';
+      .replace(/(?:^-+)|(?:-+$)/g, '') || 'tabelle';
 
     pdf.setFontSize(16);
     pdf.setFont('helvetica', 'bold');

@@ -2103,7 +2103,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                                     const url = URL.createObjectURL(blob);
                                     const a = document.createElement('a');
                                     a.href = url;
-                                    const safeName = plan.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'plan';
+                                    const safeName = plan.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(?:^-+)|(?:-+$)/g, '') || 'plan';
                                     a.download = `erki-${safeName}-${new Date().toISOString().split('T')[0]}.rki`;
                                     a.click();
                                     URL.revokeObjectURL(url);

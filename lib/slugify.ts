@@ -5,7 +5,7 @@ export function slugify(title: string): string {
     .toLowerCase()
     .replace(/ä/g, 'a').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ß/g, 'ss')
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+    .replace(/(?:^-+)|(?:-+$)/g, '');
 }
 
 export function extractUuid(token: string): string {
