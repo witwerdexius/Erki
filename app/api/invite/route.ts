@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { InviteBodySchema } from '@/lib/api/validation';
 
 export async function POST(req: NextRequest) {
-  const { email, communityId, isAdmin } = await req.json();
-  if (!email) return NextResponse.json({ error: 'Email fehlt' }, { status: 400 });
+  const raw = await req.json().catch(() => null);
+  const parsed = InviteBodySchema.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+  const { email, communityId, isAdmin } = parsed.data;
 
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
