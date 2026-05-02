@@ -4,7 +4,7 @@ import { Plan, PlanStatus, Station, LogoOverlay, LabelOverlay, StationTemplate, 
 // ── Row converters ──────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function rowToPlan(row: any, stations: Station[]): Plan {
+export function rowToPlan(row: any, stations: Station[]): Plan {
   return {
     id: row.id,
     title: row.title,
@@ -24,7 +24,7 @@ function rowToPlan(row: any, stations: Station[]): Plan {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function rowToStation(row: any): Station {
+export function rowToStation(row: any): Station {
   return {
     id: row.id,
     number: row.number,
@@ -44,7 +44,7 @@ function rowToStation(row: any): Station {
   };
 }
 
-function stationToRow(station: Station, planningId: string, sortOrder: number) {
+export function stationToRow(station: Station, planningId: string, sortOrder: number) {
   return {
     id: station.id,
     planning_id: planningId,
@@ -262,7 +262,7 @@ export async function importPlannings(plans: Plan[], userId: string): Promise<vo
 // ── Templates ───────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function rowToTemplate(row: any): StationTemplate {
+export function rowToTemplate(row: any): StationTemplate {
   return {
     id: row.id,
     name: row.name,
@@ -331,7 +331,7 @@ export async function deleteTemplate(id: string): Promise<void> {
 // ── Profiles & Communities ──────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function rowToProfile(row: any): Profile {
+export function rowToProfile(row: any): Profile {
   return {
     id: row.id,
     communityId: row.community_id,
