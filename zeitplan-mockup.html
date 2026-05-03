@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Erki – Zeitplan</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  /* App primary */
+  --primary: #6bbfd4;
+  --primary-light: #e8f6f9;
+  --primary-text: #ffffff;
+
+  /* Neutrals — matching app */
+  --bg:     #fdfdfd;
+  --bg2:    #f3f4f6;
+  --bg3:    #e5e7eb;
+  --t:      #1a1a1a;
+  --t2:     #6b7280;
+  --t3:     #9ca3af;
+  --bdr:    #e5e7eb;
+
+  /* Phase accent colours */
+  --aufbau-bg: #f3f4f6; --aufbau-t: #374151;
+  --st-bg:  #dbeafe;   --st-t:  #1e40af;
+  --fz-bg:  #ede9fe;   --fz-t:  #5b21b6;
+  --es-bg:  #fef3c7;   --es-t:  #92400e;
+  --ab-bg:  #d1fae5;   --ab-t:  #065f46;
+
+  /* Status */
+  --ok-bg:   #d1fae5; --ok-t:   #065f46;
+  --warn-bg: #fef3c7; --warn-t: #92400e;
+  --err-bg:  #fee2e2; --err-t:  #991b1b;
+  --over-bg: #ede9fe; --over-t: #5b21b6;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  background: var(--bg2);
+  min-height: 100vh;
+  color: var(--t);
+}
+
+/* ── Sticky header ───────────────────────────────────────── */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+  border-bottom: 1px solid var(--bdr);
+  padding: 10px 16px 0;
+}
+
+/* Nav row: back | tabs | share */
+.nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+/* Back button — teal rounded square */
+.btn-back {
+  width: 40px; height: 40px;
+  border-radius: 12px;
+  background: var(--primary);
+  border: none;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  color: white;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* Icon tab switcher — gray pill with icon buttons */
+.icon-tabs {
+  background: var(--bg2);
+  border-radius: 999px;
+  border: 1px solid var(--bdr);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  justify-content: center;
+}
+.icon-tab {
+  width: 38px; height: 38px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--t2);
+  transition: background .12s, color .12s;
+  flex-shrink: 0;
+}
+.icon-tab.active {
+  background: var(--bg);
+  color: var(--primary);
+  box-shadow: 0 1px 3px rgba(0,0,0,.10);
+}
+.icon-tab svg { width: 18px; height: 18px; }
+
+/* Share button — gray circle */
+.btn-share {
+  width: 40px; height: 40px;
+  border-radius: 999px;
+  background: var(--bg2);
+  border: 1px solid var(--bdr);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  color: var(--t2);
+}
+.btn-share svg { width: 18px; height: 18px; }
+
+.event-name { font-size: 20px; font-weight: 800; color: var(--t); margin-bottom: 10px; }
+
+/* ── Timeline strip ──────────────────────────────────────── */
+.timeline {
+  display: flex;
+  align-items: stretch;
+  margin: 0 0 0;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid var(--bdr);
+}
+.tl-block {
+  flex: 1;
+  padding: 5px 6px;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.tl-block .tl-time { font-size: 9px; opacity: .7; margin-top: 1px; font-weight: 400; }
+.tl-aufbau { background: var(--aufbau-bg); color: var(--aufbau-t); }
+.tl-st  { background: var(--st-bg);     color: var(--st-t); }
+.tl-fz  { background: var(--fz-bg);     color: var(--fz-t); }
+.tl-es  { background: var(--es-bg);     color: var(--es-t); }
+.tl-ab  { background: var(--ab-bg);     color: var(--ab-t); }
+
+/* ── Pill tabs (matches app's rounded tab switcher) ──────── */
+.tab-bar {
+  background: var(--bg2);
+  border-radius: 999px;
+  padding: 4px;
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  margin: 10px 0 12px;
+  scrollbar-width: none;
+}
+.tab-bar::-webkit-scrollbar { display: none; }
+.pill {
+  padding: 6px 14px;
+  font-size: 13px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--t2);
+  white-space: nowrap;
+  font-family: inherit;
+  font-weight: 500;
+  transition: background .15s, color .15s;
+}
+.pill.active {
+  background: var(--bg);
+  color: var(--t);
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+
+/* ── Stats row ───────────────────────────────────────────── */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 8px;
+  padding: 12px 16px;
+}
+.sc {
+  background: var(--bg);
+  border: 1px solid var(--bdr);
+  border-radius: 16px;
+  padding: 10px 12px;
+}
+.sl { font-size: 10px; color: var(--t2); margin-bottom: 2px; font-weight: 500; text-transform: uppercase; letter-spacing: .03em; }
+.sv { font-size: 22px; font-weight: 700; color: var(--t); }
+.ss { font-size: 10px; color: var(--t3); margin-top: 1px; }
+
+/* ── Phase blocks ────────────────────────────────────────── */
+.phase-block {
+  background: var(--bg);
+  margin: 0 16px 8px;
+  border-radius: 20px;
+  border: 1px solid var(--bdr);
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+}
+.phase-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  user-select: none;
+  background: var(--bg);
+  transition: background .12s;
+}
+.phase-head:active { background: var(--bg2); }
+.phase-icon {
+  width: 38px; height: 38px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.pi-aufbau { background: var(--aufbau-bg); }
+.pi-st     { background: var(--st-bg); }
+.pi-fz     { background: var(--fz-bg); }
+.pi-es     { background: var(--es-bg); }
+.pi-ab     { background: var(--ab-bg); }
+
+.phase-info { flex: 1; }
+.phase-title { font-size: 15px; font-weight: 600; color: var(--t); }
+.phase-time  { font-size: 12px; color: var(--t2); margin-top: 2px; }
+.phase-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+.pp {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 999px;
+}
+.pp-ok   { background: var(--ok-bg);   color: var(--ok-t); }
+.pp-warn { background: var(--warn-bg); color: var(--warn-t); }
+.pp-empty { background: var(--err-bg); color: var(--err-t); }
+.pp-over { background: var(--over-bg); color: var(--over-t); }
+
+.chevron { font-size: 10px; color: var(--t3); transition: transform .2s; display: inline-block; }
+.chevron.open { transform: rotate(90deg); }
+.phase-body { display: block; border-top: 1px solid var(--bdr); }
+.phase-body.closed { display: none; }
+
+/* ── Task rows ───────────────────────────────────────────── */
+.task {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--bdr);
+  background: var(--bg);
+  transition: background .1s;
+}
+.task:last-child { border-bottom: none; }
+.task.mine { background: #f0f9fa; }
+
+.task-left { flex: 1; min-width: 0; }
+.task-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--t);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.task-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+.task-time { font-size: 12px; color: var(--t2); }
+
+.bdg {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.bp  { background: var(--primary-light); color: #0e7490; }
+.ba  { background: var(--bg2); color: var(--t2); border: 1px solid var(--bdr); }
+.bg-guest { background: var(--bg2); color: var(--t2); border: 1px solid var(--bdr); }
+
+.task-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.count-block { text-align: right; min-width: 30px; }
+.count-num { font-size: 13px; font-weight: 700; color: var(--t); }
+.count-num.over { color: var(--over-t); }
+.count-sub { font-size: 10px; color: var(--t3); }
+
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot-ok    { background: #10b981; }
+.dot-warn  { background: #f59e0b; }
+.dot-empty { background: #ef4444; }
+.dot-over  { background: var(--over-t); }
+
+.btn-su {
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 999px;
+  border: 1px solid var(--primary);
+  background: var(--bg);
+  cursor: pointer;
+  color: var(--primary);
+  font-family: inherit;
+  white-space: nowrap;
+  min-height: 34px;
+  transition: background .12s, color .12s;
+}
+.btn-su:active {
+  background: var(--primary);
+  color: white;
+}
+.btn-su.signed {
+  background: var(--ok-bg);
+  color: var(--ok-t);
+  border-color: transparent;
+}
+
+/* ── Inline name input ───────────────────────────────────── */
+.name-row {
+  display: none;
+  padding: 8px 16px 10px;
+  gap: 8px;
+  align-items: center;
+  border-bottom: 1px solid var(--bdr);
+  background: var(--bg2);
+}
+.name-row.show { display: flex; }
+.name-row input {
+  flex: 1;
+  font-size: 15px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--bdr);
+  background: var(--bg);
+  color: var(--t);
+  font-family: inherit;
+  outline: none;
+}
+.name-row input:focus { border-color: var(--primary); }
+.btn-ok {
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 999px;
+  border: none;
+  background: var(--primary);
+  color: white;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.btn-x {
+  padding: 9px 12px;
+  font-size: 13px;
+  border-radius: 999px;
+  border: 1px solid var(--bdr);
+  background: transparent;
+  cursor: pointer;
+  color: var(--t2);
+  font-family: inherit;
+}
+
+.btn-add {
+  width: 100%;
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--t3);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background .1s;
+}
+.btn-add:active { background: var(--bg2); }
+.plus-circle {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  border: 1.5px dashed var(--bdr);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  color: var(--t3);
+}
+
+/* ── Config sheet ────────────────────────────────────────── */
+.overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.4);
+  z-index: 20;
+}
+.overlay.show { display: block; }
+
+.sheet {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: var(--bg);
+  border-radius: 20px 20px 0 0;
+  padding: 16px 16px 40px;
+  z-index: 25;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.sheet.show { display: block; }
+
+.handle {
+  width: 36px; height: 4px;
+  background: var(--bg3);
+  border-radius: 2px;
+  margin: 0 auto 16px;
+}
+.sheet-title { font-size: 16px; font-weight: 700; color: var(--t); margin-bottom: 14px; }
+
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.fld label { font-size: 11px; font-weight: 600; color: var(--t2); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .04em; }
+.fld input, .fld select {
+  width: 100%;
+  font-size: 15px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--bdr);
+  background: var(--bg2);
+  color: var(--t);
+  font-family: inherit;
+  outline: none;
+}
+.fld input:focus { border-color: var(--primary); background: var(--bg); }
+
+.sheet-note {
+  font-size: 12px;
+  color: var(--t2);
+  background: var(--primary-light);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+.sheet-btns { display: flex; gap: 8px; }
+.btn-primary {
+  flex: 1;
+  padding: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 999px;
+  border: none;
+  background: var(--primary);
+  color: white;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity .15s;
+}
+.btn-primary:active { opacity: .85; }
+.btn-cancel {
+  padding: 14px 18px;
+  font-size: 14px;
+  border-radius: 999px;
+  border: 1px solid var(--bdr);
+  background: var(--bg);
+  cursor: pointer;
+  color: var(--t2);
+  font-family: inherit;
+}
+
+/* ── Toast ───────────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 24px; left: 16px; right: 16px;
+  padding: 13px 16px;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 500;
+  display: none;
+  z-index: 30;
+  text-align: center;
+}
+.toast.show { display: block; }
+.tg {
+  background: var(--ok-bg);
+  border: 1px solid #6ee7b7;
+  color: var(--ok-t);
+}
+
+.spacer { height: 88px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <!-- Nav row: back | icon tabs | share -->
+  <div class="nav-row">
+    <button class="btn-back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+
+    <div class="icon-tabs">
+      <!-- Lageplan -->
+      <button class="icon-tab" title="Lageplan">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
+      </button>
+      <!-- Stationen-Tabelle -->
+      <button class="icon-tab" title="Stationen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      </button>
+      <!-- Zeitplan — ACTIVE -->
+      <button class="icon-tab active" title="Zeitplan">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/></svg>
+      </button>
+      <!-- Erklärungsseite -->
+      <button class="icon-tab" title="Erklärungsseite">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      </button>
+      <!-- Notizzettel -->
+      <button class="icon-tab" title="Notizzettel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      </button>
+    </div>
+
+    <button class="btn-share" title="Teilen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+    </button>
+  </div>
+
+  <!-- Title -->
+  <div class="event-name">Herbstkirche 2024</div>
+
+  <!-- Filter pills — same style as app tab switcher -->
+  <div class="tab-bar">
+    <button class="pill active" onclick="filter('all',this)">Alle</button>
+    <button class="pill" onclick="filter('open',this)">Offene</button>
+    <button class="pill" onclick="filter('mine',this)">Meine</button>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats">
+  <div class="sc"><div class="sl">Aufgaben</div><div class="sv">13</div><div class="ss">6 offen</div></div>
+  <div class="sc"><div class="sl">Belegt</div><div class="sv">8</div><div class="ss">von 32 Plätzen</div></div>
+  <div class="sc"><div class="sl">Helfende</div><div class="sv">7</div><div class="ss">eingetragen</div></div>
+</div>
+
+<!-- AUFBAU -->
+<div class="phase-block" data-phase="aufbau">
+  <div class="phase-head" onclick="toggle(this)">
+    <div class="phase-icon pi-aufbau">🔧</div>
+    <div class="phase-info">
+      <div class="phase-title">Aufbau</div>
+      <div class="phase-time">13:00 – 15:00 · Stationen + Feierzeit parallel</div>
+    </div>
+    <div class="phase-right">
+      <span class="pp pp-warn">3 / 10</span>
+      <span class="chevron open">▶</span>
+    </div>
+  </div>
+  <div class="phase-body">
+    <div id="t-au1" class="task mine">
+      <div class="task-left">
+        <div class="task-title">Station 1 aufbauen</div>
+        <div class="task-meta">
+          <span class="task-time">13:00 – 15:00</span>
+          <span class="bdg bp">Anna K.</span>
+          <span class="bdg ba">auto</span>
+        </div>
+      </div>
+      <div class="task-right">
+        <div class="count-block"><div class="count-num" id="c-au1">1/2</div><div class="count-sub">Bedarf</div></div>
+        <div class="dot dot-warn" id="d-au1"></div>
+        <button class="btn-su" onclick="askName('au1',2)">+ Eintragen</button>
+      </div>
+    </div>
+    <div class="name-row" id="nr-au1">
+      <input type="text" placeholder="Name eingeben" id="in-au1">
+      <button class="btn-x" onclick="cancelName('au1')">✕</button>
+      <button class="btn-ok" onclick="confirmName('au1',2)">OK</button>
+    </div>
+
+    <div id="t-au2" class="task">
+      <div class="task-left">
+        <div class="task-title">Station 2 aufbauen</div>
+        <div class="task-meta">
+          <span class="task-time">13:00 – 15:00</span>
+          <span class="bdg bp">Ben M.</span>
+          <span class="bdg bp">Sarah T.</span>
+          <span class="bdg ba">auto</span>
+        </div>
+      </div>
+      <div class="task-right">
+        <div class="count-block"><div class="count-num" id="c-au2">2/2</div><div class="count-sub">Bedarf</div></div>
+        <div class="dot dot-ok" id="d-au2"></div>
+        <button class="btn-su" onclick="askName('au2',2)">+ Eintragen</button>
+      </div>
+    </div>
+    <div class="name-row" id="nr-au2">
+      <input type="text" placeholder="Name eingeben" id="in-au2">
+      <button class="btn-x" onclick="cancelName('au2')">✕</button>
+      <button class="btn-ok" onclick="confirmName('au2',2)">OK</button>
+    </div>
+
+    <div id="t-au3" class="task">
+      <div class="task-left">
+        <div class="task-title">Stühle + Feierzeit aufbauen</div>
+        <div class="task-meta"><span class="task-time">13:00 – 15:00</span></div>
+      </div>
+      <div class="task-right">
+        <div class="count-block"><div class="count-num" id="c-au3">0/3</div><div class="count-sub">Bedarf</div></div>
+        <div class="dot dot-empty" id="d-au3"></div>
+        <button class="btn-su" onclick="askName('au3',3)">+ Eintragen</button>
+      </div>
+    </div>
+    <div class="name-row" id="nr-au3">
+      <input type="text" placeholder="Name eingeben" id="in-au3">
+      <button class="btn-x" onclick="cancelName('au3')">✕</button>
+      <button class="btn-ok" onclick="confirmName('au3',3)">OK</button>
+    </div>
+
+    <button class="btn-add"><span class="plus-circle">+</span> Aufgabe hinzufügen</button>
+  </div>
+</div>
+
+<!-- STATIONEN -->
+<div class="phase-block" data-phase="st">
+  <div class="phase-head" onclick="toggle(this)">
+    <div class="phase-icon pi-st">🎯</div>
+    <div class="phase-info">
+      <div class="phase-title">Stationen</div>
+      <div class="phase-time">15:00 – 16:45 · Durchführung</div>
+    </div>
+    <div class="phase-right">
+      <span class="pp pp-warn">3 / 8</span>
+      <span class="chevron open">▶</span>
+    </div>
+  </div>
+  <div class="phase-body">
+    <div id="t-st1" class="task mine">
+      <div class="task-left">
+        <div class="task-title">Station 1 leiten</div>
+        <div class="task-meta">
+          <span class="task-time">15:00 – 16:45</span>
+          <span class="bdg bp">Anna K.</span>
+          <span class="bdg ba">auto</span>
+        </div>
+      </div>
+      <div class="task-right">
+        <div class="count-block"><div class="count-num" id="c-st1">1/1</div><div class="count-sub">Bedarf</div></div>
+        <div class="dot dot-ok" id="d-st1"></div>
+        <button class="btn-su" onclick="askName('st1',1)">+ Eintragen</button>
+      </div>
+    </div>
+    <div class="name-row" id="nr-st1">
+      <input type="text" placeholder="Name eingeben" id="in-st1">
+      <button class="btn-x" onclick="cancelName('st1')">✕</button>
+      <button class="btn-ok" onclick="confirmName('st1',1)">OK</button>
+    </div>
+
+    <div id="t-st2" class="task">
+      <div class="task-left">
+        <div class="task-title">Station 2 leiten</div>
+        <div class="task-meta">
+          <span class="task-time">15:00 – 16:45</span>
+          <span class="bdg bp">Ben M.</span>
+          <span class="bdg ba">auto</span>
+        </div>
+      </div>
+      <div class="task-right">
+        <div class="count-block"><div class="count-num" id="c-st2">1/1</div><div class="count-sub">Bedarf</div></div>
+        <div class="dot dot-ok" id="d-st2"></div>
+        <button class="btn-su" onclick="askName('st2',1)">+ Eintragen</button>
+      </div>
+    </div>
+    <div class="name-row" id="nr-st2">
+      <input type="text" placeholder="Name eingeben" id="in-st2">
+      <button class="btn-x" onclick="cancelName('st2')">✕</button>
+      <button class="btn-ok" onclick="confirmName('st2',1)">OK</button>
+    </div>
+
+    <div id="t-st3" class="task">
+      <div class="task-left">
+        <div class="task-title">Station 3 leiten</div>
+        <div class="task-meta"><span class="task-time">15:00 – 16:45</span><span class="bdg ba">auto</span></div>
+      </div>
+      <div class="task-right">
+        <div class="count-block"><div class="count-num" id="c-st3">0/1</div><div class="count-sub">Bedarf</div></div>
+        <div class="dot dot-empty" id="d-st3"></div>
+        <button class="btn-su" onclick="askName('st3',1)">+ Eintragen</button>
+      </div>
+    </div>
+    <div class="name-row" id="nr-st3">
+      <input type="text" placeholder="Name eingeben" id="in-st3">
+      <button class="btn-x" onclick="cancelName('st3')">✕</button>
+      <button class="btn-ok" onclick="confirmName('st3',1)">OK</button>
+    </div>
+
+    <button class="btn-add"><span class="plus-circle">+</span> Aufgabe hinzufügen</button>
+  </div>
+</div>
+
+<!-- FEIERZEIT -->
+<div class="phase-block" data-phase="fz">
+  <div class="phase-head" onclick="toggle(this)">
+    <div class="phase-icon pi-fz">✨</div>
+    <div class="phase-info">
+      <div class="phase-title">Feierzeit</div>
+      <div class="phase-time">16:45 – 17:15</div>
+    </div>
+    <div class="phase-right">
+      <span class="pp pp-ok">1 / 1</span>
+      <span class="chevron open">▶</span>
+    </div>
+  </div>
+  <div class="phase-body">
+    <div id="t-fz1" class="task">
+      <div class="task-left">
+        <div class="task-title">Technik &amp; Ton</div>
+        <div class="task-meta"><span class="task-time">16:45 – 17:15</span><span class="bdg bp">Max P.</span></div>
+      </div>
+      <div class="task-right">
+        <div class="count-block"><div class="count-num" id="c-fz1">1/1</div><div class="count-sub">Bedarf</div></div>
+        <div class="dot dot-ok" id="d-fz1"></div>
+        <button class="btn-su" onclick="askName('fz1',1)">+ Eintragen</button>
+      </div>
+    </div>
+    <div class="name-row" id="nr-fz1">
+      <input type="text" placeholder="Name eingeben" id="in-fz1">
+      <button class="btn-x" onclick="cancelName('fz1')">✕</button>
+      <button class="btn-ok" onclick="confirmName('fz1',1)">OK</button>
+    </div>
+    <button class="btn-add"><span class="plus-circle">+</span> Aufgabe hinzufügen</button>
+  </div>
+</div>
+
+<!-- ESSEN -->
+<div class="phase-block" data-phase="es">
+  <div class="phase-head" onclick="toggle(this)">
+    <div class="phase-icon pi-es">🍽</div>
+    <div class="phase-info">
+      <div class="phase-title">Essen</div>
+      <div class="phase-time">17:15 – 18:00 · Vorbereitung + Ausgabe</div>
+    </div>
+    <div class="phase-right">
+      <span class="pp pp-warn">1 / 8</span>
+      <span class="chevron open">▶</span>
+    </div>
+  </div>
+  <div class="phase-body">
+    <div id="t-es1" class="task">
+      <div class="task-left">
+        <div class="task-title">Essen vorbereiten</div>
+        <div class="task-meta"><span class="task-time">17:15 – 18:00</span><span class="bdg bp">Lisa H.</span></div>
+      </div>
+      <div class="task-right">
+        <div class="count-block"><div class="count-num" id="c-es1">1/3</div><div class="count-sub">Bedarf</div></div>
+        <div class="dot dot-warn" id="d-es1"></div>
+        <button class="btn-su" onclick="askName('es1',3)">+ Eintragen</button>
+      </div>
+    </div>
+    <div class="name-row" id="nr-es1">
+      <input type="text" placeholder="Name eingeben" id="in-es1">
+      <button class="btn-x" onclick="cancelName('es1')">✕</button>
+      <button class="btn-ok" onclick="confirmName('es1',3)">OK</button>
+    </div>
+
+    <div id="t-es2" class="task">
+      <div class="task-left">
+        <div class="task-title">Essensausgabe</div>
+        <div class="task-meta"><span class="task-time">17:15 – 18:00</span></div>
+      </div>
+      <div class="task-right">
+        <div class="count-block"><div class="count-num" id="c-es2">0/3</div><div class="count-sub">Bedarf</div></div>
+        <div class="dot dot-empty" id="d-es2"></div>
+        <button class="btn-su" onclick="askName('es2',3)">+ Eintragen</button>
+      </div>
+    </div>
+    <div class="name-row" id="nr-es2">
+      <input type="text" placeholder="Name eingeben" id="in-es2">
+      <button class="btn-x" onclick="cancelName('es2')">✕</button>
+      <button class="btn-ok" onclick="confirmName('es2',3)">OK</button>
+    </div>
+
+    <div id="t-es3" class="task">
+      <div class="task-left">
+        <div class="task-title">Geschirr einsammeln</div>
+        <div class="task-meta"><span class="task-time">17:15 – 18:00</span></div>
+      </div>
+      <div class="task-right">
+        <div class="count-block"><div class="count-num" id="c-es3">0/2</div><div class="count-sub">Bedarf</div></div>
+        <div class="dot dot-empty" id="d-es3"></div>
+        <button class="btn-su" onclick="askName('es3',2)">+ Eintragen</button>
+      </div>
+    </div>
+    <div class="name-row" id="nr-es3">
+      <input type="text" placeholder="Name eingeben" id="in-es3">
+      <button class="btn-x" onclick="cancelName('es3')">✕</button>
+      <button class="btn-ok" onclick="confirmName('es3',2)">OK</button>
+    </div>
+
+    <button class="btn-add"><span class="plus-circle">+</span> Aufgabe hinzufügen</button>
+  </div>
+</div>
+
+<!-- ABBAU + SPÜLEN -->
+<div class="phase-block" data-phase="ab">
+  <div class="phase-head" onclick="toggle(this)">
+    <div class="phase-icon pi-ab">📦</div>
+    <div class="phase-info">
+      <div class="phase-title">Abbau + Spülen</div>
+      <div class="phase-time">18:00 – 19:00</div>
+    </div>
+    <div class="phase-right">
+      <span class="pp pp-empty">0 / 8</span>
+      <span class="chevron open">▶</span>
+    </div>
+  </div>
+  <div class="phase-body">
+    <div id="t-ab1" class="task">
+      <div class="task-left">
+        <div class="task-title">Stationen abbauen</div>
+        <div class="task-meta"><span class="task-time">18:00 – 19:00</span><span class="bdg ba">auto</span></div>
+      </div>
+      <div class="task-right">
+        <div class="count-block"><div class="count-num" id="c-ab1">0/4</div><div class="count-sub">Bedarf</div></div>
+        <div class="dot dot-empty" id="d-ab1"></div>
+        <button class="btn-su" onclick="askName('ab1',4)">+ Eintragen</button>
+      </div>
+    </div>
+    <div class="name-row" id="nr-ab1">
+      <input type="text" placeholder="Name eingeben" id="in-ab1">
+      <button class="btn-x" onclick="cancelName('ab1')">✕</button>
+      <button class="btn-ok" onclick="confirmName('ab1',4)">OK</button>
+    </div>
+
+    <div id="t-ab2" class="task">
+      <div class="task-left">
+        <div class="task-title">Spüldienst</div>
+        <div class="task-meta"><span class="task-time">18:00 – 19:00</span></div>
+      </div>
+      <div class="task-right">
+        <div class="count-block"><div class="count-num" id="c-ab2">0/4</div><div class="count-sub">Bedarf</div></div>
+        <div class="dot dot-empty" id="d-ab2"></div>
+        <button class="btn-su" onclick="askName('ab2',4)">+ Eintragen</button>
+      </div>
+    </div>
+    <div class="name-row" id="nr-ab2">
+      <input type="text" placeholder="Name eingeben" id="in-ab2">
+      <button class="btn-x" onclick="cancelName('ab2')">✕</button>
+      <button class="btn-ok" onclick="confirmName('ab2',4)">OK</button>
+    </div>
+
+    <button class="btn-add"><span class="plus-circle">+</span> Aufgabe hinzufügen</button>
+  </div>
+</div>
+
+<div class="spacer"></div>
+
+<!-- Config sheet -->
+<div class="overlay" id="overlay" onclick="closeConfig()"></div>
+<div class="sheet" id="cfg-sheet">
+  <div class="handle"></div>
+  <div class="sheet-title">Veranstaltung konfigurieren</div>
+  <div class="sheet-note">Standardzeiten werden beim Generieren verwendet. Einzelne Aufgaben können danach angepasst werden.</div>
+  <div class="fields">
+    <div class="fld" style="grid-column:1/-1"><label>Name</label><input type="text" value="Herbstkirche 2024"></div>
+    <div class="fld"><label>Datum</label><input type="date" value="2024-11-02"></div>
+    <div class="fld"></div>
+    <div class="fld"><label>Aufbau Beginn</label><input type="time" value="13:00"></div>
+    <div class="fld"><label>Aufbau Ende</label><input type="time" value="15:00"></div>
+    <div class="fld"><label>Stationen Beginn</label><input type="time" value="15:00"></div>
+    <div class="fld"><label>Stationen Ende</label><input type="time" value="16:45"></div>
+    <div class="fld"><label>Feierzeit Beginn</label><input type="time" value="16:45"></div>
+    <div class="fld"><label>Feierzeit Ende</label><input type="time" value="17:15"></div>
+    <div class="fld"><label>Essen Beginn</label><input type="time" value="17:15"></div>
+    <div class="fld"><label>Essen Ende</label><input type="time" value="18:00"></div>
+    <div class="fld"><label>Abbau Beginn</label><input type="time" value="18:00"></div>
+    <div class="fld"><label>Abbau Ende</label><input type="time" value="19:00"></div>
+  </div>
+  <div class="sheet-btns">
+    <button class="btn-cancel" onclick="closeConfig()">Abbrechen</button>
+    <button class="btn-primary" onclick="generate()">Aufgaben generieren</button>
+  </div>
+</div>
+
+<div class="toast tg" id="toast">Aufgaben aus Planung übernommen ✓</div>
+
+<script>
+function toggle(head) {
+  const body = head.nextElementSibling;
+  const ch = head.querySelector('.chevron');
+  const closed = body.classList.contains('closed');
+  body.classList.toggle('closed', !closed);
+  ch.classList.toggle('open', !closed);
+}
+
+function filter(mode, pill) {
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  pill.classList.add('active');
+  document.querySelectorAll('.phase-block').forEach(b => b.style.display = '');
+  document.querySelectorAll('.task').forEach(t => {
+    let show = true;
+    if (mode === 'mine') show = t.classList.contains('mine');
+    if (mode === 'open') {
+      const cEl = t.querySelector('.count-num');
+      if (cEl) {
+        const [cur, need] = cEl.textContent.split('/').map(Number);
+        show = cur < need;
+      }
+    }
+    t.style.display = show ? '' : 'none';
+  });
+}
+
+function closeAllNames() {
+  document.querySelectorAll('.name-row').forEach(r => {
+    r.classList.remove('show');
+    r.querySelector('input').value = '';
+  });
+}
+
+function askName(id, target) {
+  closeAllNames();
+  const row = document.getElementById('nr-' + id);
+  row.classList.add('show');
+  row.querySelector('input').focus();
+}
+
+function cancelName(id) {
+  const row = document.getElementById('nr-' + id);
+  row.classList.remove('show');
+  row.querySelector('input').value = '';
+}
+
+function confirmName(id, target) {
+  const input = document.getElementById('in-' + id);
+  const name = input.value.trim() || 'Gast';
+  cancelName(id);
+
+  const cEl = document.getElementById('c-' + id);
+  const dEl = document.getElementById('d-' + id);
+  const [cur, need] = cEl.textContent.split('/').map(Number);
+  const next = cur + 1;
+  cEl.textContent = next + '/' + need;
+
+  if (next > need) {
+    cEl.className = 'count-num over';
+    if (dEl) dEl.className = 'dot dot-over';
+  } else if (next >= need) {
+    cEl.className = 'count-num';
+    if (dEl) dEl.className = 'dot dot-ok';
+  } else {
+    cEl.className = 'count-num';
+    if (dEl) dEl.className = 'dot dot-warn';
+  }
+
+  const meta = document.querySelector('#t-' + id + ' .task-meta');
+  const b = document.createElement('span');
+  b.className = 'bdg bg-guest';
+  b.textContent = name;
+  meta.appendChild(b);
+}
+
+function openConfig() {
+  document.getElementById('cfg-sheet').classList.add('show');
+  document.getElementById('overlay').classList.add('show');
+}
+function closeConfig() {
+  document.getElementById('cfg-sheet').classList.remove('show');
+  document.getElementById('overlay').classList.remove('show');
+}
+
+function generate() {
+  closeConfig();
+  const t = document.getElementById('toast');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>
