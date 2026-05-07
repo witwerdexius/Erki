@@ -32,6 +32,12 @@ export default function Home() {
   // Hält die aktuell laufende savePlanning-Promise, damit handleBack darauf
   // warten kann, bevor selbst gespeichert wird (verhindert DELETE+INSERT-Races).
   const inFlightSaveRef = useRef<Promise<void> | null>(null);
+  // Snapshot des zuletzt erfolgreich geladenen oder gespeicherten Plans.
+  // Wird an savePlanning(plan, previousPlan) übergeben, damit der Field-Level
+  // Diff in lib/db.ts nur tatsächlich geänderte Felder ins UPDATE schreibt
+  // (verhindert clobbering paralleler Edits anderer Mitarbeiter).
+  // Deep-Clone via JSON, um Aliasing mit dem aktiven Plan-State auszuschließen.
+  const previousPlanRef = useRef<Plan | null>(null);
 
   // viewRef keeps the auth state change handler from using a stale closure value
   useEffect(() => { viewRef.current = view; }, [view]);
@@ -90,6 +96,8 @@ export default function Home() {
     try {
       const plan = await loadPlanningMeta(planId);
       latestPlanRef.current = plan;
+      // Baseline für Field-Level Diff: Deep-Clone des frisch geladenen Plans.
+      previousPlanRef.current = JSON.parse(JSON.stringify(plan)) as Plan;
       isDirtyRef.current = false;
       sessionStorage.setItem('activePlanId', planId);
       setActivePlan(plan);
@@ -104,12 +112,18 @@ export default function Home() {
 
   // Führt einen savePlanning-Call aus und markiert die ref als clean,
   // wenn in der Zwischenzeit keine neue Änderung reinkam.
+  // Übergibt previousPlanRef.current für Field-Level Diff (verhindert Clobbern
+  // paralleler Edits anderer Mitarbeiter). Bei Erfolg wird die Baseline auf
+  // einen Deep-Clone des gerade gespeicherten Plans aktualisiert.
+  // Bei Fehler bleibt die Baseline unverändert, damit der nächste Save
+  // weiterhin gegen den letzten bekannten DB-Stand diffed.
   const runSave = useCallback(async (planToSave: Plan): Promise<void> => {
     try {
-      await savePlanning(planToSave);
+      await savePlanning(planToSave, previousPlanRef.current ?? undefined);
       if (latestPlanRef.current === planToSave) {
         isDirtyRef.current = false;
       }
+      previousPlanRef.current = JSON.parse(JSON.stringify(planToSave)) as Plan;
       console.log('[Auto-Save] erfolgreich');
     } catch (e) {
       console.error('[Auto-Save] fehlgeschlagen:', e);
@@ -166,8 +180,11 @@ export default function Home() {
   }, [runSave]);
 
   // Externes Realtime-Update von einem anderen Client – kein Auto-Save, kein dirty-Flag.
+  // Die Baseline für den Field-Level Diff wird ebenfalls auf den neuen Stand gehoben,
+  // damit der nächste lokale Save nur die seitdem geänderten Felder ins UPDATE schreibt.
   const handleExternalPlanUpdate = useCallback((updatedPlan: Plan) => {
     latestPlanRef.current = updatedPlan;
+    previousPlanRef.current = JSON.parse(JSON.stringify(updatedPlan)) as Plan;
     setActivePlan(updatedPlan);
   }, []);
 
@@ -189,10 +206,11 @@ export default function Home() {
     setIsSaving(true);
     const savePromise = (async () => {
       try {
-        await savePlanning(planToSave);
+        await savePlanning(planToSave, previousPlanRef.current ?? undefined);
         if (latestPlanRef.current === planToSave) {
           isDirtyRef.current = false;
         }
+        previousPlanRef.current = JSON.parse(JSON.stringify(planToSave)) as Plan;
         console.log('[handleSaveNow] erfolgreich');
       } catch (e) {
         console.error('[handleSaveNow] FEHLGESCHLAGEN:', e);
@@ -241,8 +259,9 @@ export default function Home() {
       console.log('[handleBack] starte savePlanning (unbedingt)...');
       setIsSaving(true);
       try {
-        await savePlanning(plan);
+        await savePlanning(plan, previousPlanRef.current ?? undefined);
         isDirtyRef.current = false;
+        previousPlanRef.current = JSON.parse(JSON.stringify(plan)) as Plan;
         console.log('[handleBack] savePlanning erfolgreich');
       } catch (e) {
         console.error('[handleBack] savePlanning FEHLGESCHLAGEN:', e);
@@ -253,6 +272,7 @@ export default function Home() {
       console.warn('[handleBack] kein Plan in latestPlanRef – nichts gespeichert!');
     }
     latestPlanRef.current = null;
+    previousPlanRef.current = null;
     isDirtyRef.current = false;
     sessionStorage.removeItem('activePlanId');
     setActivePlan(null);
