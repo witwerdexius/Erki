@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import LoginScreen from '@/components/LoginScreen';
 import PlanningList from '@/components/PlanningList';
 import ErkiApp from '@/components/ErkiApp';
-import { loadPlanningMeta, savePlanning, loadProfile, loadCommunity, updateProfileNameAndTeam } from '@/lib/db';
+import { loadPlanningMeta, loadPlanningFull, savePlanning, loadProfile, loadCommunity, updateProfileNameAndTeam, VersionConflictError } from '@/lib/db';
 import { Plan, Profile, Community } from '@/lib/types';
 import OnboardingModal from '@/components/OnboardingModal';
 
@@ -22,6 +22,7 @@ export default function Home() {
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [conflictToast, setConflictToast] = useState<{ planId: string } | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   // Ref hält immer den neuesten Plan-Stand synchron (unabhängig von React-State-Batching)
   const latestPlanRef = useRef<Plan | null>(null);
@@ -127,6 +128,9 @@ export default function Home() {
       console.log('[Auto-Save] erfolgreich');
     } catch (e) {
       console.error('[Auto-Save] fehlgeschlagen:', e);
+      if (e instanceof VersionConflictError) {
+        setConflictToast({ planId: planToSave.id });
+      }
     }
   }, []);
 
@@ -214,6 +218,9 @@ export default function Home() {
         console.log('[handleSaveNow] erfolgreich');
       } catch (e) {
         console.error('[handleSaveNow] FEHLGESCHLAGEN:', e);
+        if (e instanceof VersionConflictError) {
+          setConflictToast({ planId: planToSave.id });
+        }
       } finally {
         setIsSaving(false);
       }
@@ -265,6 +272,9 @@ export default function Home() {
         console.log('[handleBack] savePlanning erfolgreich');
       } catch (e) {
         console.error('[handleBack] savePlanning FEHLGESCHLAGEN:', e);
+        if (e instanceof VersionConflictError) {
+          setConflictToast({ planId: plan.id });
+        }
       } finally {
         setIsSaving(false);
       }
@@ -277,6 +287,25 @@ export default function Home() {
     sessionStorage.removeItem('activePlanId');
     setActivePlan(null);
     setView('list');
+  }, []);
+
+  // Wird vom Conflict-Toast aufgerufen, wenn der User "Neu laden" klickt.
+  // Lädt den aktuellen DB-Stand (inkl. background_image, masks etc.) und
+  // setzt sämtliche lokalen Refs zurück, damit der nächste Save sauber
+  // gegen den frisch geladenen Stand diffed.
+  const handleConflictReload = useCallback(async (planId: string) => {
+    try {
+      const reloaded = await loadPlanningFull(planId);
+      latestPlanRef.current = reloaded;
+      previousPlanRef.current = JSON.parse(JSON.stringify(reloaded)) as Plan;
+      isDirtyRef.current = false;
+      setActivePlan(reloaded);
+      setConflictToast(null);
+      console.log('[handleConflictReload] erfolgreich:', planId);
+    } catch (e) {
+      console.error('[handleConflictReload] fehlgeschlagen:', e);
+      alert('Neu laden fehlgeschlagen.');
+    }
   }, []);
 
   if (loadingPlan) {
@@ -327,6 +356,32 @@ export default function Home() {
           latestPlanRef={latestPlanRef}
           isDirtyRef={isDirtyRef}
         />
+        {conflictToast && (
+          <div
+            role="alert"
+            className="fixed top-4 right-4 z-50 max-w-sm rounded-lg border border-amber-300 bg-amber-50 p-4 shadow-lg"
+          >
+            <p className="text-sm text-amber-900">
+              Diese Planung wurde von einem anderen Mitarbeiter geändert.
+            </p>
+            <div className="mt-3 flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setConflictToast(null)}
+                className="px-3 py-1 text-sm rounded border border-amber-300 text-amber-900 hover:bg-amber-100"
+              >
+                Schließen
+              </button>
+              <button
+                type="button"
+                onClick={() => handleConflictReload(conflictToast.planId)}
+                className="px-3 py-1 text-sm rounded bg-amber-600 text-white hover:bg-amber-700"
+              >
+                Neu laden
+              </button>
+            </div>
+          </div>
+        )}
       </main>
     );
   }
