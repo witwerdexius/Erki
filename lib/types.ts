@@ -106,4 +106,8 @@ export interface Plan {
   nachdenk_template?: string; // base64 data URL of vorlage.pdf
   explanationData?: ExplanationData;
   sourceUrl?: string;
+  // Optimistic Locking: wird vom DB-Trigger plannings_version_bump bei jedem
+  // UPDATE inkrementiert. savePlanning() nutzt diesen Wert als If-Match.
+  // Optional, weil ältere Code-Pfade die Spalte ggf. noch nicht laden.
+  version?: number;
 }

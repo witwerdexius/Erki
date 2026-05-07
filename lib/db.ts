@@ -1,6 +1,22 @@
 import { supabase } from './supabase';
 import { Plan, PlanStatus, Station, LogoOverlay, LabelOverlay, StationTemplate, Profile, Community, UserRole } from './types';
 
+// ── Errors ──────────────────────────────────────────────────────
+
+/**
+ * Wird von savePlanning() geworfen, wenn die DB-Zeile in der Zwischenzeit
+ * von einem anderen Client geändert wurde (Optimistic-Locking-Konflikt).
+ *
+ * Der Caller sollte den User informieren, die aktuelle Planung neu laden
+ * (loadPlanningFull) und ggf. den Save erneut auslösen.
+ */
+export class VersionConflictError extends Error {
+  constructor(public readonly planId: string, public readonly expectedVersion: number) {
+    super(`Planung ${planId} wurde in der Zwischenzeit geändert (erwartete Version ${expectedVersion}).`);
+    this.name = 'VersionConflictError';
+  }
+}
+
 // ── Row converters ──────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -17,6 +33,7 @@ export function rowToPlan(row: any, stations: Station[]): Plan {
     bgZoom: row.bg_zoom ?? 1,
     explanationData: row.explanation_data ?? undefined,
     sourceUrl: row.source_url ?? undefined,
+    version: typeof row.version === 'number' ? row.version : undefined,
     stations,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -97,7 +114,7 @@ export async function loadPlanningMeta(id: string): Promise<Plan> {
     await Promise.all([
       supabase
         .from('plannings')
-        .select('id, title, status, url, bg_zoom, source_url, created_at, updated_at')
+        .select('id, title, status, url, bg_zoom, source_url, version, created_at, updated_at')
         .eq('id', id)
         .single(),
       supabase.from('stations').select('*').eq('planning_id', id).order('sort_order'),
@@ -135,6 +152,12 @@ export async function savePlanning(plan: Plan): Promise<void> {
   if (!plan || !plan.id) return;
   console.log('[savePlanning] starte für:', plan.id, '|', plan.title, '| status:', plan.status, '| Stationen:', plan.stations.length);
 
+  // Optimistic Locking: wenn plan.version gesetzt, wird die UPDATE-WHERE-
+  // Klausel auf diese Version eingegrenzt. Wenn die DB-Zeile inzwischen
+  // eine höhere Version hat (Konkurrent hat geschrieben), matcht der UPDATE
+  // keine Zeile und wir werfen VersionConflictError.
+  const expectedVersion: number | null = typeof plan.version === 'number' ? plan.version : null;
+
   // Sicherstellen dass alle IDs gültige UUIDs sind (alte .rki-Importe können Non-UUIDs enthalten)
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const stations = plan.stations.map(s => ({
@@ -157,7 +180,7 @@ export async function savePlanning(plan: Plan): Promise<void> {
 
   // plannings UPDATE und stations UPSERT parallel ausführen
   const rows = stations.map((s, i) => stationToRow(s, plan.id, i));
-  const planUpdate = supabase
+  let planUpdateBuilder = supabase
     .from('plannings')
     .update({
       title: plan.title,
@@ -172,11 +195,17 @@ export async function savePlanning(plan: Plan): Promise<void> {
       updated_at: new Date().toISOString(),
     })
     .eq('id', plan.id);
+  if (expectedVersion !== null) {
+    planUpdateBuilder = planUpdateBuilder.eq('version', expectedVersion);
+  }
+  // .select('id') liefert nach dem UPDATE die Zeilen-IDs zurück, damit wir
+  // erkennen, ob die Version-Bedingung gematcht hat.
+  const planUpdate = planUpdateBuilder.select('id');
   const stationsUpsert = rows.length > 0
     ? supabase.from('stations').upsert(rows, { onConflict: 'id' })
-    : Promise.resolve({ error: null });
+    : Promise.resolve({ error: null, data: null });
 
-  const [{ error: planError }, { error: upsertError }] = await Promise.all([planUpdate, stationsUpsert]);
+  const [{ data: planUpdateData, error: planError }, { error: upsertError }] = await Promise.all([planUpdate, stationsUpsert]);
   if (planError) {
     console.error('[savePlanning] plannings UPDATE Fehler:', planError);
     console.error('[savePlanning] plannings UPDATE Fehler detail:', JSON.stringify(planError));
@@ -185,6 +214,11 @@ export async function savePlanning(plan: Plan): Promise<void> {
   if (upsertError) {
     console.error('[savePlanning] stations UPSERT Fehler:', upsertError);
     throw upsertError;
+  }
+  // Wenn expectedVersion gesetzt war und kein Row matcht → Konflikt
+  if (expectedVersion !== null && Array.isArray(planUpdateData) && planUpdateData.length === 0) {
+    console.warn('[savePlanning] VersionConflictError: erwartete Version', expectedVersion, 'für', plan.id);
+    throw new VersionConflictError(plan.id, expectedVersion);
   }
   console.log('[savePlanning] plannings UPDATE + stations UPSERT ok (' + rows.length + ' Zeilen)');
 
