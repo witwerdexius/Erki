@@ -74,7 +74,15 @@ function EditableText({
 
   return (
     <span
+      role="button"
+      tabIndex={0}
       onClick={() => setEditing(true)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          setEditing(true);
+        }
+      }}
       title="Klicken zum Bearbeiten"
       className={cn('cursor-text hover:bg-[#6bbfd4]/10 rounded transition-colors inline-block min-w-[4rem]', className)}
       style={style}
@@ -135,7 +143,15 @@ function EditableTextarea({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       onClick={() => setEditing(true)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          setEditing(true);
+        }
+      }}
       title="Klicken zum Bearbeiten"
       className={cn('cursor-text hover:bg-[#6bbfd4]/10 rounded transition-colors whitespace-pre-wrap', className)}
       style={style}
@@ -516,7 +532,15 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
                 />
                 <label
                   data-export-hidden
+                  role="button"
+                  tabIndex={0}
                   onClick={() => qrInputRef.current?.click()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      qrInputRef.current?.click();
+                    }
+                  }}
                   style={{ position: 'absolute', bottom: -2, right: -2, background: '#6b7280', color: '#fff', borderRadius: 4, padding: '1px 4px', fontSize: 9, cursor: 'pointer' }}
                 >▲</label>
               </div>

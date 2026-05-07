@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { extractUuid } from '@/lib/slugify';
+import { ShareJoinParamSchema } from '@/lib/api/validation';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -10,7 +11,12 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ token: string }> },
 ) {
-  const { token } = await params;
+  const rawParams = await params;
+  const parsed = ShareJoinParamSchema.safeParse(rawParams);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+  const { token } = parsed.data;
   const uuid = extractUuid(token);
 
   const authHeader = req.headers.get('authorization');

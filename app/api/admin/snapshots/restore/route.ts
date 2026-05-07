@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { requireAdmin } from '@/lib/api/auth';
+import { SnapshotRestoreBodySchema } from '@/lib/api/validation';
 
 // Nur diese Felder werden beim Wiederherstellen neu eingefügt (ohne DB-Metadaten
 // wie created_at, die beim ursprünglichen INSERT automatisch generiert wurden).
@@ -19,29 +21,19 @@ function makeAdminClient(): SupabaseClient {
 
 // POST /api/admin/snapshots/restore
 export async function POST(req: NextRequest) {
-  const token = req.headers.get('Authorization')?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Nicht authentifiziert' }, { status: 401 });
+  const auth = await requireAdmin(req);
+  if ('error' in auth) return auth.error;
+  const { userId } = auth;
 
+  const raw = await req.json().catch(() => null);
+  const parsed = SnapshotRestoreBodySchema.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+  const { snapshotId } = parsed.data;
+
+  // Operationen via Service-Role-Client (RLS bypass), Auth bereits geprüft.
   const adminClient = makeAdminClient();
-
-  const { data: { user }, error: authError } = await adminClient.auth.getUser(token);
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Nicht authentifiziert' }, { status: 401 });
-  }
-
-  const { data: profile } = await adminClient
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  if (profile?.role !== 'admin') {
-    return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
-  }
-
-  const body = await req.json().catch(() => null);
-  const snapshotId: string | undefined = body?.snapshotId;
-  if (!snapshotId) return NextResponse.json({ error: 'snapshotId fehlt' }, { status: 400 });
 
   // Ziel-Snapshot laden
   const { data: snapshot, error: snapErr } = await adminClient
@@ -67,7 +59,7 @@ export async function POST(req: NextRequest) {
   await adminClient.from('planning_snapshots').insert({
     planning_id: planningId,
     stations_json: currentStations ?? [],
-    created_by: user.id,
+    created_by: userId,
     trigger_action: 'before_restore',
   });
 

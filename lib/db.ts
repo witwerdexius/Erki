@@ -1,10 +1,26 @@
 import { supabase } from './supabase';
 import { Plan, PlanStatus, Station, LogoOverlay, LabelOverlay, StationTemplate, Profile, Community, UserRole } from './types';
 
+// ── Errors ──────────────────────────────────────────────────────
+
+/**
+ * Wird von savePlanning() geworfen, wenn die DB-Zeile in der Zwischenzeit
+ * von einem anderen Client geändert wurde (Optimistic-Locking-Konflikt).
+ *
+ * Der Caller sollte den User informieren, die aktuelle Planung neu laden
+ * (loadPlanningFull) und ggf. den Save erneut auslösen.
+ */
+export class VersionConflictError extends Error {
+  constructor(public readonly planId: string, public readonly expectedVersion: number) {
+    super(`Planung ${planId} wurde in der Zwischenzeit geändert (erwartete Version ${expectedVersion}).`);
+    this.name = 'VersionConflictError';
+  }
+}
+
 // ── Row converters ──────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function rowToPlan(row: any, stations: Station[]): Plan {
+export function rowToPlan(row: any, stations: Station[]): Plan {
   return {
     id: row.id,
     title: row.title,
@@ -17,6 +33,7 @@ function rowToPlan(row: any, stations: Station[]): Plan {
     bgZoom: row.bg_zoom ?? 1,
     explanationData: row.explanation_data ?? undefined,
     sourceUrl: row.source_url ?? undefined,
+    version: typeof row.version === 'number' ? row.version : undefined,
     stations,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -24,7 +41,7 @@ function rowToPlan(row: any, stations: Station[]): Plan {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function rowToStation(row: any): Station {
+export function rowToStation(row: any): Station {
   return {
     id: row.id,
     number: row.number,
@@ -44,7 +61,7 @@ function rowToStation(row: any): Station {
   };
 }
 
-function stationToRow(station: Station, planningId: string, sortOrder: number) {
+export function stationToRow(station: Station, planningId: string, sortOrder: number) {
   return {
     id: station.id,
     planning_id: planningId,
@@ -97,7 +114,7 @@ export async function loadPlanningMeta(id: string): Promise<Plan> {
     await Promise.all([
       supabase
         .from('plannings')
-        .select('id, title, status, url, bg_zoom, source_url, created_at, updated_at')
+        .select('id, title, status, url, bg_zoom, source_url, version, created_at, updated_at')
         .eq('id', id)
         .single(),
       supabase.from('stations').select('*').eq('planning_id', id).order('sort_order'),
@@ -131,9 +148,79 @@ export async function createPlanning(title: string, userId: string): Promise<Pla
   return rowToPlan(data, []);
 }
 
-export async function savePlanning(plan: Plan): Promise<void> {
+/**
+ * Pure helper: berechnet, welche plannings-Spalten zwischen prev und next
+ * geändert wurden. Liefert die Patch-Map mit snake_case-Keys.
+ *
+ * Komplexe Felder (masks-Array, logo_overlay-Objekt, label_overlay-Objekt)
+ * werden via JSON.stringify shallow verglichen — pragmatisch, nicht
+ * bulletproof: bei unterschiedlicher Key-Reihenfolge sind false-positives
+ * möglich, das ist akzeptabel (überflüssiger DB-Write < verlorene Felder).
+ *
+ * Hinweis: explanation_data wird hier NICHT diffen, weil es in savePlanning
+ * separat ge-updated wird (Timeout-Schutz bei großen Base64-Bildern).
+ */
+export function diffPlanRow(prev: Plan, next: Plan): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  if (prev.title !== next.title) patch.title = next.title;
+  if (prev.status !== next.status) patch.status = next.status;
+  if ((prev.url ?? null) !== (next.url ?? null)) patch.url = next.url ?? null;
+  if ((prev.backgroundImage ?? null) !== (next.backgroundImage ?? null)) {
+    patch.background_image = next.backgroundImage ?? null;
+  }
+  if (JSON.stringify(prev.masks ?? []) !== JSON.stringify(next.masks ?? [])) {
+    patch.masks = next.masks ?? [];
+  }
+  if (JSON.stringify(prev.logoOverlay ?? null) !== JSON.stringify(next.logoOverlay ?? null)) {
+    patch.logo_overlay = next.logoOverlay ?? null;
+  }
+  if (JSON.stringify(prev.labelOverlay ?? null) !== JSON.stringify(next.labelOverlay ?? null)) {
+    patch.label_overlay = next.labelOverlay ?? null;
+  }
+  if ((prev.bgZoom ?? 1) !== (next.bgZoom ?? 1)) patch.bg_zoom = next.bgZoom ?? 1;
+  if ((prev.sourceUrl ?? null) !== (next.sourceUrl ?? null)) patch.source_url = next.sourceUrl ?? null;
+  return patch;
+}
+
+/**
+ * Build the plannings UPDATE payload.
+ *
+ * Mit previousPlan: nur geänderte Felder ins Patch-Objekt (Field-Level Diff,
+ * vermeidet, dass parallel editierte Spalten überschrieben werden). Ohne
+ * previousPlan: Vollupdate aller Spalten (Backward-Compat). `updated_at` ist
+ * immer enthalten.
+ */
+function buildPlanningUpdatePayload(plan: Plan, previousPlan: Plan | undefined): Record<string, unknown> {
+  const nowIso = new Date().toISOString();
+  if (previousPlan) {
+    const patch = diffPlanRow(previousPlan, plan);
+    patch.updated_at = nowIso;
+    return patch;
+  }
+  // Backward-Compat: Vollupdate wie zuvor
+  return {
+    title: plan.title,
+    status: plan.status,
+    url: plan.url ?? null,
+    background_image: plan.backgroundImage ?? null,
+    masks: plan.masks ?? [],
+    logo_overlay: plan.logoOverlay ?? null,
+    label_overlay: plan.labelOverlay ?? null,
+    bg_zoom: plan.bgZoom ?? 1,
+    source_url: plan.sourceUrl ?? null,
+    updated_at: nowIso,
+  };
+}
+
+export async function savePlanning(plan: Plan, previousPlan?: Plan): Promise<void> {
   if (!plan || !plan.id) return;
   console.log('[savePlanning] starte für:', plan.id, '|', plan.title, '| status:', plan.status, '| Stationen:', plan.stations.length);
+
+  // Optimistic Locking: wenn plan.version gesetzt, wird die UPDATE-WHERE-
+  // Klausel auf diese Version eingegrenzt. Wenn die DB-Zeile inzwischen
+  // eine höhere Version hat (Konkurrent hat geschrieben), matcht der UPDATE
+  // keine Zeile und wir werfen VersionConflictError.
+  const expectedVersion: number | null = typeof plan.version === 'number' ? plan.version : null;
 
   // Sicherstellen dass alle IDs gültige UUIDs sind (alte .rki-Importe können Non-UUIDs enthalten)
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -155,28 +242,26 @@ export async function savePlanning(plan: Plan): Promise<void> {
   const newIds = new Set(stations.map(s => s.id));
   const idsToDelete = [...existingIds].filter(id => !newIds.has(id));
 
-  // plannings UPDATE und stations UPSERT parallel ausführen
+  // plannings UPDATE und stations UPSERT parallel ausführen.
+  // Bei previousPlan: nur Diff-Felder updaten (verhindert Überschreiben
+  // parallel editierter Spalten). Sonst: Vollupdate (Backward-Compat).
   const rows = stations.map((s, i) => stationToRow(s, plan.id, i));
-  const planUpdate = supabase
+  const updatePayload = buildPlanningUpdatePayload(plan, previousPlan);
+  let planUpdateBuilder = supabase
     .from('plannings')
-    .update({
-      title: plan.title,
-      status: plan.status,
-      url: plan.url ?? null,
-      background_image: plan.backgroundImage ?? null,
-      masks: plan.masks ?? [],
-      logo_overlay: plan.logoOverlay ?? null,
-      label_overlay: plan.labelOverlay ?? null,
-      bg_zoom: plan.bgZoom ?? 1,
-      source_url: plan.sourceUrl ?? null,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq('id', plan.id);
+  if (expectedVersion !== null) {
+    planUpdateBuilder = planUpdateBuilder.eq('version', expectedVersion);
+  }
+  // .select('id') liefert nach dem UPDATE die Zeilen-IDs zurück, damit wir
+  // erkennen, ob die Version-Bedingung gematcht hat.
+  const planUpdate = planUpdateBuilder.select('id');
   const stationsUpsert = rows.length > 0
     ? supabase.from('stations').upsert(rows, { onConflict: 'id' })
-    : Promise.resolve({ error: null });
+    : Promise.resolve({ error: null, data: null });
 
-  const [{ error: planError }, { error: upsertError }] = await Promise.all([planUpdate, stationsUpsert]);
+  const [{ data: planUpdateData, error: planError }, { error: upsertError }] = await Promise.all([planUpdate, stationsUpsert]);
   if (planError) {
     console.error('[savePlanning] plannings UPDATE Fehler:', planError);
     console.error('[savePlanning] plannings UPDATE Fehler detail:', JSON.stringify(planError));
@@ -185,6 +270,11 @@ export async function savePlanning(plan: Plan): Promise<void> {
   if (upsertError) {
     console.error('[savePlanning] stations UPSERT Fehler:', upsertError);
     throw upsertError;
+  }
+  // Wenn expectedVersion gesetzt war und kein Row matcht → Konflikt
+  if (expectedVersion !== null && Array.isArray(planUpdateData) && planUpdateData.length === 0) {
+    console.warn('[savePlanning] VersionConflictError: erwartete Version', expectedVersion, 'für', plan.id);
+    throw new VersionConflictError(plan.id, expectedVersion);
   }
   console.log('[savePlanning] plannings UPDATE + stations UPSERT ok (' + rows.length + ' Zeilen)');
 
@@ -262,7 +352,7 @@ export async function importPlannings(plans: Plan[], userId: string): Promise<vo
 // ── Templates ───────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function rowToTemplate(row: any): StationTemplate {
+export function rowToTemplate(row: any): StationTemplate {
   return {
     id: row.id,
     name: row.name,
@@ -331,7 +421,7 @@ export async function deleteTemplate(id: string): Promise<void> {
 // ── Profiles & Communities ──────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function rowToProfile(row: any): Profile {
+export function rowToProfile(row: any): Profile {
   return {
     id: row.id,
     communityId: row.community_id,

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, MutableRefObject } from 'react';
 import { ChevronDown, ChevronUp, ChevronLeft, Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Move, Palette, GripVertical, PenLine, Eraser, Image as ImageIcon, Type, ZoomIn, ZoomOut, BookTemplate, Bookmark, Pencil, Loader2, BookOpen, FileText, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { User } from '@supabase/supabase-js';
-import { Plan, PlanStatus, Station, MaskPolygon, LogoOverlay, LabelOverlay, StationTemplate } from '@/lib/types';
+import { Plan, Station, MaskPolygon, LogoOverlay, LabelOverlay, StationTemplate } from '@/lib/types';
 import { importPlanFromUrl } from '@/lib/actions';
 import { loadTemplates, createTemplate, updateTemplate, deleteTemplate, loadPlanningFull } from '@/lib/db';
 import { supabase } from '@/lib/supabase';
@@ -15,21 +15,14 @@ import { exportLageplanPDF, exportTablePDF } from '@/lib/pdfExport';
 import TemplatePickerDialog from './TemplatePickerDialog';
 import NachdenktexteTab from '@/components/NachdenktexteTab';
 import ExplanationPage from '@/components/ExplanationPage';
+import { computeBubbleSlots, type BlockedZone } from '@/lib/bubbleLayoutMath';
+import { useRealtimeSync } from '@/lib/realtime/useRealtimeSync';
 
 // ── computeAutoLayout ──────────────────────────────────────────────────────
-// Verteilt Beschriftungs-Blasen (s.x / s.y) kreuzungsfrei auf dem Perimeter
-// des Canvas, basierend auf den Marker-Positionen (s.targetX / s.targetY).
-//
-// Algorithmus:
-//   1. Centroid der Marker berechnen
-//   2. Jeden Marker per Strahl (Centroid → Marker) auf den Perimeter projizieren
-//      → initiale Slot-Positionen (automatisch dieselbe zyklische Reihenfolge)
-//   3. Sortieren nach Perimeter-Parameter s
-//   4. Zirkuläre Overlap-Resolution: größte Lücke finden, von dort ein
-//      einziger Forward-Sweep (Perimeter = Ring, kein Aufstauen an Grenzen)
-//   5. Sperrzonen (Logo + Titel) → Slot entlang Perimeter verschieben
-//   6. Hard-Clamp auf [bubbleRadius, W-bubbleRadius] × [bubbleRadius, H-bubbleRadius]
-//   7. Zuordnung marker[i] → slot[i] (selber Index, selbe Reihenfolge = kreuzungsfrei)
+// Duenner Adapter um die reine Mathematik in lib/bubbleLayoutMath.ts:
+// rechnet Stations-Prozentkoordinaten in Pixel um, baut Sperrzonen-Rechtecke
+// fuer Logo/Label und schreibt das Ergebnis zurueck als Prozentwerte.
+// (Algorithmus & Spezifikation: siehe lib/bubbleLayoutMath.ts)
 function computeAutoLayout(
     stations: Station[],
     containerWidth: number,
@@ -37,222 +30,53 @@ function computeAutoLayout(
     logoOverlay?: LogoOverlay,
     labelOverlay?: LabelOverlay,
 ): Station[] {
-    const N = stations.length;
-    if (N === 0 || containerWidth === 0 || containerHeight === 0) return stations;
+    if (stations.length === 0 || containerWidth === 0 || containerHeight === 0) return stations;
 
     const mapScale = containerWidth / 800;
     const bubbleRadius = 48 * mapScale;
-    const R = bubbleRadius + 10;
+    const blockedZones: BlockedZone[] = [];
+    if (logoOverlay) {
+        // Logo: Rendering ist quadratisch (size in % der Breite, Hoehe ~ 0.4 * Breite).
+        // Originale Sperrzonen-Polsterung: bubbleRadius rundherum (passt zu Modul-Default).
+        blockedZones.push({
+            x: logoOverlay.x,
+            y: logoOverlay.y,
+            width: logoOverlay.size,
+            height: logoOverlay.size * 0.4,
+        });
+    }
+    if (labelOverlay) {
+        // Label-Bounding-Box approximieren (font-bold uppercase tracking-widest).
+        // Original-Polsterung war asymmetrisch (rechts/oben/unten = 1.5 * bubbleRadius,
+        // links = bubbleRadius). Modul polstert uniform mit bubbleRadius -> Rechteck
+        // pre-erweitern, damit das Endergebnis identisch zum alten Verhalten ist.
+        const renderedFontSize = labelOverlay.fontSize * mapScale;
+        const approxWPx = labelOverlay.text.length * renderedFontSize * 1.0;
+        const approxHPx = renderedFontSize * 1.6;
+        const extra = bubbleRadius * 0.5; // 1.5*r minus 1*r
+        const yPx = (labelOverlay.y / 100) * containerHeight - extra;
+        blockedZones.push({
+            x: labelOverlay.x,
+            y: (yPx / containerHeight) * 100,
+            width: ((approxWPx + extra) / containerWidth) * 100,
+            height: ((approxHPx + 2 * extra) / containerWidth) * 100,
+        });
+    }
 
-    const minX = R, maxX = containerWidth - R;
-    const minY = R, maxY = containerHeight - R;
-    if (maxX <= minX || maxY <= minY) return stations; // Canvas zu klein
-    const Wr = maxX - minX, Hr = maxY - minY;
-    const perimLen = 2 * (Wr + Hr);
-
-    // ── Helfer ──────────────────────────────────────────────────────────────
-    const wrap = (s: number) => ((s % perimLen) + perimLen) % perimLen;
-
-    const sToPoint = (s: number): { x: number; y: number } => {
-        s = wrap(s);
-        if (s < Wr)          return { x: minX + s,     y: minY };
-        s -= Wr;
-        if (s < Hr)          return { x: maxX,          y: minY + s };
-        s -= Hr;
-        if (s < Wr)          return { x: maxX - s,      y: maxY };
-        s -= Wr;
-        return                { x: minX,                y: maxY - s };
-    };
-
-    // Strahl von origin in Richtung angle → Schnittpunkt mit Perimeter-Rechteck
-    const rayToPerimeter = (origin: { x: number; y: number }, angle: number): number => {
-        const cos = Math.cos(angle), sin = Math.sin(angle);
-        let bestT = Infinity;
-        let bestPx = origin.x, bestPy = origin.y;
-        const tryEdge = (t: number, ex: number, ey: number) => {
-            if (t > 1e-9 && t < bestT &&
-                ex >= minX - 0.5 && ex <= maxX + 0.5 &&
-                ey >= minY - 0.5 && ey <= maxY + 0.5) {
-                bestT = t; bestPx = ex; bestPy = ey;
-            }
-        };
-        if (Math.abs(cos) > 1e-9) {
-            const tR = (maxX - origin.x) / cos;
-            tryEdge(tR, maxX, origin.y + sin * tR);
-            const tL = (minX - origin.x) / cos;
-            tryEdge(tL, minX, origin.y + sin * tL);
-        }
-        if (Math.abs(sin) > 1e-9) {
-            const tB = (maxY - origin.y) / sin;
-            tryEdge(tB, origin.x + cos * tB, maxY);
-            const tT = (minY - origin.y) / sin;
-            tryEdge(tT, origin.x + cos * tT, minY);
-        }
-        // Punkt → s-Parameter
-        const px = Math.max(minX, Math.min(maxX, bestPx));
-        const py = Math.max(minY, Math.min(maxY, bestPy));
-        const dTop = Math.abs(py - minY), dRight = Math.abs(px - maxX);
-        const dBot = Math.abs(py - maxY), dLeft  = Math.abs(px - minX);
-        const d = Math.min(dTop, dRight, dBot, dLeft);
-        if (d === dTop)   return px - minX;
-        if (d === dRight) return Wr + (py - minY);
-        if (d === dBot)   return Wr + Hr + (maxX - px);
-        return                   Wr + Hr + Wr + (maxY - py);
-    };
-
-    // ── Schritt 1: Centroid ─────────────────────────────────────────────────
     const markers = stations.map(s => ({
         id: s.id,
         x: (s.targetX / 100) * containerWidth,
         y: (s.targetY / 100) * containerHeight,
     }));
-    const centroid = {
-        x: markers.reduce((sum, m) => sum + m.x, 0) / N,
-        y: markers.reduce((sum, m) => sum + m.y, 0) / N,
-    };
-
-    // ── Schritt 2: Projektion → initiale Slot-Position pro Marker ───────────
-    const items = markers.map(m => {
-        const angle = Math.atan2(m.y - centroid.y, m.x - centroid.x);
-        const s = rayToPerimeter(centroid, angle);
-        return { id: m.id, s };
+    const slots = computeBubbleSlots({
+        markers,
+        containerWidth,
+        containerHeight,
+        blockedZones,
     });
 
-    // ── Schritt 3: Sortieren nach s (= zyklische Reihenfolge auf Perimeter) ─
-    items.sort((a, b) => a.s - b.s);
-
-    // ── Schritt 4: Zirkuläre Overlap-Resolution ─────────────────────────────
-    let minDist = 2 * bubbleRadius + 5;
-    if (N * minDist > perimLen) minDist = perimLen / N; // Notfall: zusammenstauchen
-
-    // Größte zirkuläre Lücke finden → Ketten-Startpunkt
-    let biggestGapIdx = 0;
-    let biggestGap = -1;
-    for (let i = 0; i < N; i++) {
-        const next = (i + 1) % N;
-        let gap = items[next].s - items[i].s;
-        if (gap <= 0) gap += perimLen;
-        if (gap > biggestGap) { biggestGap = gap; biggestGapIdx = (i + 1) % N; }
-    }
-
-    // Forward-Sweep ab biggestGapIdx (einmal rum, zirkulär)
-    for (let k = 1; k < N; k++) {
-        const cur  = (biggestGapIdx + k) % N;
-        const prev = (biggestGapIdx + k - 1) % N;
-        let gap = items[cur].s - items[prev].s;
-        // Zirkulär normalisieren: gap soll positiv sein (cur kommt "nach" prev)
-        if (gap < 0) gap += perimLen;
-        if (gap < minDist) {
-            items[cur].s = wrap(items[prev].s + minDist);
-        }
-    }
-
-    // ── Schritt 5: Sperrzonen (Logo + Überschrift) ──────────────────────────
-    const isBlocked = (px: number, py: number): boolean => {
-        if (logoOverlay) {
-            const lx = (logoOverlay.x / 100) * containerWidth;
-            const ly = (logoOverlay.y / 100) * containerHeight;
-            const lw = (logoOverlay.size / 100) * containerWidth;
-            if (px >= lx - bubbleRadius && px <= lx + lw + bubbleRadius &&
-                py >= ly - bubbleRadius && py <= ly + lw * 0.4 + bubbleRadius) return true;
-        }
-        if (labelOverlay) {
-            const lx = (labelOverlay.x / 100) * containerWidth;
-            const ly = (labelOverlay.y / 100) * containerHeight;
-            // Rendering: fontSize * mapScale, font-bold uppercase tracking-widest (0.1em letter-spacing)
-            const renderedFontSize = labelOverlay.fontSize * mapScale;
-            const approxW = labelOverlay.text.length * renderedFontSize * 1.0;
-            const approxH = renderedFontSize * 1.6;
-            const pad = bubbleRadius * 1.5;
-            if (px >= lx - bubbleRadius && px <= lx + approxW + pad &&
-                py >= ly - pad && py <= ly + approxH + pad) return true;
-        }
-        return false;
-    };
-    for (const item of items) {
-        let pt = sToPoint(item.s);
-        for (let attempt = 0; attempt < 120 && isBlocked(pt.x, pt.y); attempt++) {
-            item.s = wrap(item.s + minDist * 0.5);
-            pt = sToPoint(item.s);
-        }
-    }
-
-    // ── Schritt 6: 2D-Overlap-Prüfschleife ────────────────────────────────────
-    // Nach Sperrzonen-Verschiebung können Slots in 2D zu nah beieinander sein
-    // (z.B. benachbarte Kanten nahe einer Ecke). Iterativ auflösen.
-    const minDist2D = 2 * bubbleRadius + 5;
-    for (let iter = 0; iter < 20; iter++) {
-        let anyMoved = false;
-        for (let i = 0; i < N; i++) {
-            const ptI = sToPoint(items[i].s);
-            for (let j = i + 1; j < N; j++) {
-                const ptJ = sToPoint(items[j].s);
-                const dx = ptI.x - ptJ.x, dy = ptI.y - ptJ.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < minDist2D) {
-                    // j entlang Perimeter nach vorne schieben
-                    items[j].s = wrap(items[j].s + (minDist2D - dist));
-                    anyMoved = true;
-                }
-            }
-        }
-        if (!anyMoved) break;
-    }
-
-    // ── Schritt 7: Kreuzungs-Prüfschleife ──────────────────────────────────
-    // Prüfe alle Linienpaare (marker→slot). Bei Kreuzung: Slots tauschen.
-    // Jeder Swap eliminiert genau eine Kreuzung und erzeugt keine neue
-    // (da die Gesamtlinienlänge sinkt). Max 50 Iterationen.
-    const markerById: Record<string, { x: number; y: number }> = {};
-    for (const m of markers) markerById[m.id] = { x: m.x, y: m.y };
-
-    const segsCross = (
-        ax: number, ay: number, bx: number, by: number,
-        cx: number, cy: number, dx: number, dy: number,
-    ): boolean => {
-        const ccw = (px: number, py: number, qx: number, qy: number, rx: number, ry: number) =>
-            (qx - px) * (ry - py) - (qy - py) * (rx - px);
-        const d1 = ccw(ax, ay, bx, by, cx, cy);
-        const d2 = ccw(ax, ay, bx, by, dx, dy);
-        const d3 = ccw(cx, cy, dx, dy, ax, ay);
-        const d4 = ccw(cx, cy, dx, dy, bx, by);
-        if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
-            ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) return true;
-        return false;
-    };
-
-    for (let iter = 0; iter < 50; iter++) {
-        let swapped = false;
-        for (let i = 0; i < N; i++) {
-            const mi = markerById[items[i].id];
-            const si = sToPoint(items[i].s);
-            for (let j = i + 1; j < N; j++) {
-                const mj = markerById[items[j].id];
-                const sj = sToPoint(items[j].s);
-                if (segsCross(mi.x, mi.y, si.x, si.y, mj.x, mj.y, sj.x, sj.y)) {
-                    // Slots tauschen
-                    const tmp = items[i].s;
-                    items[i].s = items[j].s;
-                    items[j].s = tmp;
-                    swapped = true;
-                }
-            }
-        }
-        if (!swapped) break;
-    }
-
-    // ── Schritt 8: Hard-Clamp + Zuordnung ───────────────────────────────────
-    const idToSlot: Record<string, { x: number; y: number }> = {};
-    for (const item of items) {
-        const pt = sToPoint(item.s);
-        idToSlot[item.id] = {
-            x: Math.max(bubbleRadius, Math.min(containerWidth - bubbleRadius, pt.x)),
-            y: Math.max(bubbleRadius, Math.min(containerHeight - bubbleRadius, pt.y)),
-        };
-    }
-
     return stations.map(s => {
-        const slot = idToSlot[s.id];
+        const slot = slots[s.id];
         if (!slot) return s;
         return {
             ...s,
@@ -533,120 +357,23 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
         });
     }, [activeTab, plan.id, activePlan?.stations]);
 
-    // Realtime-Sync: externe Änderungen an der Planung übernehmen.
-    // Nutzt payload.new für Metadaten (kein Extra-Query); lädt schwere Felder
-    // nur neu wenn der User gerade den Lageplan- oder Erklärungsseite-Tab hat.
+    // Realtime-Sync: plannings-UPDATEs + stations-INSERT/UPDATE/DELETE.
+    // Verhalten (Echo-Skip, Heavy-Field-Lazy-Loading, Cleanup beider Channels)
+    // ist im Hook gekapselt — Logik unverändert gegenüber der ehemaligen
+    // Inline-Implementierung. Siehe lib/realtime/useRealtimeSync.ts.
+    const isOnHeavyTabRef = useRef(activeTab === 'map' || activeTab === 'explanation');
     useEffect(() => {
-        const channel = supabase
-            .channel(`planning:${plan.id}`)
-            .on('postgres_changes', {
-                event: 'UPDATE',
-                schema: 'public',
-                table: 'plannings',
-                filter: `id=eq.${plan.id}`,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            }, (payload) => {
-                if (!onExternalPlanUpdate) return;
-                const current = latestPlanRef.current;
-                if (!current) return;
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const row = payload.new as Record<string, any>;
-                const onHeavyTab = activeTabRef.current === 'map' || activeTabRef.current === 'explanation';
-                onExternalPlanUpdate({
-                    ...current,
-                    title: row.title ?? current.title,
-                    status: (row.status ?? current.status) as PlanStatus,
-                    url: row.url ?? current.url,
-                    bgZoom: row.bg_zoom ?? current.bgZoom,
-                    sourceUrl: row.source_url ?? current.sourceUrl,
-                    updatedAt: row.updated_at ?? current.updatedAt,
-                    ...(onHeavyTab ? {
-                        backgroundImage: row.background_image ?? undefined,
-                        masks: row.masks ?? [],
-                        logoOverlay: row.logo_overlay ?? undefined,
-                        labelOverlay: row.label_overlay ?? undefined,
-                        explanationData: row.explanation_data ?? undefined,
-                    } : {}),
-                });
-            })
-            .subscribe();
-        return () => { supabase.removeChannel(channel); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [plan.id]);
-
-    // Realtime-Sync: granulare Station-Änderungen anderer Clients übernehmen
-    useEffect(() => {
-        if (!onExternalPlanUpdate) return;
-        const channel = supabase
-            .channel(`stations:${plan.id}`)
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'stations',
-                filter: `planning_id=eq.${plan.id}`,
-            }, (payload) => {
-                const current = latestPlanRef.current;
-                if (!current) return;
-
-                if (payload.eventType === 'DELETE') {
-                    const deletedId = (payload.old as { id: string }).id;
-                    if (!current.stations.some(s => s.id === deletedId)) return;
-                    onExternalPlanUpdate({ ...current, stations: current.stations.filter(s => s.id !== deletedId) });
-                    return;
-                }
-
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const row = payload.new as Record<string, any>;
-                const incoming: Station = {
-                    id: row.id,
-                    number: row.number,
-                    name: row.name,
-                    description: row.description,
-                    material: row.material,
-                    instructions: row.instructions,
-                    impulses: row.impulses ?? [],
-                    setupBy: row.setup_by,
-                    conductedBy: row.conducted_by,
-                    x: row.x,
-                    y: row.y,
-                    targetX: row.target_x,
-                    targetY: row.target_y,
-                    isFilled: row.is_filled,
-                    colorVariant: row.color_variant,
-                };
-
-                const existing = current.stations.find(s => s.id === incoming.id);
-
-                if (payload.eventType === 'UPDATE') {
-                    if (!existing) return;
-                    // Eigene Änderungen ignorieren wenn Daten identisch (Echo vom eigenen Save)
-                    if (
-                        existing.number === incoming.number &&
-                        existing.name === incoming.name &&
-                        existing.description === incoming.description &&
-                        existing.material === incoming.material &&
-                        existing.instructions === incoming.instructions &&
-                        JSON.stringify(existing.impulses) === JSON.stringify(incoming.impulses) &&
-                        existing.setupBy === incoming.setupBy &&
-                        existing.conductedBy === incoming.conductedBy &&
-                        existing.x === incoming.x &&
-                        existing.y === incoming.y &&
-                        existing.targetX === incoming.targetX &&
-                        existing.targetY === incoming.targetY &&
-                        existing.isFilled === incoming.isFilled &&
-                        existing.colorVariant === incoming.colorVariant
-                    ) return;
-                    onExternalPlanUpdate({ ...current, stations: current.stations.map(s => s.id === incoming.id ? incoming : s) });
-                } else {
-                    // INSERT
-                    if (existing) return;
-                    onExternalPlanUpdate({ ...current, stations: [...current.stations, incoming] });
-                }
-            })
-            .subscribe();
-        return () => { supabase.removeChannel(channel); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [plan.id]);
+        isOnHeavyTabRef.current = activeTab === 'map' || activeTab === 'explanation';
+    }, [activeTab]);
+    useRealtimeSync({
+        planId: plan.id,
+        // Wenn der Parent kein onExternalPlanUpdate bereitstellt, machen wir
+        // nichts — entspricht dem alten `if (!onExternalPlanUpdate) return;`.
+        onExternalUpdate: onExternalPlanUpdate ?? (() => {}),
+        latestPlanRef,
+        isOnHeavyTabRef,
+        enabled: !!onExternalPlanUpdate,
+    });
 
     const handleImport = async () => {
         if (!importUrl) return;
@@ -1399,6 +1126,8 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                             <div className="flex-1 overflow-auto p-2 sm:p-8 flex items-center justify-center" style={{ overscrollBehavior: 'contain' }}>
                                 <div
                                     ref={containerRef}
+                                    role="application"
+                                    aria-label="Karten-Editor"
                                     className={cn(
                                         "relative bg-white shadow-2xl overflow-hidden border border-gray-200 transition-all duration-500",
                                         aspectRatio === 'landscape' ? "aspect-[297/210] h-auto w-full max-w-5xl" : "aspect-[210/297] w-auto h-full max-h-[80vh]"
@@ -1410,6 +1139,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                                     onTouchEnd={() => { handleMouseUp(); stopOverlayDrag(); }}
                                     onClick={handleMapClick}
                                     onDoubleClick={handleMapDoubleClick}
+                                    onKeyDown={(e) => { if (e.key === 'Escape') { handleMouseUp(); stopOverlayDrag(); } }}
                                     style={{ cursor: maskDrawing ? 'crosshair' : undefined, touchAction: 'none' }}
                                 >
                                     {/* Zoom-Wrapper: Hintergrundbild + Masken skalieren gemeinsam */}
@@ -2101,7 +1831,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                                     const url = URL.createObjectURL(blob);
                                     const a = document.createElement('a');
                                     a.href = url;
-                                    const safeName = plan.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'plan';
+                                    const safeName = plan.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(?:^-+)|(?:-+$)/g, '') || 'plan';
                                     a.download = `erki-${safeName}-${new Date().toISOString().split('T')[0]}.rki`;
                                     a.click();
                                     URL.revokeObjectURL(url);
