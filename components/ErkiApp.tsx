@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, MutableRefObject } from 'react';
+import React, { useState, useEffect, useMemo, useRef, MutableRefObject } from 'react';
 import { ChevronLeft, Plus, Trash2, List, Download, Upload, Link, BookTemplate, Pencil, Loader2, BookOpen, FileText, Map as MapIcon } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { Plan, Station, StationTemplate } from '@/lib/types';
@@ -14,6 +14,7 @@ import ExplanationPage from '@/components/ExplanationPage';
 import MapView from '@/components/erki/MapView';
 import StationsTable from '@/components/erki/StationsTable';
 import { useRealtimeSync } from '@/lib/realtime/useRealtimeSync';
+import { usePresence } from '@/lib/realtime/usePresence';
 
 interface ErkiAppProps {
     plan: Plan;
@@ -212,6 +213,22 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
         latestPlanRef,
         isOnHeavyTabRef,
         enabled: !!onExternalPlanUpdate,
+    });
+
+    // Presence: Channel `planning:${planId}` — andere Clients sehen unseren
+    // userId + displayName, wir bekommen die Liste anderer online-User.
+    const presenceUser = useMemo(() => ({
+        userId: user.id,
+        displayName:
+            (user.user_metadata?.name as string | undefined) ||
+            (user.user_metadata?.display_name as string | undefined) ||
+            user.email ||
+            'Unbekannt',
+    }), [user.id, user.user_metadata?.name, user.user_metadata?.display_name, user.email]);
+
+    const { online } = usePresence({
+        channelName: `planning:${plan.id}`,
+        payload: presenceUser,
     });
 
     const handleImport = async () => {
@@ -447,6 +464,8 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                             activePlan={activePlan}
                             updateActivePlan={updateActivePlan}
                             onAddStation={addStation}
+                            onlineUsers={online}
+                            currentUser={presenceUser}
                         />
                     ) : activeTab === 'nachdenk' ? (
                         <NachdenktexteTab activePlan={activePlan} updateActivePlan={updateActivePlan} />
@@ -461,6 +480,8 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                             onSaveAsTemplate={handleSaveAsTemplate}
                             onSaveNow={onSaveNow}
                             latestPlanRef={latestPlanRef}
+                            onlineUsers={online}
+                            currentUser={presenceUser}
                         />
                     ) : null}
                     {activeTab === 'templates' && (

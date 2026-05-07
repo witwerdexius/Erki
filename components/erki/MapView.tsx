@@ -15,6 +15,8 @@ import {
     distributeColors,
     resolveColorConflicts,
 } from '@/lib/mapInteractions';
+import type { PresenceUserLike } from '@/lib/realtime/presenceUtils';
+import PresenceStack from '@/components/erki/PresenceStack';
 
 // Duenner Adapter um die reine Mathematik in lib/bubbleLayoutMath.ts:
 // rechnet Stations-Prozentkoordinaten in Pixel um, baut Sperrzonen-Rechtecke
@@ -89,9 +91,11 @@ interface MapViewProps {
     activePlan: Plan;
     updateActivePlan: (updates: Partial<Plan>) => void;
     onAddStation: () => void;
+    onlineUsers?: PresenceUserLike[];
+    currentUser?: PresenceUserLike;
 }
 
-export default function MapView({ activePlan, updateActivePlan, onAddStation }: MapViewProps) {
+export default function MapView({ activePlan, updateActivePlan, onAddStation, onlineUsers, currentUser }: MapViewProps) {
     // ── Map-eigener State (zuvor in ErkiApp) ──────────────────────────────────
     const [aspectRatio, setAspectRatio] = useState<'portrait' | 'landscape'>('landscape');
     const [draggedItem, setDraggedItem] = useState<{ id: string; type: 'bubble' | 'target' } | null>(null);
@@ -375,7 +379,10 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation }: 
     // ── JSX ───────────────────────────────────────────────────────────────────
     return (
         <div className="flex-1 flex flex-col overflow-hidden relative">
-            <div className="absolute top-3 right-3 z-40 flex flex-wrap gap-2 justify-end max-w-[calc(100%-1.5rem)]">
+            <div className="absolute top-3 right-3 z-40 flex flex-wrap gap-2 justify-end items-center max-w-[calc(100%-1.5rem)]">
+                {onlineUsers && currentUser && (
+                    <PresenceStack onlineUsers={onlineUsers} currentUser={currentUser} />
+                )}
                 <button
                     onClick={onAddStation}
                     className="flex items-center gap-2 px-3 py-2 bg-white text-[#6bbfd4] rounded-full shadow-lg border border-[#6bbfd4]/20 cursor-pointer hover:bg-[#6bbfd4]/10 transition-all active:scale-95 text-sm font-medium"

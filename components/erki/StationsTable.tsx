@@ -14,6 +14,16 @@ import {
     reorderStationsByDrop,
     reorderStationsByNumberInput,
 } from '@/lib/stationsTableHelpers';
+import type { PresenceUserLike } from '@/lib/realtime/presenceUtils';
+import { getPresenceColor } from '@/lib/realtime/presenceUtils';
+import PresenceStack from '@/components/erki/PresenceStack';
+import { useBroadcast } from '@/lib/realtime/useBroadcast';
+import {
+    applyEditingBroadcast,
+    pruneStaleEditing,
+    type EditingMap,
+    type EditingBroadcast,
+} from '@/lib/realtime/editingMapHelpers';
 
 interface StationsTableProps {
     activePlan: Plan;
@@ -23,6 +33,8 @@ interface StationsTableProps {
     onSaveAsTemplate: (station: Station) => void;
     onSaveNow: (plan: Plan) => Promise<void>;
     latestPlanRef: MutableRefObject<Plan | null>;
+    onlineUsers?: PresenceUserLike[];
+    currentUser?: PresenceUserLike;
 }
 
 export default function StationsTable({
@@ -33,12 +45,52 @@ export default function StationsTable({
     onSaveAsTemplate,
     onSaveNow,
     latestPlanRef,
+    onlineUsers,
+    currentUser,
 }: StationsTableProps) {
     const [draggedRowId, setDraggedRowId] = useState<string | null>(null);
     const [dragOverRowId, setDragOverRowId] = useState<string | null>(null);
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+    const [editingMap, setEditingMap] = useState<EditingMap>({});
 
     const tableRef = useRef<HTMLDivElement>(null);
+
+    // Soft-Lock: Broadcast bei Focus/Blur eines Felds einer Station. Andere
+    // Clients sehen daraufhin "X bearbeitet…" als visuellen Hinweis (kein harter Lock).
+    const { send: sendEditing } = useBroadcast<EditingBroadcast>({
+        channelName: `planning:${activePlan.id}`,
+        event: 'editing',
+        onMessage: (msg) => {
+            setEditingMap(curr => applyEditingBroadcast(curr, msg, Date.now()));
+        },
+        enabled: !!currentUser,
+    });
+
+    // Periodisch stale Eintraege wegraeumen (User schliesst Tab ohne 'stop'-Send).
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setEditingMap(curr => pruneStaleEditing(curr, Date.now()));
+        }, 5_000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const handleFieldFocus = (stationId: string) => {
+        if (!currentUser) return;
+        void sendEditing({
+            stationId,
+            action: 'start',
+            userId: currentUser.userId,
+            displayName: currentUser.displayName,
+        });
+    };
+    const handleFieldBlur = (stationId: string) => {
+        if (!currentUser) return;
+        void sendEditing({
+            stationId,
+            action: 'stop',
+            userId: currentUser.userId,
+        });
+    };
 
     // Auto-resize textareas (Stationsname + akkordeon-Felder) bei Plan-Wechsel
     // bzw. Stationsänderung. Identisch zur ehemaligen Inline-Implementierung in
@@ -124,7 +176,10 @@ export default function StationsTable({
 
     return (
         <div ref={tableRef} className="flex-1 min-h-0 overflow-auto p-4 sm:p-12" style={{ overscrollBehavior: 'contain' }}>
-            <div className="flex justify-end mb-4">
+            <div className="flex justify-end items-center gap-3 mb-4">
+                {onlineUsers && currentUser && (
+                    <PresenceStack onlineUsers={onlineUsers} currentUser={currentUser} />
+                )}
                 <button
                     onClick={exportTableToPDF}
                     className="flex items-center gap-2 px-4 py-2 bg-[#6bbfd4] text-white rounded-full shadow-lg border-none cursor-pointer hover:bg-[#5aaec3] transition-all active:scale-95 text-sm font-medium"
@@ -225,9 +280,23 @@ export default function StationsTable({
                                         ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
                                         value={s.name}
                                         onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; updateStation(s.id, { name: e.target.value }); }}
+                                        onFocus={() => handleFieldFocus(s.id)}
+                                        onBlur={() => handleFieldBlur(s.id)}
                                         className="w-full bg-transparent border-none p-0 focus:ring-0 font-bold resize-none min-h-0"
                                         style={{ touchAction: 'pan-y' }}
                                     />
+                                    {editingMap[s.id] && currentUser && editingMap[s.id].userId !== currentUser.userId && (
+                                        <div
+                                            className="mt-1 flex items-center gap-1.5 text-xs italic text-gray-500"
+                                            title={`${editingMap[s.id].displayName} bearbeitet diese Station gerade`}
+                                        >
+                                            <span
+                                                className="inline-block w-2 h-2 rounded-full animate-pulse"
+                                                style={{ backgroundColor: getPresenceColor(editingMap[s.id].userId) }}
+                                            />
+                                            <span>{editingMap[s.id].displayName} bearbeitet…</span>
+                                        </div>
+                                    )}
                                 </td>
                                 {/* Echo-Schutz: nur den DOM-Textinhalt überschreiben, wenn das
                                     Element NICHT fokussiert ist. Verhindert, dass eingehende
