@@ -36,7 +36,7 @@ describe('flattenPresenceState', () => {
     };
     const result = flattenPresenceState<User>(state);
     expect(result).toHaveLength(3);
-    expect(result.map((e) => e.presence_ref).sort()).toEqual(['r1', 'r2', 'r3']);
+    expect(result.map((e) => e.presence_ref).sort((a, b) => a.localeCompare(b))).toEqual(['r1', 'r2', 'r3']);
   });
 
   it('überspringt Keys, deren Wert kein Array ist (Defensive gegen unerwartete Shapes)', () => {

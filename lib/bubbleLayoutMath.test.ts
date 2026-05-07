@@ -36,7 +36,7 @@ describe('computeBubbleSlots', () => {
     it('two stations -> both placed and on perimeter, IDs preserved', () => {
         const markers: Marker[] = [{ id: 'a', x: 200, y: 200 }, { id: 'b', x: 600, y: 400 }];
         const result = computeBubbleSlots({ markers, containerWidth: W, containerHeight: H });
-        expect(Object.keys(result).sort()).toEqual(['a', 'b']);
+        expect(Object.keys(result).sort((a, b) => a.localeCompare(b))).toEqual(['a', 'b']);
         expect(onPerimeter(result['a'].x, result['a'].y)).toBe(true);
         expect(onPerimeter(result['b'].x, result['b'].y)).toBe(true);
     });
