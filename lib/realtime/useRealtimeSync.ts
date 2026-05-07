@@ -167,7 +167,7 @@ export function useRealtimeSync(options: UseRealtimeSyncOptions): void {
 
     // 1) plannings: Meta-Updates (Titel, Status, … + ggf. schwere Felder).
     const planningChannel = supabase
-      .channel(`planning:${planId}:${Math.random().toString(36).slice(2)}`)
+      .channel(`planning:${planId}`)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
@@ -186,7 +186,7 @@ export function useRealtimeSync(options: UseRealtimeSyncOptions): void {
     // Saves nicht zu einem Loop führen (kritisch — siehe Kommentar in
     // isStationEcho).
     const stationsChannel = supabase
-      .channel(`stations:${planId}:${Math.random().toString(36).slice(2)}`)
+      .channel(`stations:${planId}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',

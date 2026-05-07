@@ -71,22 +71,21 @@ export function usePresence<T extends Record<string, unknown>>(
   useEffect(() => {
     if (!enabled) return;
 
-    const channel = supabase.channel(channelName);
-
-    channel.on('presence', { event: 'sync' }, () => {
-      const state = channel.presenceState<PresenceEntry<T>>();
-      setOnline(flattenPresenceState<T>(state as Record<string, PresenceEntry<T>[]>));
-    });
-
-    channel.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        setIsConnected(true);
-        // Eigenen Payload melden, damit andere Clients uns sehen.
-        void channel.track(payload);
-      } else {
-        setIsConnected(false);
-      }
-    });
+    const channel = supabase
+      .channel(channelName)
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState<PresenceEntry<T>>();
+        setOnline(flattenPresenceState<T>(state as Record<string, PresenceEntry<T>[]>));
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          setIsConnected(true);
+          // Eigenen Payload melden, damit andere Clients uns sehen.
+          void channel.track(payload);
+        } else {
+          setIsConnected(false);
+        }
+      });
 
     return () => {
       // State zurücksetzen, wenn der Channel geschlossen wird (z.B. Channel-Wechsel
