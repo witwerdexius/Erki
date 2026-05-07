@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import LoginScreen from '@/components/LoginScreen';
 import PlanningList from '@/components/PlanningList';
 import ErkiApp from '@/components/ErkiApp';
-import { loadPlanningMeta, savePlanning, loadProfile, loadCommunity, updateProfileNameAndTeam } from '@/lib/db';
+import { loadPlanningMeta, loadPlanningFull, savePlanning, loadProfile, loadCommunity, updateProfileNameAndTeam, VersionConflictError } from '@/lib/db';
 import { Plan, Profile, Community } from '@/lib/types';
 import OnboardingModal from '@/components/OnboardingModal';
 
@@ -22,6 +22,7 @@ export default function Home() {
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [conflictToast, setConflictToast] = useState<{ planId: string } | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   // Ref hält immer den neuesten Plan-Stand synchron (unabhängig von React-State-Batching)
   const latestPlanRef = useRef<Plan | null>(null);
@@ -32,6 +33,12 @@ export default function Home() {
   // Hält die aktuell laufende savePlanning-Promise, damit handleBack darauf
   // warten kann, bevor selbst gespeichert wird (verhindert DELETE+INSERT-Races).
   const inFlightSaveRef = useRef<Promise<void> | null>(null);
+  // Snapshot des zuletzt erfolgreich geladenen oder gespeicherten Plans.
+  // Wird an savePlanning(plan, previousPlan) übergeben, damit der Field-Level
+  // Diff in lib/db.ts nur tatsächlich geänderte Felder ins UPDATE schreibt
+  // (verhindert clobbering paralleler Edits anderer Mitarbeiter).
+  // Deep-Clone via JSON, um Aliasing mit dem aktiven Plan-State auszuschließen.
+  const previousPlanRef = useRef<Plan | null>(null);
 
   // viewRef keeps the auth state change handler from using a stale closure value
   useEffect(() => { viewRef.current = view; }, [view]);
@@ -90,6 +97,8 @@ export default function Home() {
     try {
       const plan = await loadPlanningMeta(planId);
       latestPlanRef.current = plan;
+      // Baseline für Field-Level Diff: Deep-Clone des frisch geladenen Plans.
+      previousPlanRef.current = JSON.parse(JSON.stringify(plan)) as Plan;
       isDirtyRef.current = false;
       sessionStorage.setItem('activePlanId', planId);
       setActivePlan(plan);
@@ -104,20 +113,29 @@ export default function Home() {
 
   // Führt einen savePlanning-Call aus und markiert die ref als clean,
   // wenn in der Zwischenzeit keine neue Änderung reinkam.
+  // Übergibt previousPlanRef.current für Field-Level Diff (verhindert Clobbern
+  // paralleler Edits anderer Mitarbeiter). Bei Erfolg wird die Baseline auf
+  // einen Deep-Clone des gerade gespeicherten Plans aktualisiert.
+  // Bei Fehler bleibt die Baseline unverändert, damit der nächste Save
+  // weiterhin gegen den letzten bekannten DB-Stand diffed.
   const runSave = useCallback(async (planToSave: Plan): Promise<void> => {
     try {
-      await savePlanning(planToSave);
+      await savePlanning(planToSave, previousPlanRef.current ?? undefined);
       if (latestPlanRef.current === planToSave) {
         isDirtyRef.current = false;
       }
+      previousPlanRef.current = JSON.parse(JSON.stringify(planToSave)) as Plan;
       console.log('[Auto-Save] erfolgreich');
     } catch (e) {
       console.error('[Auto-Save] fehlgeschlagen:', e);
+      if (e instanceof VersionConflictError) {
+        setConflictToast({ planId: planToSave.id });
+      }
     }
   }, []);
 
   // Wird von ErkiApp aufgerufen, wenn eine strukturelle Änderung (z.B.
-  // addStation) sofort persistiert werden soll, ohne auf den 1.5s
+  // addStation) sofort persistiert werden soll, ohne auf den 300ms
   // Auto-Save-Timer zu warten. Sequenzialisiert über inFlightSaveRef, damit
   // sich parallele DELETE+INSERT-Aufrufe nicht überlagern.
   const handleImmediateSave = useCallback(() => {
@@ -162,12 +180,15 @@ export default function Home() {
           inFlightSaveRef.current = null;
         }
       });
-    }, 1500);
+    }, 300);
   }, [runSave]);
 
   // Externes Realtime-Update von einem anderen Client – kein Auto-Save, kein dirty-Flag.
+  // Die Baseline für den Field-Level Diff wird ebenfalls auf den neuen Stand gehoben,
+  // damit der nächste lokale Save nur die seitdem geänderten Felder ins UPDATE schreibt.
   const handleExternalPlanUpdate = useCallback((updatedPlan: Plan) => {
     latestPlanRef.current = updatedPlan;
+    previousPlanRef.current = JSON.parse(JSON.stringify(updatedPlan)) as Plan;
     setActivePlan(updatedPlan);
   }, []);
 
@@ -189,13 +210,17 @@ export default function Home() {
     setIsSaving(true);
     const savePromise = (async () => {
       try {
-        await savePlanning(planToSave);
+        await savePlanning(planToSave, previousPlanRef.current ?? undefined);
         if (latestPlanRef.current === planToSave) {
           isDirtyRef.current = false;
         }
+        previousPlanRef.current = JSON.parse(JSON.stringify(planToSave)) as Plan;
         console.log('[handleSaveNow] erfolgreich');
       } catch (e) {
         console.error('[handleSaveNow] FEHLGESCHLAGEN:', e);
+        if (e instanceof VersionConflictError) {
+          setConflictToast({ planId: planToSave.id });
+        }
       } finally {
         setIsSaving(false);
       }
@@ -241,11 +266,15 @@ export default function Home() {
       console.log('[handleBack] starte savePlanning (unbedingt)...');
       setIsSaving(true);
       try {
-        await savePlanning(plan);
+        await savePlanning(plan, previousPlanRef.current ?? undefined);
         isDirtyRef.current = false;
+        previousPlanRef.current = JSON.parse(JSON.stringify(plan)) as Plan;
         console.log('[handleBack] savePlanning erfolgreich');
       } catch (e) {
         console.error('[handleBack] savePlanning FEHLGESCHLAGEN:', e);
+        if (e instanceof VersionConflictError) {
+          setConflictToast({ planId: plan.id });
+        }
       } finally {
         setIsSaving(false);
       }
@@ -253,10 +282,30 @@ export default function Home() {
       console.warn('[handleBack] kein Plan in latestPlanRef – nichts gespeichert!');
     }
     latestPlanRef.current = null;
+    previousPlanRef.current = null;
     isDirtyRef.current = false;
     sessionStorage.removeItem('activePlanId');
     setActivePlan(null);
     setView('list');
+  }, []);
+
+  // Wird vom Conflict-Toast aufgerufen, wenn der User "Neu laden" klickt.
+  // Lädt den aktuellen DB-Stand (inkl. background_image, masks etc.) und
+  // setzt sämtliche lokalen Refs zurück, damit der nächste Save sauber
+  // gegen den frisch geladenen Stand diffed.
+  const handleConflictReload = useCallback(async (planId: string) => {
+    try {
+      const reloaded = await loadPlanningFull(planId);
+      latestPlanRef.current = reloaded;
+      previousPlanRef.current = JSON.parse(JSON.stringify(reloaded)) as Plan;
+      isDirtyRef.current = false;
+      setActivePlan(reloaded);
+      setConflictToast(null);
+      console.log('[handleConflictReload] erfolgreich:', planId);
+    } catch (e) {
+      console.error('[handleConflictReload] fehlgeschlagen:', e);
+      alert('Neu laden fehlgeschlagen.');
+    }
   }, []);
 
   if (loadingPlan) {
@@ -307,6 +356,32 @@ export default function Home() {
           latestPlanRef={latestPlanRef}
           isDirtyRef={isDirtyRef}
         />
+        {conflictToast && (
+          <div
+            role="alert"
+            className="fixed top-4 right-4 z-50 max-w-sm rounded-lg border border-amber-300 bg-amber-50 p-4 shadow-lg"
+          >
+            <p className="text-sm text-amber-900">
+              Diese Planung wurde von einem anderen Mitarbeiter geändert.
+            </p>
+            <div className="mt-3 flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setConflictToast(null)}
+                className="px-3 py-1 text-sm rounded border border-amber-300 text-amber-900 hover:bg-amber-100"
+              >
+                Schließen
+              </button>
+              <button
+                type="button"
+                onClick={() => handleConflictReload(conflictToast.planId)}
+                className="px-3 py-1 text-sm rounded bg-amber-600 text-white hover:bg-amber-700"
+              >
+                Neu laden
+              </button>
+            </div>
+          </div>
+        )}
       </main>
     );
   }
