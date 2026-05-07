@@ -117,7 +117,7 @@ export default function Home() {
   }, []);
 
   // Wird von ErkiApp aufgerufen, wenn eine strukturelle Änderung (z.B.
-  // addStation) sofort persistiert werden soll, ohne auf den 1.5s
+  // addStation) sofort persistiert werden soll, ohne auf den 300ms
   // Auto-Save-Timer zu warten. Sequenzialisiert über inFlightSaveRef, damit
   // sich parallele DELETE+INSERT-Aufrufe nicht überlagern.
   const handleImmediateSave = useCallback(() => {
@@ -162,7 +162,7 @@ export default function Home() {
           inFlightSaveRef.current = null;
         }
       });
-    }, 1500);
+    }, 300);
   }, [runSave]);
 
   // Externes Realtime-Update von einem anderen Client – kein Auto-Save, kein dirty-Flag.
