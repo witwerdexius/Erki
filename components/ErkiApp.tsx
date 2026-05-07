@@ -15,21 +15,13 @@ import { exportLageplanPDF, exportTablePDF } from '@/lib/pdfExport';
 import TemplatePickerDialog from './TemplatePickerDialog';
 import NachdenktexteTab from '@/components/NachdenktexteTab';
 import ExplanationPage from '@/components/ExplanationPage';
+import { computeBubbleSlots, type BlockedZone } from '@/lib/bubbleLayoutMath';
 
 // ── computeAutoLayout ──────────────────────────────────────────────────────
-// Verteilt Beschriftungs-Blasen (s.x / s.y) kreuzungsfrei auf dem Perimeter
-// des Canvas, basierend auf den Marker-Positionen (s.targetX / s.targetY).
-//
-// Algorithmus:
-//   1. Centroid der Marker berechnen
-//   2. Jeden Marker per Strahl (Centroid → Marker) auf den Perimeter projizieren
-//      → initiale Slot-Positionen (automatisch dieselbe zyklische Reihenfolge)
-//   3. Sortieren nach Perimeter-Parameter s
-//   4. Zirkuläre Overlap-Resolution: größte Lücke finden, von dort ein
-//      einziger Forward-Sweep (Perimeter = Ring, kein Aufstauen an Grenzen)
-//   5. Sperrzonen (Logo + Titel) → Slot entlang Perimeter verschieben
-//   6. Hard-Clamp auf [bubbleRadius, W-bubbleRadius] × [bubbleRadius, H-bubbleRadius]
-//   7. Zuordnung marker[i] → slot[i] (selber Index, selbe Reihenfolge = kreuzungsfrei)
+// Duenner Adapter um die reine Mathematik in lib/bubbleLayoutMath.ts:
+// rechnet Stations-Prozentkoordinaten in Pixel um, baut Sperrzonen-Rechtecke
+// fuer Logo/Label und schreibt das Ergebnis zurueck als Prozentwerte.
+// (Algorithmus & Spezifikation: siehe lib/bubbleLayoutMath.ts)
 function computeAutoLayout(
     stations: Station[],
     containerWidth: number,
@@ -37,222 +29,53 @@ function computeAutoLayout(
     logoOverlay?: LogoOverlay,
     labelOverlay?: LabelOverlay,
 ): Station[] {
-    const N = stations.length;
-    if (N === 0 || containerWidth === 0 || containerHeight === 0) return stations;
+    if (stations.length === 0 || containerWidth === 0 || containerHeight === 0) return stations;
 
     const mapScale = containerWidth / 800;
     const bubbleRadius = 48 * mapScale;
-    const R = bubbleRadius + 10;
+    const blockedZones: BlockedZone[] = [];
+    if (logoOverlay) {
+        // Logo: Rendering ist quadratisch (size in % der Breite, Hoehe ~ 0.4 * Breite).
+        // Originale Sperrzonen-Polsterung: bubbleRadius rundherum (passt zu Modul-Default).
+        blockedZones.push({
+            x: logoOverlay.x,
+            y: logoOverlay.y,
+            width: logoOverlay.size,
+            height: logoOverlay.size * 0.4,
+        });
+    }
+    if (labelOverlay) {
+        // Label-Bounding-Box approximieren (font-bold uppercase tracking-widest).
+        // Original-Polsterung war asymmetrisch (rechts/oben/unten = 1.5 * bubbleRadius,
+        // links = bubbleRadius). Modul polstert uniform mit bubbleRadius -> Rechteck
+        // pre-erweitern, damit das Endergebnis identisch zum alten Verhalten ist.
+        const renderedFontSize = labelOverlay.fontSize * mapScale;
+        const approxWPx = labelOverlay.text.length * renderedFontSize * 1.0;
+        const approxHPx = renderedFontSize * 1.6;
+        const extra = bubbleRadius * 0.5; // 1.5*r minus 1*r
+        const yPx = (labelOverlay.y / 100) * containerHeight - extra;
+        blockedZones.push({
+            x: labelOverlay.x,
+            y: (yPx / containerHeight) * 100,
+            width: ((approxWPx + extra) / containerWidth) * 100,
+            height: ((approxHPx + 2 * extra) / containerWidth) * 100,
+        });
+    }
 
-    const minX = R, maxX = containerWidth - R;
-    const minY = R, maxY = containerHeight - R;
-    if (maxX <= minX || maxY <= minY) return stations; // Canvas zu klein
-    const Wr = maxX - minX, Hr = maxY - minY;
-    const perimLen = 2 * (Wr + Hr);
-
-    // ── Helfer ──────────────────────────────────────────────────────────────
-    const wrap = (s: number) => ((s % perimLen) + perimLen) % perimLen;
-
-    const sToPoint = (s: number): { x: number; y: number } => {
-        s = wrap(s);
-        if (s < Wr)          return { x: minX + s,     y: minY };
-        s -= Wr;
-        if (s < Hr)          return { x: maxX,          y: minY + s };
-        s -= Hr;
-        if (s < Wr)          return { x: maxX - s,      y: maxY };
-        s -= Wr;
-        return                { x: minX,                y: maxY - s };
-    };
-
-    // Strahl von origin in Richtung angle → Schnittpunkt mit Perimeter-Rechteck
-    const rayToPerimeter = (origin: { x: number; y: number }, angle: number): number => {
-        const cos = Math.cos(angle), sin = Math.sin(angle);
-        let bestT = Infinity;
-        let bestPx = origin.x, bestPy = origin.y;
-        const tryEdge = (t: number, ex: number, ey: number) => {
-            if (t > 1e-9 && t < bestT &&
-                ex >= minX - 0.5 && ex <= maxX + 0.5 &&
-                ey >= minY - 0.5 && ey <= maxY + 0.5) {
-                bestT = t; bestPx = ex; bestPy = ey;
-            }
-        };
-        if (Math.abs(cos) > 1e-9) {
-            const tR = (maxX - origin.x) / cos;
-            tryEdge(tR, maxX, origin.y + sin * tR);
-            const tL = (minX - origin.x) / cos;
-            tryEdge(tL, minX, origin.y + sin * tL);
-        }
-        if (Math.abs(sin) > 1e-9) {
-            const tB = (maxY - origin.y) / sin;
-            tryEdge(tB, origin.x + cos * tB, maxY);
-            const tT = (minY - origin.y) / sin;
-            tryEdge(tT, origin.x + cos * tT, minY);
-        }
-        // Punkt → s-Parameter
-        const px = Math.max(minX, Math.min(maxX, bestPx));
-        const py = Math.max(minY, Math.min(maxY, bestPy));
-        const dTop = Math.abs(py - minY), dRight = Math.abs(px - maxX);
-        const dBot = Math.abs(py - maxY), dLeft  = Math.abs(px - minX);
-        const d = Math.min(dTop, dRight, dBot, dLeft);
-        if (d === dTop)   return px - minX;
-        if (d === dRight) return Wr + (py - minY);
-        if (d === dBot)   return Wr + Hr + (maxX - px);
-        return                   Wr + Hr + Wr + (maxY - py);
-    };
-
-    // ── Schritt 1: Centroid ─────────────────────────────────────────────────
     const markers = stations.map(s => ({
         id: s.id,
         x: (s.targetX / 100) * containerWidth,
         y: (s.targetY / 100) * containerHeight,
     }));
-    const centroid = {
-        x: markers.reduce((sum, m) => sum + m.x, 0) / N,
-        y: markers.reduce((sum, m) => sum + m.y, 0) / N,
-    };
-
-    // ── Schritt 2: Projektion → initiale Slot-Position pro Marker ───────────
-    const items = markers.map(m => {
-        const angle = Math.atan2(m.y - centroid.y, m.x - centroid.x);
-        const s = rayToPerimeter(centroid, angle);
-        return { id: m.id, s };
+    const slots = computeBubbleSlots({
+        markers,
+        containerWidth,
+        containerHeight,
+        blockedZones,
     });
 
-    // ── Schritt 3: Sortieren nach s (= zyklische Reihenfolge auf Perimeter) ─
-    items.sort((a, b) => a.s - b.s);
-
-    // ── Schritt 4: Zirkuläre Overlap-Resolution ─────────────────────────────
-    let minDist = 2 * bubbleRadius + 5;
-    if (N * minDist > perimLen) minDist = perimLen / N; // Notfall: zusammenstauchen
-
-    // Größte zirkuläre Lücke finden → Ketten-Startpunkt
-    let biggestGapIdx = 0;
-    let biggestGap = -1;
-    for (let i = 0; i < N; i++) {
-        const next = (i + 1) % N;
-        let gap = items[next].s - items[i].s;
-        if (gap <= 0) gap += perimLen;
-        if (gap > biggestGap) { biggestGap = gap; biggestGapIdx = (i + 1) % N; }
-    }
-
-    // Forward-Sweep ab biggestGapIdx (einmal rum, zirkulär)
-    for (let k = 1; k < N; k++) {
-        const cur  = (biggestGapIdx + k) % N;
-        const prev = (biggestGapIdx + k - 1) % N;
-        let gap = items[cur].s - items[prev].s;
-        // Zirkulär normalisieren: gap soll positiv sein (cur kommt "nach" prev)
-        if (gap < 0) gap += perimLen;
-        if (gap < minDist) {
-            items[cur].s = wrap(items[prev].s + minDist);
-        }
-    }
-
-    // ── Schritt 5: Sperrzonen (Logo + Überschrift) ──────────────────────────
-    const isBlocked = (px: number, py: number): boolean => {
-        if (logoOverlay) {
-            const lx = (logoOverlay.x / 100) * containerWidth;
-            const ly = (logoOverlay.y / 100) * containerHeight;
-            const lw = (logoOverlay.size / 100) * containerWidth;
-            if (px >= lx - bubbleRadius && px <= lx + lw + bubbleRadius &&
-                py >= ly - bubbleRadius && py <= ly + lw * 0.4 + bubbleRadius) return true;
-        }
-        if (labelOverlay) {
-            const lx = (labelOverlay.x / 100) * containerWidth;
-            const ly = (labelOverlay.y / 100) * containerHeight;
-            // Rendering: fontSize * mapScale, font-bold uppercase tracking-widest (0.1em letter-spacing)
-            const renderedFontSize = labelOverlay.fontSize * mapScale;
-            const approxW = labelOverlay.text.length * renderedFontSize * 1.0;
-            const approxH = renderedFontSize * 1.6;
-            const pad = bubbleRadius * 1.5;
-            if (px >= lx - bubbleRadius && px <= lx + approxW + pad &&
-                py >= ly - pad && py <= ly + approxH + pad) return true;
-        }
-        return false;
-    };
-    for (const item of items) {
-        let pt = sToPoint(item.s);
-        for (let attempt = 0; attempt < 120 && isBlocked(pt.x, pt.y); attempt++) {
-            item.s = wrap(item.s + minDist * 0.5);
-            pt = sToPoint(item.s);
-        }
-    }
-
-    // ── Schritt 6: 2D-Overlap-Prüfschleife ────────────────────────────────────
-    // Nach Sperrzonen-Verschiebung können Slots in 2D zu nah beieinander sein
-    // (z.B. benachbarte Kanten nahe einer Ecke). Iterativ auflösen.
-    const minDist2D = 2 * bubbleRadius + 5;
-    for (let iter = 0; iter < 20; iter++) {
-        let anyMoved = false;
-        for (let i = 0; i < N; i++) {
-            const ptI = sToPoint(items[i].s);
-            for (let j = i + 1; j < N; j++) {
-                const ptJ = sToPoint(items[j].s);
-                const dx = ptI.x - ptJ.x, dy = ptI.y - ptJ.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < minDist2D) {
-                    // j entlang Perimeter nach vorne schieben
-                    items[j].s = wrap(items[j].s + (minDist2D - dist));
-                    anyMoved = true;
-                }
-            }
-        }
-        if (!anyMoved) break;
-    }
-
-    // ── Schritt 7: Kreuzungs-Prüfschleife ──────────────────────────────────
-    // Prüfe alle Linienpaare (marker→slot). Bei Kreuzung: Slots tauschen.
-    // Jeder Swap eliminiert genau eine Kreuzung und erzeugt keine neue
-    // (da die Gesamtlinienlänge sinkt). Max 50 Iterationen.
-    const markerById: Record<string, { x: number; y: number }> = {};
-    for (const m of markers) markerById[m.id] = { x: m.x, y: m.y };
-
-    const segsCross = (
-        ax: number, ay: number, bx: number, by: number,
-        cx: number, cy: number, dx: number, dy: number,
-    ): boolean => {
-        const ccw = (px: number, py: number, qx: number, qy: number, rx: number, ry: number) =>
-            (qx - px) * (ry - py) - (qy - py) * (rx - px);
-        const d1 = ccw(ax, ay, bx, by, cx, cy);
-        const d2 = ccw(ax, ay, bx, by, dx, dy);
-        const d3 = ccw(cx, cy, dx, dy, ax, ay);
-        const d4 = ccw(cx, cy, dx, dy, bx, by);
-        if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
-            ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) return true;
-        return false;
-    };
-
-    for (let iter = 0; iter < 50; iter++) {
-        let swapped = false;
-        for (let i = 0; i < N; i++) {
-            const mi = markerById[items[i].id];
-            const si = sToPoint(items[i].s);
-            for (let j = i + 1; j < N; j++) {
-                const mj = markerById[items[j].id];
-                const sj = sToPoint(items[j].s);
-                if (segsCross(mi.x, mi.y, si.x, si.y, mj.x, mj.y, sj.x, sj.y)) {
-                    // Slots tauschen
-                    const tmp = items[i].s;
-                    items[i].s = items[j].s;
-                    items[j].s = tmp;
-                    swapped = true;
-                }
-            }
-        }
-        if (!swapped) break;
-    }
-
-    // ── Schritt 8: Hard-Clamp + Zuordnung ───────────────────────────────────
-    const idToSlot: Record<string, { x: number; y: number }> = {};
-    for (const item of items) {
-        const pt = sToPoint(item.s);
-        idToSlot[item.id] = {
-            x: Math.max(bubbleRadius, Math.min(containerWidth - bubbleRadius, pt.x)),
-            y: Math.max(bubbleRadius, Math.min(containerHeight - bubbleRadius, pt.y)),
-        };
-    }
-
     return stations.map(s => {
-        const slot = idToSlot[s.id];
+        const slot = slots[s.id];
         if (!slot) return s;
         return {
             ...s,
