@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, MutableRefObject } from 'react';
 import { ChevronDown, ChevronUp, ChevronLeft, Plus, Trash2, Map as MapIcon, List, Download, Upload, Link, Move, Palette, GripVertical, PenLine, Eraser, Image as ImageIcon, Type, ZoomIn, ZoomOut, BookTemplate, Bookmark, Pencil, Loader2, BookOpen, FileText, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { User } from '@supabase/supabase-js';
-import { Plan, PlanStatus, Station, MaskPolygon, LogoOverlay, LabelOverlay, StationTemplate } from '@/lib/types';
+import { Plan, Station, MaskPolygon, LogoOverlay, LabelOverlay, StationTemplate } from '@/lib/types';
 import { importPlanFromUrl } from '@/lib/actions';
 import { loadTemplates, createTemplate, updateTemplate, deleteTemplate, loadPlanningFull } from '@/lib/db';
 import { supabase } from '@/lib/supabase';
@@ -16,6 +16,7 @@ import TemplatePickerDialog from './TemplatePickerDialog';
 import NachdenktexteTab from '@/components/NachdenktexteTab';
 import ExplanationPage from '@/components/ExplanationPage';
 import { computeBubbleSlots, type BlockedZone } from '@/lib/bubbleLayoutMath';
+import { useRealtimeSync } from '@/lib/realtime/useRealtimeSync';
 
 // ── computeAutoLayout ──────────────────────────────────────────────────────
 // Duenner Adapter um die reine Mathematik in lib/bubbleLayoutMath.ts:
@@ -356,119 +357,23 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
         });
     }, [activeTab, plan.id, activePlan?.stations]);
 
-    // Realtime-Sync: externe Änderungen an der Planung übernehmen.
-    // Nutzt payload.new für Metadaten (kein Extra-Query); lädt schwere Felder
-    // nur neu wenn der User gerade den Lageplan- oder Erklärungsseite-Tab hat.
+    // Realtime-Sync: plannings-UPDATEs + stations-INSERT/UPDATE/DELETE.
+    // Verhalten (Echo-Skip, Heavy-Field-Lazy-Loading, Cleanup beider Channels)
+    // ist im Hook gekapselt — Logik unverändert gegenüber der ehemaligen
+    // Inline-Implementierung. Siehe lib/realtime/useRealtimeSync.ts.
+    const isOnHeavyTabRef = useRef(activeTab === 'map' || activeTab === 'explanation');
     useEffect(() => {
-        const channel = supabase
-            .channel(`planning:${plan.id}`)
-            .on('postgres_changes', {
-                event: 'UPDATE',
-                schema: 'public',
-                table: 'plannings',
-                filter: `id=eq.${plan.id}`,
-            }, (payload) => {
-                if (!onExternalPlanUpdate) return;
-                const current = latestPlanRef.current;
-                if (!current) return;
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const row = payload.new as Record<string, any>;
-                const onHeavyTab = activeTabRef.current === 'map' || activeTabRef.current === 'explanation';
-                onExternalPlanUpdate({
-                    ...current,
-                    title: row.title ?? current.title,
-                    status: (row.status ?? current.status) as PlanStatus,
-                    url: row.url ?? current.url,
-                    bgZoom: row.bg_zoom ?? current.bgZoom,
-                    sourceUrl: row.source_url ?? current.sourceUrl,
-                    updatedAt: row.updated_at ?? current.updatedAt,
-                    ...(onHeavyTab ? {
-                        backgroundImage: row.background_image ?? undefined,
-                        masks: row.masks ?? [],
-                        logoOverlay: row.logo_overlay ?? undefined,
-                        labelOverlay: row.label_overlay ?? undefined,
-                        explanationData: row.explanation_data ?? undefined,
-                    } : {}),
-                });
-            })
-            .subscribe();
-        return () => { supabase.removeChannel(channel); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [plan.id]);
-
-    // Realtime-Sync: granulare Station-Änderungen anderer Clients übernehmen
-    useEffect(() => {
-        if (!onExternalPlanUpdate) return;
-        const channel = supabase
-            .channel(`stations:${plan.id}`)
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'stations',
-                filter: `planning_id=eq.${plan.id}`,
-            }, (payload) => {
-                const current = latestPlanRef.current;
-                if (!current) return;
-
-                if (payload.eventType === 'DELETE') {
-                    const deletedId = (payload.old as { id: string }).id;
-                    if (!current.stations.some(s => s.id === deletedId)) return;
-                    onExternalPlanUpdate({ ...current, stations: current.stations.filter(s => s.id !== deletedId) });
-                    return;
-                }
-
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const row = payload.new as Record<string, any>;
-                const incoming: Station = {
-                    id: row.id,
-                    number: row.number,
-                    name: row.name,
-                    description: row.description,
-                    material: row.material,
-                    instructions: row.instructions,
-                    impulses: row.impulses ?? [],
-                    setupBy: row.setup_by,
-                    conductedBy: row.conducted_by,
-                    x: row.x,
-                    y: row.y,
-                    targetX: row.target_x,
-                    targetY: row.target_y,
-                    isFilled: row.is_filled,
-                    colorVariant: row.color_variant,
-                };
-
-                const existing = current.stations.find(s => s.id === incoming.id);
-
-                if (payload.eventType === 'UPDATE') {
-                    if (!existing) return;
-                    // Eigene Änderungen ignorieren wenn Daten identisch (Echo vom eigenen Save)
-                    if (
-                        existing.number === incoming.number &&
-                        existing.name === incoming.name &&
-                        existing.description === incoming.description &&
-                        existing.material === incoming.material &&
-                        existing.instructions === incoming.instructions &&
-                        JSON.stringify(existing.impulses) === JSON.stringify(incoming.impulses) &&
-                        existing.setupBy === incoming.setupBy &&
-                        existing.conductedBy === incoming.conductedBy &&
-                        existing.x === incoming.x &&
-                        existing.y === incoming.y &&
-                        existing.targetX === incoming.targetX &&
-                        existing.targetY === incoming.targetY &&
-                        existing.isFilled === incoming.isFilled &&
-                        existing.colorVariant === incoming.colorVariant
-                    ) return;
-                    onExternalPlanUpdate({ ...current, stations: current.stations.map(s => s.id === incoming.id ? incoming : s) });
-                } else {
-                    // INSERT
-                    if (existing) return;
-                    onExternalPlanUpdate({ ...current, stations: [...current.stations, incoming] });
-                }
-            })
-            .subscribe();
-        return () => { supabase.removeChannel(channel); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [plan.id]);
+        isOnHeavyTabRef.current = activeTab === 'map' || activeTab === 'explanation';
+    }, [activeTab]);
+    useRealtimeSync({
+        planId: plan.id,
+        // Wenn der Parent kein onExternalPlanUpdate bereitstellt, machen wir
+        // nichts — entspricht dem alten `if (!onExternalPlanUpdate) return;`.
+        onExternalUpdate: onExternalPlanUpdate ?? (() => {}),
+        latestPlanRef,
+        isOnHeavyTabRef,
+        enabled: !!onExternalPlanUpdate,
+    });
 
     const handleImport = async () => {
         if (!importUrl) return;
