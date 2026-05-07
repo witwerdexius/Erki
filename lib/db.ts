@@ -148,7 +148,71 @@ export async function createPlanning(title: string, userId: string): Promise<Pla
   return rowToPlan(data, []);
 }
 
-export async function savePlanning(plan: Plan): Promise<void> {
+/**
+ * Pure helper: berechnet, welche plannings-Spalten zwischen prev und next
+ * geändert wurden. Liefert die Patch-Map mit snake_case-Keys.
+ *
+ * Komplexe Felder (masks-Array, logo_overlay-Objekt, label_overlay-Objekt)
+ * werden via JSON.stringify shallow verglichen — pragmatisch, nicht
+ * bulletproof: bei unterschiedlicher Key-Reihenfolge sind false-positives
+ * möglich, das ist akzeptabel (überflüssiger DB-Write < verlorene Felder).
+ *
+ * Hinweis: explanation_data wird hier NICHT diffen, weil es in savePlanning
+ * separat ge-updated wird (Timeout-Schutz bei großen Base64-Bildern).
+ */
+export function diffPlanRow(prev: Plan, next: Plan): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  if (prev.title !== next.title) patch.title = next.title;
+  if (prev.status !== next.status) patch.status = next.status;
+  if ((prev.url ?? null) !== (next.url ?? null)) patch.url = next.url ?? null;
+  if ((prev.backgroundImage ?? null) !== (next.backgroundImage ?? null)) {
+    patch.background_image = next.backgroundImage ?? null;
+  }
+  if (JSON.stringify(prev.masks ?? []) !== JSON.stringify(next.masks ?? [])) {
+    patch.masks = next.masks ?? [];
+  }
+  if (JSON.stringify(prev.logoOverlay ?? null) !== JSON.stringify(next.logoOverlay ?? null)) {
+    patch.logo_overlay = next.logoOverlay ?? null;
+  }
+  if (JSON.stringify(prev.labelOverlay ?? null) !== JSON.stringify(next.labelOverlay ?? null)) {
+    patch.label_overlay = next.labelOverlay ?? null;
+  }
+  if ((prev.bgZoom ?? 1) !== (next.bgZoom ?? 1)) patch.bg_zoom = next.bgZoom ?? 1;
+  if ((prev.sourceUrl ?? null) !== (next.sourceUrl ?? null)) patch.source_url = next.sourceUrl ?? null;
+  return patch;
+}
+
+/**
+ * Build the plannings UPDATE payload.
+ *
+ * Mit previousPlan: nur geänderte Felder ins Patch-Objekt (Field-Level Diff,
+ * vermeidet, dass parallel editierte Spalten überschrieben werden). Ohne
+ * previousPlan: Vollupdate aller Spalten (Backward-Compat). `updated_at` ist
+ * immer enthalten.
+ */
+function buildPlanningUpdatePayload(plan: Plan, previousPlan: Plan | undefined): Record<string, unknown> {
+  const nowIso = new Date().toISOString();
+  if (previousPlan) {
+    const patch = diffPlanRow(previousPlan, plan);
+    patch.updated_at = nowIso;
+    return patch;
+  }
+  // Backward-Compat: Vollupdate wie zuvor
+  return {
+    title: plan.title,
+    status: plan.status,
+    url: plan.url ?? null,
+    background_image: plan.backgroundImage ?? null,
+    masks: plan.masks ?? [],
+    logo_overlay: plan.logoOverlay ?? null,
+    label_overlay: plan.labelOverlay ?? null,
+    bg_zoom: plan.bgZoom ?? 1,
+    source_url: plan.sourceUrl ?? null,
+    updated_at: nowIso,
+  };
+}
+
+export async function savePlanning(plan: Plan, previousPlan?: Plan): Promise<void> {
   if (!plan || !plan.id) return;
   console.log('[savePlanning] starte für:', plan.id, '|', plan.title, '| status:', plan.status, '| Stationen:', plan.stations.length);
 
@@ -178,22 +242,14 @@ export async function savePlanning(plan: Plan): Promise<void> {
   const newIds = new Set(stations.map(s => s.id));
   const idsToDelete = [...existingIds].filter(id => !newIds.has(id));
 
-  // plannings UPDATE und stations UPSERT parallel ausführen
+  // plannings UPDATE und stations UPSERT parallel ausführen.
+  // Bei previousPlan: nur Diff-Felder updaten (verhindert Überschreiben
+  // parallel editierter Spalten). Sonst: Vollupdate (Backward-Compat).
   const rows = stations.map((s, i) => stationToRow(s, plan.id, i));
+  const updatePayload = buildPlanningUpdatePayload(plan, previousPlan);
   let planUpdateBuilder = supabase
     .from('plannings')
-    .update({
-      title: plan.title,
-      status: plan.status,
-      url: plan.url ?? null,
-      background_image: plan.backgroundImage ?? null,
-      masks: plan.masks ?? [],
-      logo_overlay: plan.logoOverlay ?? null,
-      label_overlay: plan.labelOverlay ?? null,
-      bg_zoom: plan.bgZoom ?? 1,
-      source_url: plan.sourceUrl ?? null,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq('id', plan.id);
   if (expectedVersion !== null) {
     planUpdateBuilder = planUpdateBuilder.eq('version', expectedVersion);
