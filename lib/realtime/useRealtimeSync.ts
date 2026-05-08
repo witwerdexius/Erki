@@ -1,6 +1,7 @@
 import { useEffect, type MutableRefObject } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Plan, PlanStatus, Station } from '@/lib/types';
+import { planningChannelNames } from './channelNames';
 
 /**
  * Felder, die in Realtime-Payloads als "schwer" gelten und nur bei aktivem
@@ -164,10 +165,18 @@ export function useRealtimeSync(options: UseRealtimeSyncOptions): void {
 
   useEffect(() => {
     if (!enabled) return;
+    const channelNames = planningChannelNames(planId);
 
-    // 1) plannings: Meta-Updates (Titel, Status, … + ggf. schwere Felder).
-    const planningChannel = supabase
-      .channel(`planning:${planId}`)
+    // Beide postgres_changes-Listener auf EINEM Channel (planning:<id>:sync).
+    // Channel-Naming via planningChannelNames; getrennt von Presence/Broadcast,
+    // damit die drei Hooks (useRealtimeSync / usePresence / useBroadcast) sich
+    // nicht denselben Singleton-Channel teilen — sonst .on()-after-.subscribe()
+    // Race. plannings und stations dürfen aber denselben Channel nutzen, weil
+    // beide hier aus einem Hook registriert werden — fluent vor .subscribe().
+    //
+    // Echo-Skip in applyStationEvent (kritisch — siehe Kommentar in isStationEcho).
+    const channel = supabase
+      .channel(channelNames.sync)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
@@ -180,13 +189,6 @@ export function useRealtimeSync(options: UseRealtimeSyncOptions): void {
         const next = mergeExternalPlanUpdate(current, row, isOnHeavyTabRef.current);
         onExternalUpdate(next);
       })
-      .subscribe();
-
-    // 2) stations: granulare Row-Events. Echo-Skip im Helper, damit eigene
-    // Saves nicht zu einem Loop führen (kritisch — siehe Kommentar in
-    // isStationEcho).
-    const stationsChannel = supabase
-      .channel(`stations:${planId}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -208,8 +210,7 @@ export function useRealtimeSync(options: UseRealtimeSyncOptions): void {
       .subscribe();
 
     return () => {
-      void supabase.removeChannel(planningChannel);
-      void supabase.removeChannel(stationsChannel);
+      void supabase.removeChannel(channel);
     };
     // Refs (`latestPlanRef`, `isOnHeavyTabRef`) sind stabil und werden bewusst
     // nicht in die Deps aufgenommen — sie sollen das Re-Subscribe NICHT triggern.

@@ -18,6 +18,7 @@ import type { PresenceUserLike } from '@/lib/realtime/presenceUtils';
 import { getPresenceColor } from '@/lib/realtime/presenceUtils';
 import PresenceStack from '@/components/erki/PresenceStack';
 import { useBroadcast } from '@/lib/realtime/useBroadcast';
+import { planningChannelNames } from '@/lib/realtime/channelNames';
 import {
     applyEditingBroadcast,
     pruneStaleEditing,
@@ -58,7 +59,7 @@ export default function StationsTable({
     // Soft-Lock: Broadcast bei Focus/Blur eines Felds einer Station. Andere
     // Clients sehen daraufhin "X bearbeitet…" als visuellen Hinweis (kein harter Lock).
     const { send: sendEditing } = useBroadcast<EditingBroadcast>({
-        channelName: `planning:${activePlan.id}`,
+        channelName: planningChannelNames(activePlan.id).broadcast,
         event: 'editing',
         onMessage: (msg) => {
             setEditingMap(curr => applyEditingBroadcast(curr, msg, Date.now()));
