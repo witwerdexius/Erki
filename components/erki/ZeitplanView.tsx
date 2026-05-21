@@ -13,6 +13,8 @@ type ZeitplanViewProps = {
     onSignUp: (phaseId: string, taskId: string, name: string) => void;
     onRemove: (phaseId: string, taskId: string, volunteerName: string) => void;
     currentUser: string;
+    /** Wenn true: kein eigener Scroll-Wrapper — zur Einbettung in andere Scroll-Container. */
+    embedded?: boolean;
 };
 
 export default function ZeitplanView({
@@ -22,6 +24,7 @@ export default function ZeitplanView({
     onSignUp,
     onRemove,
     currentUser,
+    embedded = false,
 }: ZeitplanViewProps) {
     const openTasks = phases.reduce((acc, p) => acc + p.tasks.filter(t => t.filled < t.slots).length, 0);
     const myTasks = phases.reduce((acc, p) => acc + p.tasks.filter(t => t.volunteers.includes(currentUser)).length, 0);
@@ -37,28 +40,38 @@ export default function ZeitplanView({
         }))
         .filter(phase => phase.tasks.length > 0);
 
+    const content = (
+        <>
+            {phases.length > 0 && (
+                <Timeline phases={phases} />
+            )}
+            <FilterTabs
+                filter={filter}
+                onFilterChange={onFilterChange}
+                openCount={openTasks}
+                myCount={myTasks}
+            />
+            {filteredPhases.length > 0 ? (
+                <PhaseList
+                    phases={filteredPhases}
+                    onSignUp={onSignUp}
+                    onRemove={onRemove}
+                    currentUser={currentUser}
+                />
+            ) : (
+                <EmptyState filter={filter} />
+            )}
+        </>
+    );
+
+    if (embedded) {
+        return <div className="px-4 py-3 space-y-3">{content}</div>;
+    }
+
     return (
         <div className="flex-1 overflow-auto bg-background">
             <div className="px-4 py-6 pb-24 max-w-lg mx-auto">
-                {phases.length > 0 && (
-                    <Timeline phases={phases} />
-                )}
-                <FilterTabs
-                    filter={filter}
-                    onFilterChange={onFilterChange}
-                    openCount={openTasks}
-                    myCount={myTasks}
-                />
-                {filteredPhases.length > 0 ? (
-                    <PhaseList
-                        phases={filteredPhases}
-                        onSignUp={onSignUp}
-                        onRemove={onRemove}
-                        currentUser={currentUser}
-                    />
-                ) : (
-                    <EmptyState filter={filter} />
-                )}
+                {content}
             </div>
         </div>
     );

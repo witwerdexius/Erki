@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useRef, MutableRefObject } from 'r
 import { ChevronLeft, Plus, Trash2, List, Download, Upload, Loader2, BookOpen, FileText, Map as MapIcon, CalendarDays } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { Plan, Station, StationTemplate, PlanningTask, TaskSection } from '@/lib/types';
+import type { Phase, Task } from '@/components/zeitplan/types';
 import { loadTemplates, createTemplate, updateTemplate, deleteTemplate, loadPlanningFull, loadPlanningTasks, createPlanningTask, deletePlanningTask } from '@/lib/db';
 import ShareButton from './ShareButton';
 import { ThemeToggle } from './ThemeToggle';
@@ -13,6 +14,7 @@ import NachdenktexteTab from '@/components/NachdenktexteTab';
 import ExplanationPage from '@/components/ExplanationPage';
 import MapView from '@/components/erki/MapView';
 import StationsTable from '@/components/erki/StationsTable';
+import ZeitplanView from '@/components/erki/ZeitplanView';
 import RubrikenView from '@/components/erki/RubrikenView';
 import { useRealtimeSync } from '@/lib/realtime/useRealtimeSync';
 import { usePresence } from '@/lib/realtime/usePresence';
@@ -36,6 +38,26 @@ interface ErkiAppProps {
     isDirtyRef: MutableRefObject<boolean>;
 }
 
+function stationsToPhases(stations: Station[]): Phase[] {
+    const tasks: Task[] = stations.map(s => {
+        const volunteers = [s.conductedBy, s.setupBy].filter(v => v && v.trim() !== '');
+        return {
+            id: s.id,
+            name: `${s.number ? s.number + ' – ' : ''}${s.name}`,
+            slots: 2,
+            filled: volunteers.length,
+            volunteers,
+        };
+    });
+    if (tasks.length === 0) return [];
+    return [{
+        id: 'stationen',
+        name: 'Stationen',
+        description: 'Alle Stationen dieser Planung',
+        time: '',
+        tasks,
+    }];
+}
 
 export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate, onSaveNow, onBack, onImmediateSave, isSaving = false, latestPlanRef, isDirtyRef }: ErkiAppProps) {
     const tabKey = `activeTab_${plan.id}`;
@@ -44,6 +66,9 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
         const valid: string[] = ['map', 'table', 'nachdenk', 'explanation', 'zeitplan'];
         return (valid.includes(stored ?? '') ? stored : 'table') as 'map' | 'table' | 'nachdenk' | 'explanation' | 'zeitplan';
     });
+    const [zeitplanPhases, setZeitplanPhases] = useState<Phase[]>([]);
+    const [zeitplanFilter, setZeitplanFilter] = useState<'all' | 'open' | 'mine'>('all');
+    const zeitplanInitializedForPlanRef = useRef<string | null>(null);
     const [planningTasks, setPlanningTasks] = useState<PlanningTask[]>([]);
     const aufgabenLoadedForPlanRef = useRef<string | null>(null);
     const [templates, setTemplates] = useState<StationTemplate[]>([]);
@@ -197,6 +222,43 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
         sessionStorage.setItem(tabKey, activeTab);
     }, [activeTab, tabKey]);
 
+    // Zeitplan-Phasen aus Stationen ableiten, wenn der Tab geöffnet wird.
+    // Einmalig pro Plan-ID initialisieren, damit lokale Sign-up-Interaktionen erhalten bleiben.
+    useEffect(() => {
+        if (activeTab === 'zeitplan' && zeitplanInitializedForPlanRef.current !== plan.id) {
+            zeitplanInitializedForPlanRef.current = plan.id;
+            setZeitplanPhases(stationsToPhases(activePlan.stations));
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, plan.id]);
+
+    const handleZeitplanSignUp = (phaseId: string, taskId: string, name: string) => {
+        setZeitplanPhases(prev => prev.map(phase => {
+            if (phase.id !== phaseId) return phase;
+            return {
+                ...phase,
+                tasks: phase.tasks.map(task => {
+                    if (task.id !== taskId) return task;
+                    return { ...task, filled: task.filled + 1, volunteers: [...task.volunteers, name] };
+                }),
+            };
+        }));
+    };
+
+    const handleZeitplanRemove = (phaseId: string, taskId: string, volunteerName: string) => {
+        setZeitplanPhases(prev => prev.map(phase => {
+            if (phase.id !== phaseId) return phase;
+            return {
+                ...phase,
+                tasks: phase.tasks.map(task => {
+                    if (task.id !== taskId) return task;
+                    const newVolunteers = task.volunteers.filter(v => v !== volunteerName);
+                    return { ...task, filled: newVolunteers.length, volunteers: newVolunteers };
+                }),
+            };
+        }));
+    };
+
     // Aufgaben-Rubriken: Tasks beim ersten Öffnen des Zeitplan-Tabs laden
     useEffect(() => {
         if (activeTab === 'zeitplan' && aufgabenLoadedForPlanRef.current !== plan.id) {
@@ -224,15 +286,6 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
         await deletePlanningTask(id);
         // Realtime-Delete wird via usePlanningTasksSync verarbeitet; lokaler Fallback:
         setPlanningTasks(prev => prev.filter(t => t.id !== id));
-    };
-
-    const handleUpdateStationHelpers = (stationId: string, helpersRequired: number) => {
-        const base = latestPlanRef.current ?? plan;
-        updateActivePlan({
-            stations: base.stations.map(s =>
-                s.id === stationId ? { ...s, helpersRequired } : s,
-            ),
-        });
     };
 
     // Realtime-Sync: plannings-UPDATEs + stations-INSERT/UPDATE/DELETE.
@@ -479,11 +532,21 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                         />
                     ) : activeTab === 'zeitplan' ? (
                         <RubrikenView
-                            stations={activePlan.stations}
+                            stationCount={activePlan.stations.length}
+                            stationenContent={
+                                <ZeitplanView
+                                    embedded
+                                    phases={zeitplanPhases}
+                                    filter={zeitplanFilter}
+                                    onFilterChange={setZeitplanFilter}
+                                    onSignUp={handleZeitplanSignUp}
+                                    onRemove={handleZeitplanRemove}
+                                    currentUser={presenceUser.displayName}
+                                />
+                            }
                             tasks={planningTasks}
                             onAddTask={handleAddTask}
                             onDeleteTask={handleDeleteTask}
-                            onUpdateStationHelpers={handleUpdateStationHelpers}
                         />
                     ) : null}
 

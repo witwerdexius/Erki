@@ -2,15 +2,17 @@
 
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, Plus, Trash2, Users } from 'lucide-react';
-import type { Station, PlanningTask, TaskSection } from '@/lib/types';
+import type { PlanningTask, TaskSection } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 type RubrikenViewProps = {
-  stations: Station[];
+  /** Anzahl Stationen — nur für den Zähler-Badge der Stationen-Sektion. */
+  stationCount: number;
+  /** Inhalt der Stationen-Sektion (ZeitplanView embedded). */
+  stationenContent: React.ReactNode;
   tasks: PlanningTask[];
   onAddTask: (section: TaskSection, name: string, helpersRequired: number) => Promise<void>;
   onDeleteTask: (id: string) => Promise<void>;
-  onUpdateStationHelpers: (stationId: string, helpersRequired: number) => void;
 };
 
 type SectionId = TaskSection | 'stationen';
@@ -29,11 +31,11 @@ type AddFormState = {
 };
 
 export default function RubrikenView({
-  stations,
+  stationCount,
+  stationenContent,
   tasks,
   onAddTask,
   onDeleteTask,
-  onUpdateStationHelpers,
 }: RubrikenViewProps) {
   const [collapsed, setCollapsed] = useState<Record<SectionId, boolean>>({
     aufbau: false,
@@ -77,10 +79,8 @@ export default function RubrikenView({
         {SECTIONS.map(({ id, label }) => {
           const isOpen = !collapsed[id];
           const isStationen = id === 'stationen';
-          const sectionTasks = isStationen
-            ? []
-            : tasks.filter(t => t.section === id);
-          const itemCount = isStationen ? stations.length : sectionTasks.length;
+          const sectionTasks = isStationen ? [] : tasks.filter(t => t.section === id);
+          const itemCount = isStationen ? stationCount : sectionTasks.length;
 
           return (
             <section key={id} className="rounded-2xl border border-border bg-card overflow-hidden">
@@ -106,24 +106,8 @@ export default function RubrikenView({
               {isOpen && (
                 <div className="border-t border-border">
                   {isStationen ? (
-                    /* Stationen: automatisch aus Planung */
-                    stations.length === 0 ? (
-                      <p className="px-4 py-4 text-sm text-muted-foreground">
-                        Noch keine Stationen in dieser Planung.
-                      </p>
-                    ) : (
-                      <ul className="divide-y divide-border">
-                        {stations.map(station => (
-                          <StationRow
-                            key={station.id}
-                            station={station}
-                            onUpdateHelpers={(n) => onUpdateStationHelpers(station.id, n)}
-                          />
-                        ))}
-                      </ul>
-                    )
+                    stationenContent
                   ) : (
-                    /* Manuelle Rubriken */
                     <>
                       {sectionTasks.length > 0 && (
                         <ul className="divide-y divide-border">
@@ -203,46 +187,6 @@ export default function RubrikenView({
         })}
       </div>
     </div>
-  );
-}
-
-function StationRow({
-  station,
-  onUpdateHelpers,
-}: {
-  station: Station;
-  onUpdateHelpers: (n: number) => void;
-}) {
-  const [localValue, setLocalValue] = useState(station.helpersRequired ?? 1);
-
-  const handleBlur = () => {
-    const n = Math.max(1, localValue);
-    setLocalValue(n);
-    if (n !== (station.helpersRequired ?? 1)) {
-      onUpdateHelpers(n);
-    }
-  };
-
-  return (
-    <li className="flex items-center gap-3 px-4 py-2.5">
-      <span className="flex-1 text-sm truncate">
-        {station.number ? `${station.number} – ` : ''}{station.name}
-      </span>
-      <div className="flex items-center gap-1.5 shrink-0">
-        <Users className="h-3.5 w-3.5 text-muted-foreground" />
-        <input
-          type="number"
-          min={1}
-          max={99}
-          className="w-14 h-8 rounded-lg border border-border bg-background px-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
-          value={localValue}
-          onChange={e => setLocalValue(Math.max(1, parseInt(e.target.value) || 1))}
-          onBlur={handleBlur}
-          onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-          aria-label={`Benötigte Helfer für ${station.name}`}
-        />
-      </div>
-    </li>
   );
 }
 
