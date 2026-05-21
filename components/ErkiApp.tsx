@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef, MutableRefObject } from 'react';
-import { ChevronLeft, Plus, Trash2, List, Download, Upload, Link, BookTemplate, Pencil, Loader2, BookOpen, FileText, Map as MapIcon } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, List, Download, Upload, Link, BookTemplate, Pencil, Loader2, BookOpen, FileText, Map as MapIcon, CalendarDays } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
 import { Plan, Station, StationTemplate } from '@/lib/types';
 import { importPlanFromUrl } from '@/lib/actions';
@@ -35,6 +36,7 @@ interface ErkiAppProps {
 }
 
 export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate, onSaveNow, onBack, onImmediateSave, isSaving = false, latestPlanRef, isDirtyRef }: ErkiAppProps) {
+    const router = useRouter();
     const [importUrl, setImportUrl] = useState('');
     const [isImporting, setIsImporting] = useState(false);
     const tabKey = `activeTab_${plan.id}`;
@@ -402,6 +404,12 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                                     activeTab === 'explanation' ? "bg-white shadow-sm text-[#6bbfd4]" : "text-gray-500 hover:text-gray-700"
                                 )}>
                                 <FileText className="w-4 h-4" /> <span className="hidden xs:inline">Erklärung</span>
+                            </button>
+                            <button
+                                onClick={() => router.push(`/planning/${plan.id}/zeitplan`)}
+                                className="flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-all text-gray-500 hover:text-gray-700 hover:bg-white/60"
+                                title="Zeitplan öffnen">
+                                <CalendarDays className="w-4 h-4" /> <span className="hidden xs:inline">Zeitplan</span>
                             </button>
                         </nav>
 
