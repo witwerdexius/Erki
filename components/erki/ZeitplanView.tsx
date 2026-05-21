@@ -3,7 +3,6 @@
 import { Timeline } from '@/components/zeitplan/timeline';
 import { FilterTabs } from '@/components/zeitplan/filter-tabs';
 import { PhaseList } from '@/components/zeitplan/phase-list';
-import { StatsCards } from '@/components/zeitplan/stats-cards';
 import { EmptyState } from '@/components/zeitplan/empty-state';
 import type { Phase } from '@/components/zeitplan/types';
 
@@ -24,8 +23,6 @@ export default function ZeitplanView({
     onRemove,
     currentUser,
 }: ZeitplanViewProps) {
-    const totalSlots = phases.reduce((acc, p) => acc + p.tasks.reduce((a, t) => a + t.slots, 0), 0);
-    const filledSlots = phases.reduce((acc, p) => acc + p.tasks.reduce((a, t) => a + t.filled, 0), 0);
     const openTasks = phases.reduce((acc, p) => acc + p.tasks.filter(t => t.filled < t.slots).length, 0);
     const myTasks = phases.reduce((acc, p) => acc + p.tasks.filter(t => t.volunteers.includes(currentUser)).length, 0);
 
@@ -44,15 +41,7 @@ export default function ZeitplanView({
         <div className="flex-1 overflow-auto bg-background">
             <div className="px-4 py-6 pb-24 max-w-lg mx-auto">
                 {phases.length > 0 && (
-                    <>
-                        <Timeline phases={phases} />
-                        <StatsCards
-                            totalSlots={totalSlots}
-                            filledSlots={filledSlots}
-                            openTasks={openTasks}
-                            myTasks={myTasks}
-                        />
-                    </>
+                    <Timeline phases={phases} />
                 )}
                 <FilterTabs
                     filter={filter}

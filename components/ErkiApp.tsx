@@ -1,11 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef, MutableRefObject } from 'react';
-import { ChevronLeft, Plus, Trash2, List, Download, Upload, Link, BookTemplate, Pencil, Loader2, BookOpen, FileText, Map as MapIcon, CalendarDays } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, List, Download, Upload, BookTemplate, Pencil, Loader2, BookOpen, FileText, Map as MapIcon, CalendarDays } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { Plan, Station, StationTemplate } from '@/lib/types';
 import type { Phase, Task } from '@/components/zeitplan/types';
-import { importPlanFromUrl } from '@/lib/actions';
 import { loadTemplates, createTemplate, updateTemplate, deleteTemplate, loadPlanningFull } from '@/lib/db';
 import ShareButton from './ShareButton';
 import { ThemeToggle } from './ThemeToggle';
@@ -59,8 +58,6 @@ function stationsToPhases(stations: Station[]): Phase[] {
 }
 
 export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate, onSaveNow, onBack, onImmediateSave, isSaving = false, latestPlanRef, isDirtyRef }: ErkiAppProps) {
-    const [importUrl, setImportUrl] = useState('');
-    const [isImporting, setIsImporting] = useState(false);
     const tabKey = `activeTab_${plan.id}`;
     const [activeTab, setActiveTab] = useState<'map' | 'table' | 'templates' | 'nachdenk' | 'explanation' | 'zeitplan'>(() => {
         const stored = sessionStorage.getItem(tabKey);
@@ -297,23 +294,6 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
         payload: presenceUser,
     });
 
-    const handleImport = async () => {
-        if (!importUrl) return;
-        setIsImporting(true);
-        const result = await importPlanFromUrl(importUrl);
-        if (result.success && result.data) {
-            updateActivePlan({
-                title: result.data.title,
-                url: importUrl,
-                stations: result.data.stations,
-            });
-            setImportUrl('');
-        } else {
-            alert('Import fehlgeschlagen: ' + result.error);
-        }
-        setIsImporting(false);
-    };
-
     const updateActivePlan = (updates: Partial<Plan>) => {
         // Als Basis die aktuellste Version nehmen – das prop `plan` kann stale
         // sein, wenn mehrere Updates im gleichen Event-Tick passieren.
@@ -479,25 +459,6 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
 
                         <ThemeToggle />
                         <ShareButton planningId={plan.id} planningTitle={plan.title} />
-
-                        <div className="hidden sm:flex items-center bg-gray-100 dark:bg-gray-800 rounded-full px-3 py-1 border border-gray-200 dark:border-gray-700 focus-within:ring-2 ring-[#6bbfd4]/30 transition-all">
-                            <Link className="w-4 h-4 text-gray-500 dark:text-gray-400 mr-2" />
-                            <input
-                                type="text"
-                                placeholder="Import URL (jugendarbeit.online)"
-                                className="bg-transparent border-none outline-none text-sm w-48 h-8 dark:text-gray-100 dark:placeholder-gray-500"
-                                value={importUrl}
-                                onChange={(e) => setImportUrl(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleImport()}
-                            />
-                            <button
-                                onClick={handleImport}
-                                disabled={isImporting}
-                                className="ml-2 bg-[#6bbfd4] text-white px-3 py-1 rounded-full text-xs font-semibold hover:bg-[#5aaec3] active:scale-95 transition-all disabled:opacity-50"
-                            >
-                                {isImporting ? '...' : 'Import'}
-                            </button>
-                        </div>
                     </div>
                 </div>
                 {/* Mobile title row */}
@@ -509,25 +470,6 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                         title="Titel bearbeiten"
                         maxLength={200}
                     />
-                </div>
-                {/* Mobile URL import bar */}
-                <div className="sm:hidden flex items-center bg-gray-100 dark:bg-gray-800 mx-4 mb-2 rounded-full px-3 py-1 border border-gray-200 dark:border-gray-700 focus-within:ring-2 ring-[#6bbfd4]/30 transition-all">
-                    <Link className="w-4 h-4 text-gray-500 dark:text-gray-400 mr-2 shrink-0" />
-                    <input
-                        type="text"
-                        placeholder="Import URL"
-                        className="bg-transparent border-none outline-none text-sm flex-1 h-8 min-w-0 dark:text-gray-100 dark:placeholder-gray-500"
-                        value={importUrl}
-                        onChange={(e) => setImportUrl(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleImport()}
-                    />
-                    <button
-                        onClick={handleImport}
-                        disabled={isImporting}
-                        className="ml-2 bg-[#6bbfd4] text-white px-3 py-1 rounded-full text-xs font-semibold hover:bg-[#5aaec3] active:scale-95 transition-all disabled:opacity-50 shrink-0"
-                    >
-                        {isImporting ? '...' : 'Import'}
-                    </button>
                 </div>
             </header>
 

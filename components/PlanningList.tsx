@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, FolderOpen, Trash2, Upload, Download, LogOut, Settings, History } from 'lucide-react';
+import { Plus, FolderOpen, Trash2, Upload, Download, LogOut, Settings, History, Link } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import { loadPlannings, createPlanning, updatePlanningStatus, importPlannings } from '@/lib/db';
+import { loadPlannings, createPlanning, updatePlanningStatus, importPlannings, savePlanning } from '@/lib/db';
 import { Plan, PlanStatus, Profile, Community } from '@/lib/types';
+import { importPlanFromUrl } from '@/lib/actions';
 import AdminPanel from '@/components/AdminPanel';
 import PlanningHistory from '@/components/PlanningHistory';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -35,6 +36,9 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
   const [creating, setCreating] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [historyPlan, setHistoryPlan] = useState<{ id: string; title: string } | null>(null);
+  const [urlImportDialog, setUrlImportDialog] = useState<{ planId: string } | null>(null);
+  const [dialogUrl, setDialogUrl] = useState('');
+  const [dialogImporting, setDialogImporting] = useState(false);
 
   const isAdmin = profile?.role === 'admin';
 
@@ -49,12 +53,48 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
     setCreating(true);
     try {
       const plan = await createPlanning('Neuer Plan', user.id);
-      onOpenPlan(plan.id);
+      setPlans(prev => [plan, ...prev]);
+      setDialogUrl('');
+      setUrlImportDialog({ planId: plan.id });
     } catch (e) {
       console.error(e);
       alert('Fehler beim Erstellen der Planung.');
     }
     setCreating(false);
+  };
+
+  const handleUrlImport = async () => {
+    if (!urlImportDialog || !dialogUrl.trim()) return;
+    setDialogImporting(true);
+    try {
+      const result = await importPlanFromUrl(dialogUrl.trim());
+      if (result.success && result.data) {
+        const base = plans.find(p => p.id === urlImportDialog.planId);
+        if (base) {
+          const updated: Plan = {
+            ...base,
+            title: result.data.title || base.title,
+            stations: result.data.stations,
+            sourceUrl: dialogUrl.trim(),
+          };
+          await savePlanning(updated, base);
+          setPlans(prev => prev.map(p => p.id === updated.id ? updated : p));
+        }
+      } else {
+        alert('Import fehlgeschlagen: ' + result.error);
+        setDialogImporting(false);
+        return;
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Fehler beim Importieren.');
+      setDialogImporting(false);
+      return;
+    }
+    const planId = urlImportDialog.planId;
+    setUrlImportDialog(null);
+    setDialogImporting(false);
+    onOpenPlan(planId);
   };
 
   const handleDelete = async (id: string, title: string) => {
@@ -299,6 +339,45 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
             setPlans(refreshed);
           }}
         />
+      )}
+
+      {urlImportDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-6 w-full max-w-md">
+            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50 mb-1">Stationen importieren?</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              Füge eine URL von jugendarbeit.online ein, um Stationen direkt zu importieren — oder öffne die Planung ohne Import.
+            </p>
+            <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-xl px-3 py-2 border border-gray-200 dark:border-gray-600 focus-within:ring-2 ring-[#6bbfd4]/30 mb-4">
+              <Link className="w-4 h-4 text-gray-400 dark:text-gray-500 mr-2 shrink-0" />
+              <input
+                type="url"
+                autoFocus
+                placeholder="https://jugendarbeit.online/…"
+                className="bg-transparent border-none outline-none text-sm flex-1 min-w-0 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+                value={dialogUrl}
+                onChange={(e) => setDialogUrl(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') void handleUrlImport(); }}
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => { const id = urlImportDialog.planId; setUrlImportDialog(null); onOpenPlan(id); }}
+                disabled={dialogImporting}
+                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+              >
+                Ohne Import öffnen
+              </button>
+              <button
+                onClick={() => void handleUrlImport()}
+                disabled={dialogImporting || !dialogUrl.trim()}
+                className="px-4 py-2 text-sm bg-[#6bbfd4] text-white rounded-xl hover:bg-[#5aaec3] active:scale-[0.98] transition-all disabled:opacity-50 font-medium"
+              >
+                {dialogImporting ? 'Importiere…' : 'Importieren'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
