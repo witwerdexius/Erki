@@ -213,7 +213,7 @@ function buildPlanningUpdatePayload(plan: Plan, previousPlan: Plan | undefined):
 }
 
 export async function savePlanning(plan: Plan, previousPlan?: Plan): Promise<number | null> {
-  if (!plan || !plan.id) return;
+  if (!plan || !plan.id) return null;
   console.log('[savePlanning] starte für:', plan.id, '|', plan.title, '| status:', plan.status, '| Stationen:', plan.stations.length);
 
   // Optimistic Locking: wenn plan.version gesetzt, wird die UPDATE-WHERE-
