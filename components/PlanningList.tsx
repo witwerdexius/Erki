@@ -8,6 +8,7 @@ import { loadPlannings, createPlanning, updatePlanningStatus, importPlannings } 
 import { Plan, PlanStatus, Profile, Community } from '@/lib/types';
 import AdminPanel from '@/components/AdminPanel';
 import PlanningHistory from '@/components/PlanningHistory';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const STATUS_LABELS: Record<PlanStatus, string> = {
   draft: 'Entwurf',
@@ -16,9 +17,9 @@ const STATUS_LABELS: Record<PlanStatus, string> = {
 };
 
 const STATUS_COLORS: Record<PlanStatus, string> = {
-  draft: 'bg-gray-100 text-gray-600',
-  active: 'bg-[#7bc9a0]/25 text-[#2d7a52]',
-  archive: 'bg-[#6bbfd4]/25 text-[#2a7a8c]',
+  draft: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400',
+  active: 'bg-[#7bc9a0]/25 text-[#2d7a52] dark:text-[#5ecf98]',
+  archive: 'bg-[#6bbfd4]/25 text-[#2a7a8c] dark:text-[#6bbfd4]',
 };
 
 interface Props {
@@ -132,26 +133,27 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#fdfdfd] flex flex-col">
+    <div className="min-h-[100dvh] bg-[#fdfdfd] dark:bg-gray-900 flex flex-col">
       {/* Header */}
-      <header className="flex h-14 items-center justify-between px-4 sm:px-8 border-b bg-white/80 backdrop-blur-md sticky top-0 z-50">
+      <header className="flex h-14 items-center justify-between px-4 sm:px-8 border-b border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-lg bg-[#6bbfd4] flex items-center justify-center text-white font-bold shrink-0">
             EK
           </div>
           <div className="hidden sm:block">
-            <h1 className="text-base font-bold tracking-tight leading-tight text-gray-900">Erlebnis Kirche Planner</h1>
+            <h1 className="text-base font-bold tracking-tight leading-tight text-gray-900 dark:text-gray-50">Erlebnis Kirche Planner</h1>
             {community && (
-              <p className="text-xs text-gray-600 leading-tight">{community.name}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 leading-tight">{community.name}</p>
             )}
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-600 max-w-[140px] sm:max-w-none truncate">{profile?.name || profile?.displayName || user.email}</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400 max-w-[140px] sm:max-w-none truncate">{profile?.name || profile?.displayName || user.email}</span>
+          <ThemeToggle />
           {isAdmin && (
             <button
               onClick={() => setShowAdmin(true)}
-              className="flex items-center gap-1.5 text-sm text-[#6bbfd4] hover:text-[#5aaeC3] transition-colors"
+              className="flex items-center gap-1.5 text-sm text-[#6bbfd4] hover:text-[#5aaec3] transition-colors"
               title="Verwaltung"
             >
               <Settings className="w-4 h-4" />
@@ -160,7 +162,7 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
           )}
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
             title="Abmelden"
           >
             <LogOut className="w-4 h-4" />
@@ -172,10 +174,10 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
       {/* Content */}
       <div className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-8 py-8">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-gray-900">Planungen</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">Planungen</h2>
           <div className="flex gap-2">
             <label
-              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border rounded-xl hover:bg-gray-50 cursor-pointer transition-colors"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
               title=".rki-Backup importieren"
             >
               <Upload className="w-4 h-4" />
@@ -184,7 +186,7 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
             </label>
             <button
               onClick={handleExport}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border rounded-xl hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               title="Alle Planungen als .rki exportieren"
             >
               <Download className="w-4 h-4" />
@@ -202,10 +204,10 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
         </div>
 
         {loading ? (
-          <div className="text-center py-16 text-gray-600">Wird geladen…</div>
+          <div className="text-center py-16 text-gray-500 dark:text-gray-400">Wird geladen…</div>
         ) : plans.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-gray-600 mb-6">Noch keine Planungen vorhanden.</p>
+            <p className="text-gray-500 dark:text-gray-400 mb-6">Noch keine Planungen vorhanden.</p>
             <button
               onClick={handleCreate}
               disabled={creating}
@@ -219,11 +221,11 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
             {plans.map(plan => (
               <div
                 key={plan.id}
-                className="flex items-center gap-3 p-4 bg-white rounded-2xl border hover:border-[#6bbfd4]/40 transition-all group"
+                className="flex items-center gap-3 p-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-[#6bbfd4]/40 dark:hover:border-[#6bbfd4]/50 transition-all group"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-gray-900 break-words">{plan.title}</span>
+                    <span className="font-semibold text-gray-900 dark:text-gray-50 break-words">{plan.title}</span>
                     <select
                       value={plan.status}
                       onChange={(e) => handleStatusChange(plan.id, e.target.value as PlanStatus)}
@@ -235,7 +237,7 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
                       ))}
                     </select>
                   </div>
-                  <p className="text-xs text-gray-600 mt-0.5">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                     {plan.stationCount ?? plan.stations.length} Station{(plan.stationCount ?? plan.stations.length) !== 1 ? 'en' : ''}
                     {plan.updatedAt ? ` · ${formatDate(plan.updatedAt)}` : ''}
                   </p>
@@ -246,14 +248,14 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
                     <>
                       <button
                         onClick={() => setHistoryPlan({ id: plan.id, title: plan.title })}
-                        className="p-2 text-gray-400 hover:text-[#6bbfd4] transition-colors opacity-0 group-hover:opacity-100"
+                        className="p-2 text-gray-400 dark:text-gray-500 hover:text-[#6bbfd4] transition-colors opacity-0 group-hover:opacity-100"
                         title="Verlauf anzeigen"
                       >
                         <History className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(plan.id, plan.title)}
-                        className="p-2 text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                        className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
                         title="Planung löschen"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -274,7 +276,7 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
         )}
       </div>
 
-      <footer className="text-center py-4 text-xs text-gray-500">
+      <footer className="text-center py-4 text-xs text-gray-400 dark:text-gray-500">
         © 2026 Erlebnis Kirche Planner · v{process.env.NEXT_PUBLIC_APP_VERSION}
       </footer>
 

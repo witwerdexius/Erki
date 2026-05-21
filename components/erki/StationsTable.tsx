@@ -192,7 +192,7 @@ export default function StationsTable({
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-3xl shadow-xl border border-gray-200"
+                className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700"
             >
                 <div className="px-4 sm:px-6 pt-4 pb-2 flex flex-col gap-1">
                     {activePlan.sourceUrl && (
@@ -213,7 +213,7 @@ export default function StationsTable({
                         placeholder="Quell-URL hinzufügen…"
                         defaultValue={activePlan.sourceUrl ?? ''}
                         key={activePlan.id}
-                        className="text-sm text-gray-500 placeholder-gray-300 bg-transparent border-none outline-none w-full max-w-sm focus:text-gray-700"
+                        className="text-sm text-gray-500 dark:text-gray-400 placeholder-gray-300 dark:placeholder-gray-600 bg-transparent border-none outline-none w-full max-w-sm focus:text-gray-700 dark:focus:text-gray-200"
                         onBlur={(e) => {
                             const val = e.target.value.trim() || undefined;
                             if (val !== activePlan.sourceUrl) {
@@ -229,16 +229,16 @@ export default function StationsTable({
                 <div className="overflow-x-auto" style={{ overflowY: 'clip', overscrollBehaviorX: 'contain' }}>
                 <table className="w-full table-fixed text-left border-collapse sm:min-w-[700px]">
                     <thead>
-                        <tr className="bg-gray-50 border-b">
+                        <tr className="bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
                             <th className="max-sm:hidden sm:table-cell p-4 w-8"></th>
-                            <th className="p-4 w-10 text-xs font-bold uppercase text-gray-600 tracking-wider">Nr.</th>
-                            <th className="p-4 w-48 text-xs font-bold uppercase text-gray-600 tracking-wider">Station</th>
-                            <th className="max-sm:hidden sm:table-cell p-4 w-64 text-xs font-bold uppercase text-gray-600 tracking-wider">Beschreibung</th>
-                            <th className="max-sm:hidden sm:table-cell p-4 w-64 text-xs font-bold uppercase text-gray-600 tracking-wider">Material</th>
-                            <th className="max-sm:hidden sm:table-cell p-4 w-40 text-xs font-bold uppercase text-gray-600 tracking-wider">Gesprächsimpulse</th>
-                            <th className="max-sm:hidden sm:table-cell p-4 w-28 text-xs font-bold uppercase text-gray-600 tracking-wider">Aufbau</th>
-                            <th className="max-sm:hidden sm:table-cell p-4 w-28 text-xs font-bold uppercase text-gray-600 tracking-wider">Durchführung</th>
-                            <th className="max-sm:hidden sm:table-cell p-4 w-12 text-xs font-bold uppercase text-gray-600 tracking-wider">Stempelfeld</th>
+                            <th className="p-4 w-10 text-xs font-bold uppercase text-gray-600 dark:text-gray-400 tracking-wider">Nr.</th>
+                            <th className="p-4 w-48 text-xs font-bold uppercase text-gray-600 dark:text-gray-400 tracking-wider">Station</th>
+                            <th className="max-sm:hidden sm:table-cell p-4 w-64 text-xs font-bold uppercase text-gray-600 dark:text-gray-400 tracking-wider">Beschreibung</th>
+                            <th className="max-sm:hidden sm:table-cell p-4 w-64 text-xs font-bold uppercase text-gray-600 dark:text-gray-400 tracking-wider">Material</th>
+                            <th className="max-sm:hidden sm:table-cell p-4 w-40 text-xs font-bold uppercase text-gray-600 dark:text-gray-400 tracking-wider">Gesprächsimpulse</th>
+                            <th className="max-sm:hidden sm:table-cell p-4 w-28 text-xs font-bold uppercase text-gray-600 dark:text-gray-400 tracking-wider">Aufbau</th>
+                            <th className="max-sm:hidden sm:table-cell p-4 w-28 text-xs font-bold uppercase text-gray-600 dark:text-gray-400 tracking-wider">Durchführung</th>
+                            <th className="max-sm:hidden sm:table-cell p-4 w-12 text-xs font-bold uppercase text-gray-600 dark:text-gray-400 tracking-wider">Stempelfeld</th>
                             <th className="max-sm:hidden sm:table-cell p-4 w-24"></th>
                             <th className="sm:hidden p-4 w-16"></th>
                         </tr>
@@ -253,12 +253,12 @@ export default function StationsTable({
                                 onDrop={() => handleRowDrop(s.id)}
                                 onDragEnd={handleRowDragEnd}
                                 className={cn(
-                                    "hover:bg-gray-50/50 transition-colors",
+                                    "hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors",
                                     draggedRowId === s.id && "opacity-40",
                                     dragOverRowId === s.id && "border-t-2 border-[#6bbfd4]"
                                 )}
                             >
-                                <td className="max-sm:hidden sm:table-cell p-4 w-8 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600">
+                                <td className="max-sm:hidden sm:table-cell p-4 w-8 cursor-grab active:cursor-grabbing text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
                                     <GripVertical className="w-4 h-4" />
                                 </td>
                                 <td className="p-4">
@@ -288,7 +288,7 @@ export default function StationsTable({
                                     />
                                     {editingMap[s.id] && currentUser && editingMap[s.id].userId !== currentUser.userId && (
                                         <div
-                                            className="mt-1 flex items-center gap-1.5 text-xs italic text-gray-500"
+                                            className="mt-1 flex items-center gap-1.5 text-xs italic text-gray-500 dark:text-gray-400"
                                             title={`${editingMap[s.id].displayName} bearbeitet diese Station gerade`}
                                         >
                                             <span
@@ -319,7 +319,7 @@ export default function StationsTable({
                                         ref={(el) => { if (el && el !== document.activeElement) el.textContent = s.material || ''; }}
                                         contentEditable
                                         suppressContentEditableWarning
-                                        className="w-full text-xs whitespace-pre-wrap outline-none min-h-[4rem] cursor-text text-gray-500"
+                                        className="w-full text-xs whitespace-pre-wrap outline-none min-h-[4rem] cursor-text text-gray-500 dark:text-gray-400"
                                         style={{ touchAction: 'pan-y' }}
                                         onInput={(e) => updateStation(s.id, { material: e.currentTarget.innerText })}
                                         onBlur={(e) => updateStation(s.id, { material: e.currentTarget.innerText })}
@@ -330,7 +330,7 @@ export default function StationsTable({
                                         ref={(el) => { if (el && el !== document.activeElement) el.textContent = (s.impulses || []).join('\n'); }}
                                         contentEditable
                                         suppressContentEditableWarning
-                                        className="w-full text-sm whitespace-pre-wrap outline-none min-h-[4rem] cursor-text text-gray-500"
+                                        className="w-full text-sm whitespace-pre-wrap outline-none min-h-[4rem] cursor-text text-gray-500 dark:text-gray-400"
                                         style={{ touchAction: 'pan-y' }}
                                         onInput={(e) => updateStation(s.id, { impulses: e.currentTarget.innerText.split('\n').filter(l => l.trim()) })}
                                         onBlur={(e) => updateStation(s.id, { impulses: e.currentTarget.innerText.split('\n').filter(l => l.trim()) })}
@@ -370,14 +370,14 @@ export default function StationsTable({
                                     <div className="flex items-center justify-end gap-2">
                                         <button
                                             onClick={() => onSaveAsTemplate(s)}
-                                            className="p-2 -m-2 text-gray-500 hover:text-[#6bbfd4] transition-colors opacity-0 group-hover:opacity-100"
+                                            className="p-2 -m-2 text-gray-500 dark:text-gray-400 hover:text-[#6bbfd4] transition-colors opacity-0 group-hover:opacity-100"
                                             title="Als Vorlage speichern"
                                         >
                                             <Bookmark className="w-4 h-4" />
                                         </button>
                                         <button
                                             onClick={() => deleteStation(s.id)}
-                                            className="p-2 -m-2 text-gray-500 hover:text-red-500 transition-colors"
+                                            className="p-2 -m-2 text-gray-500 dark:text-gray-400 hover:text-red-500 transition-colors"
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>
@@ -396,60 +396,60 @@ export default function StationsTable({
                                 </td>
                             </tr>
                             {expandedRows.has(s.id) && (
-                                <tr className="sm:hidden bg-gray-50/80">
+                                <tr className="sm:hidden bg-gray-50/80 dark:bg-gray-700/80">
                                     <td colSpan={3} className="px-4 pb-4 pt-2 space-y-3">
                                         <div>
-                                            <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Beschreibung</p>
+                                            <p className="text-xs font-bold uppercase text-gray-400 dark:text-gray-500 tracking-wider mb-1">Beschreibung</p>
                                             <textarea
                                                 ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = Math.max(el.scrollHeight, 24) + 'px'; } }}
                                                 value={s.description || ''}
                                                 placeholder="Beschreibung eingeben…"
                                                 onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = Math.max(e.target.scrollHeight, 24) + 'px'; updateStation(s.id, { description: e.target.value }); }}
-                                                className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm resize-none text-gray-700 placeholder-gray-300"
+                                                className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm resize-none text-gray-700 dark:text-gray-300 placeholder-gray-300 dark:placeholder-gray-600"
                                                 style={{ touchAction: 'pan-y', minHeight: '24px' }}
                                             />
                                         </div>
                                         <div>
-                                            <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Material</p>
+                                            <p className="text-xs font-bold uppercase text-gray-400 dark:text-gray-500 tracking-wider mb-1">Material</p>
                                             <textarea
                                                 ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = Math.max(el.scrollHeight, 24) + 'px'; } }}
                                                 value={s.material || ''}
                                                 placeholder="Material eingeben…"
                                                 onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = Math.max(e.target.scrollHeight, 24) + 'px'; updateStation(s.id, { material: e.target.value }); }}
-                                                className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm resize-none text-gray-700 placeholder-gray-300"
+                                                className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm resize-none text-gray-700 dark:text-gray-300 placeholder-gray-300 dark:placeholder-gray-600"
                                                 style={{ touchAction: 'pan-y', minHeight: '24px' }}
                                             />
                                         </div>
                                         <div>
-                                            <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Gesprächsimpulse</p>
+                                            <p className="text-xs font-bold uppercase text-gray-400 dark:text-gray-500 tracking-wider mb-1">Gesprächsimpulse</p>
                                             <textarea
                                                 ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = Math.max(el.scrollHeight, 24) + 'px'; } }}
                                                 value={(s.impulses || []).join('\n')}
                                                 placeholder="Impulse eingeben…"
                                                 onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = Math.max(e.target.scrollHeight, 24) + 'px'; updateStation(s.id, { impulses: e.target.value.split('\n').filter(l => l.trim()) }); }}
-                                                className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm resize-none text-gray-700 placeholder-gray-300"
+                                                className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm resize-none text-gray-700 dark:text-gray-300 placeholder-gray-300 dark:placeholder-gray-600"
                                                 style={{ touchAction: 'pan-y', minHeight: '24px' }}
                                             />
                                         </div>
                                         <div>
-                                            <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Aufbau</p>
+                                            <p className="text-xs font-bold uppercase text-gray-400 dark:text-gray-500 tracking-wider mb-1">Aufbau</p>
                                             <textarea
                                                 ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = Math.max(el.scrollHeight, 24) + 'px'; } }}
                                                 value={s.setupBy || ''}
                                                 placeholder="Aufbau eingeben…"
                                                 onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = Math.max(e.target.scrollHeight, 24) + 'px'; updateStation(s.id, { setupBy: e.target.value }); }}
-                                                className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm resize-none text-gray-700 placeholder-gray-300"
+                                                className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm resize-none text-gray-700 dark:text-gray-300 placeholder-gray-300 dark:placeholder-gray-600"
                                                 style={{ touchAction: 'pan-y', minHeight: '24px' }}
                                             />
                                         </div>
                                         <div>
-                                            <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Durchführung</p>
+                                            <p className="text-xs font-bold uppercase text-gray-400 dark:text-gray-500 tracking-wider mb-1">Durchführung</p>
                                             <textarea
                                                 ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = Math.max(el.scrollHeight, 24) + 'px'; } }}
                                                 value={s.conductedBy || ''}
                                                 placeholder="Durchführung eingeben…"
                                                 onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = Math.max(e.target.scrollHeight, 24) + 'px'; updateStation(s.id, { conductedBy: e.target.value }); }}
-                                                className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm resize-none text-gray-700 placeholder-gray-300"
+                                                className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm resize-none text-gray-700 dark:text-gray-300 placeholder-gray-300 dark:placeholder-gray-600"
                                                 style={{ touchAction: 'pan-y', minHeight: '24px' }}
                                             />
                                         </div>
@@ -465,7 +465,7 @@ export default function StationsTable({
                                             </div>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); deleteStation(s.id); }}
-                                                className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                                                className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors"
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
@@ -478,16 +478,16 @@ export default function StationsTable({
                     </tbody>
                 </table>
                 </div>
-                <div className="flex border-t divide-x">
+                <div className="flex border-t dark:border-gray-700 divide-x dark:divide-gray-700">
                     <button
                         onClick={onAddStation}
-                        className="flex-1 p-5 text-gray-600 hover:text-[#6bbfd4] hover:bg-[#6bbfd4]/10 transition-all flex items-center justify-center gap-2 font-medium"
+                        className="flex-1 p-5 text-gray-600 dark:text-gray-400 hover:text-[#6bbfd4] hover:bg-[#6bbfd4]/10 transition-all flex items-center justify-center gap-2 font-medium"
                     >
                         <Plus className="w-5 h-5" /> Station hinzufügen
                     </button>
                     <button
                         onClick={onOpenTemplatePicker}
-                        className="flex-1 p-5 text-gray-600 hover:text-[#6bbfd4] hover:bg-[#6bbfd4]/10 transition-all flex items-center justify-center gap-2 font-medium"
+                        className="flex-1 p-5 text-gray-600 dark:text-gray-400 hover:text-[#6bbfd4] hover:bg-[#6bbfd4]/10 transition-all flex items-center justify-center gap-2 font-medium"
                     >
                         <BookTemplate className="w-5 h-5" /> Aus Vorlage
                     </button>

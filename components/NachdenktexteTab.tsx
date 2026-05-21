@@ -239,8 +239,8 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
         >
             <div className="max-w-3xl mx-auto space-y-6">
                 {/* Step 1: Instruction text */}
-                <section className="bg-white rounded-2xl shadow border border-gray-100 p-6">
-                    <h2 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2">
+                <section className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-100 dark:border-gray-700 p-6">
+                    <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
                         <span className="w-6 h-6 rounded-full bg-[#9b8ec4]/20 text-[#6b5fa0] text-xs font-bold flex items-center justify-center shrink-0">1</span>
                         Instruktionstext
                     </h2>
@@ -248,21 +248,21 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                         value={instructionText}
                         onChange={e => setInstructionText(e.target.value)}
                         placeholder="Schreibe hier den Instruktionstext für das KI-Prompt..."
-                        className="w-full border border-gray-200 rounded-xl p-3 text-sm resize-y min-h-[100px] focus:ring-2 focus:ring-[#9b8ec4]/30 focus:outline-none"
+                        className="w-full border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-y min-h-[100px] focus:ring-2 focus:ring-[#9b8ec4]/30 focus:outline-none"
                     />
                 </section>
 
                 {/* Step 2: Prompt generator */}
-                <section className="bg-white rounded-2xl shadow border border-gray-100 p-6">
-                    <h2 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2">
+                <section className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-100 dark:border-gray-700 p-6">
+                    <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
                         <span className="w-6 h-6 rounded-full bg-[#9b8ec4]/20 text-[#6b5fa0] text-xs font-bold flex items-center justify-center shrink-0">2</span>
                         Prompt generieren
                     </h2>
-                    <div className="bg-gray-50 rounded-xl p-3 text-sm text-gray-600 font-mono whitespace-pre-wrap max-h-48 overflow-auto border border-gray-200 mb-3">
+                    <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-sm text-gray-600 dark:text-gray-300 font-mono whitespace-pre-wrap max-h-48 overflow-auto border border-gray-200 dark:border-gray-600 mb-3">
                         {generatePrompt().trim() ? (
                             generatePrompt()
                         ) : (
-                            <span className="text-gray-500 italic">Instruktionstext eingeben und Stationen importieren...</span>
+                            <span className="text-gray-500 dark:text-gray-400 italic">Instruktionstext eingeben und Stationen importieren...</span>
                         )}
                     </div>
                     <button
@@ -278,20 +278,20 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                 </section>
 
                 {/* Step 3: Import result */}
-                <section className="bg-white rounded-2xl shadow border border-gray-100 p-6">
-                    <h2 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2 flex-wrap">
+                <section className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-100 dark:border-gray-700 p-6">
+                    <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2 flex-wrap">
                         <span className="w-6 h-6 rounded-full bg-[#9b8ec4]/20 text-[#6b5fa0] text-xs font-bold flex items-center justify-center shrink-0">3</span>
                         Ergebnis importieren
-                        <span className="text-xs font-normal text-gray-500">Station;Überschrift;Teil 1;Bibelzitat;Teil 2</span>
+                        <span className="text-xs font-normal text-gray-500 dark:text-gray-400">Station;Überschrift;Teil 1;Bibelzitat;Teil 2</span>
                     </h2>
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-600 mb-1">Einfügen (Paste)</label>
+                            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Einfügen (Paste)</label>
                             <textarea
                                 value={pasteText}
                                 onChange={e => setPasteText(e.target.value)}
                                 placeholder={'Station 1;Überschrift;Teil eins Text;Bibelzitat;Teil zwei Text'}
-                                className="w-full border border-gray-200 rounded-xl p-3 text-sm font-mono resize-y min-h-[80px] focus:ring-2 focus:ring-[#9b8ec4]/30 focus:outline-none"
+                                className="w-full border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm font-mono bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-y min-h-[80px] focus:ring-2 focus:ring-[#9b8ec4]/30 focus:outline-none"
                             />
                             <button
                                 onClick={handlePasteImport}
@@ -301,11 +301,11 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                             </button>
                         </div>
                         <div className="flex items-center gap-3">
-                            <div className="flex-1 h-px bg-gray-200" />
-                            <span className="text-xs text-gray-500">oder</span>
-                            <div className="flex-1 h-px bg-gray-200" />
+                            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+                            <span className="text-xs text-gray-500 dark:text-gray-400">oder</span>
+                            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
                         </div>
-                        <label className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full cursor-pointer hover:bg-gray-50 transition-all w-fit text-sm font-medium text-gray-700">
+                        <label className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-full cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-all w-fit text-sm font-medium text-gray-700 dark:text-gray-300">
                             <Upload className="w-4 h-4 text-[#6bbfd4]" />
                             CSV-Datei hochladen (.csv)
                             <input type="file" accept=".csv,.txt" className="hidden" onChange={handleCSVFile} />
@@ -315,36 +315,36 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
 
                 {/* Step 4: Preview */}
                 {rows.length > 0 && (
-                    <section className="bg-white rounded-2xl shadow border border-gray-100 p-6">
-                        <h2 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <section className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-100 dark:border-gray-700 p-6">
+                        <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
                             <span className="w-6 h-6 rounded-full bg-[#9b8ec4]/20 text-[#6b5fa0] text-xs font-bold flex items-center justify-center shrink-0">4</span>
                             Vorschau
-                            <span className="text-xs font-normal text-gray-500">({rows.length} {rows.length === 1 ? 'Eintrag' : 'Einträge'})</span>
+                            <span className="text-xs font-normal text-gray-500 dark:text-gray-400">({rows.length} {rows.length === 1 ? 'Eintrag' : 'Einträge'})</span>
                             <button
                                 onClick={() => setRows([])}
-                                className="ml-auto text-gray-500 hover:text-red-500 transition-colors"
+                                className="ml-auto text-gray-500 dark:text-gray-400 hover:text-red-500 transition-colors"
                                 title="Alle löschen"
                             >
                                 <Trash2 className="w-4 h-4" />
                             </button>
                         </h2>
-                        <div className="overflow-x-auto rounded-xl border border-gray-100">
+                        <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-700">
                             <table className="w-full text-sm border-collapse min-w-[700px]">
                                 <thead>
-                                    <tr className="bg-gray-50 border-b">
+                                    <tr className="bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
                                         {['Station', 'Überschrift', 'Teil 1', 'Bibelzitat', 'Teil 2'].map(h => (
-                                            <th key={h} className="p-3 text-left text-xs font-bold uppercase text-gray-600 tracking-wider">{h}</th>
+                                            <th key={h} className="p-3 text-left text-xs font-bold uppercase text-gray-600 dark:text-gray-400 tracking-wider">{h}</th>
                                         ))}
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y">
+                                <tbody className="divide-y dark:divide-gray-700">
                                     {rows.map((r, i) => (
-                                        <tr key={i} className="hover:bg-gray-50/50">
+                                        <tr key={i} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/50">
                                             <td className="p-3 font-medium text-[#6bbfd4] whitespace-nowrap">{r.station}</td>
-                                            <td className="p-3 font-semibold max-w-[160px] truncate">{r.ueberschrift}</td>
-                                            <td className="p-3 text-gray-600 max-w-[160px] truncate">{r.teil1}</td>
-                                            <td className="p-3 text-gray-500 italic max-w-[160px] truncate">{r.bibelzitat}</td>
-                                            <td className="p-3 text-gray-600 max-w-[160px] truncate">{r.teil2}</td>
+                                            <td className="p-3 font-semibold dark:text-gray-100 max-w-[160px] truncate">{r.ueberschrift}</td>
+                                            <td className="p-3 text-gray-600 dark:text-gray-400 max-w-[160px] truncate">{r.teil1}</td>
+                                            <td className="p-3 text-gray-500 dark:text-gray-400 italic max-w-[160px] truncate">{r.bibelzitat}</td>
+                                            <td className="p-3 text-gray-600 dark:text-gray-400 max-w-[160px] truncate">{r.teil2}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -354,8 +354,8 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                 )}
 
                 {/* Step 5: Template upload + PDF export */}
-                <section className="bg-white rounded-2xl shadow border border-gray-100 p-6">
-                    <h2 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <section className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-100 dark:border-gray-700 p-6">
+                    <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
                         <span className="w-6 h-6 rounded-full bg-[#9b8ec4]/20 text-[#6b5fa0] text-xs font-bold flex items-center justify-center shrink-0">5</span>
                         Vorlage &amp; PDF-Export
                     </h2>
@@ -365,7 +365,7 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                                 'flex items-center gap-2 px-4 py-2 rounded-full cursor-pointer transition-all text-sm font-medium border',
                                 activePlan?.nachdenk_template
                                     ? 'bg-[#7bc9a0]/15 border-[#7bc9a0]/40 text-[#2d7a52] hover:bg-[#7bc9a0]/25'
-                                    : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                             )}
                         >
                             <FileText className="w-4 h-4 shrink-0" />
@@ -377,7 +377,7 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                         {activePlan?.nachdenk_template && (
                             <button
                                 onClick={() => updateActivePlan({ nachdenk_template: undefined })}
-                                className="text-xs text-gray-500 hover:text-red-500 transition-colors"
+                                className="text-xs text-gray-500 dark:text-gray-400 hover:text-red-500 transition-colors"
                             >
                                 Vorlage entfernen
                             </button>

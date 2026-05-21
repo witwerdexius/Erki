@@ -8,6 +8,7 @@ import type { Phase, Task } from '@/components/zeitplan/types';
 import { importPlanFromUrl } from '@/lib/actions';
 import { loadTemplates, createTemplate, updateTemplate, deleteTemplate, loadPlanningFull } from '@/lib/db';
 import ShareButton from './ShareButton';
+import { ThemeToggle } from './ThemeToggle';
 import { cn } from '@/lib/utils';
 import TemplatePickerDialog from './TemplatePickerDialog';
 import NachdenktexteTab from '@/components/NachdenktexteTab';
@@ -399,9 +400,9 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
     };
 
     return (
-        <div className="flex h-[100dvh] w-full flex-col bg-[#fdfdfd] text-[#1a1a1a] font-sans selection:bg-[#e8f7fb]">
+        <div className="flex h-[100dvh] w-full flex-col bg-[#fdfdfd] dark:bg-gray-900 text-[#1a1a1a] dark:text-gray-100 font-sans selection:bg-[#e8f7fb]">
             {/* Header */}
-            <header className="flex flex-col border-b bg-white/80 backdrop-blur-md sticky top-0 z-50">
+            <header className="flex flex-col border-b border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md sticky top-0 z-50">
                 <div className="flex h-14 items-center justify-between px-4 sm:px-8">
                     <div className="flex items-center gap-2 min-w-0 flex-1 mr-4">
                         <button
@@ -418,19 +419,19 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                         <input
                             value={plan.title}
                             onChange={(e) => updateActivePlan({ title: e.target.value })}
-                            className="hidden sm:block text-lg font-bold tracking-tight bg-transparent border-none outline-none focus:bg-gray-50 rounded px-1 min-w-0 w-full"
+                            className="hidden sm:block text-lg font-bold tracking-tight bg-transparent border-none outline-none focus:bg-gray-50 dark:focus:bg-gray-800 dark:text-gray-50 rounded px-1 min-w-0 w-full"
                             title="Titel bearbeiten"
                             maxLength={200}
                         />
                     </div>
 
                     <div className="flex items-center gap-3 sm:gap-6">
-                        <nav className="flex bg-gray-100 rounded-full p-1 border">
+                        <nav className="flex bg-gray-100 dark:bg-gray-800 rounded-full p-1 border border-gray-200 dark:border-gray-700">
                             <button
                                 onClick={() => { setActiveTab('map'); void ensureFullDataLoaded(); }}
                                 className={cn(
                                     "flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-full text-sm font-medium transition-all",
-                                    activeTab === 'map' ? "bg-white shadow-sm text-[#6bbfd4]" : "text-gray-500 hover:text-gray-700"
+                                    activeTab === 'map' ? "bg-white dark:bg-gray-700 shadow-sm text-[#6bbfd4]" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                                 )}>
                                 <MapIcon className="w-4 h-4" /> <span className="hidden xs:inline">Lageplan</span>
                             </button>
@@ -438,7 +439,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                                 onClick={() => setActiveTab('table')}
                                 className={cn(
                                     "flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-full text-sm font-medium transition-all",
-                                    activeTab === 'table' ? "bg-white shadow-sm text-[#6bbfd4]" : "text-gray-500 hover:text-gray-700"
+                                    activeTab === 'table' ? "bg-white dark:bg-gray-700 shadow-sm text-[#6bbfd4]" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                                 )}>
                                 <List className="w-4 h-4" /> <span className="hidden xs:inline">Tabelle</span>
                             </button>
@@ -446,7 +447,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                                 onClick={() => { setActiveTab('templates'); ensureTemplatesLoaded(); }}
                                 className={cn(
                                     "flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-all",
-                                    activeTab === 'templates' ? "bg-white shadow-sm text-[#6bbfd4]" : "text-gray-500 hover:text-gray-700"
+                                    activeTab === 'templates' ? "bg-white dark:bg-gray-700 shadow-sm text-[#6bbfd4]" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                                 )}>
                                 <BookTemplate className="w-4 h-4" /> <span className="hidden xs:inline">Vorlagen</span>
                             </button>
@@ -454,7 +455,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                                 onClick={() => setActiveTab('nachdenk')}
                                 className={cn(
                                     "flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-all",
-                                    activeTab === 'nachdenk' ? "bg-white shadow-sm text-[#6bbfd4]" : "text-gray-500 hover:text-gray-700"
+                                    activeTab === 'nachdenk' ? "bg-white dark:bg-gray-700 shadow-sm text-[#6bbfd4]" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                                 )}>
                                 <BookOpen className="w-4 h-4" /> <span className="hidden xs:inline">Nachdenk-Texte</span>
                             </button>
@@ -462,7 +463,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                                 onClick={() => { setActiveTab('explanation'); void ensureFullDataLoaded(); }}
                                 className={cn(
                                     "flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-all",
-                                    activeTab === 'explanation' ? "bg-white shadow-sm text-[#6bbfd4]" : "text-gray-500 hover:text-gray-700"
+                                    activeTab === 'explanation' ? "bg-white dark:bg-gray-700 shadow-sm text-[#6bbfd4]" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                                 )}>
                                 <FileText className="w-4 h-4" /> <span className="hidden xs:inline">Erklärung</span>
                             </button>
@@ -470,20 +471,21 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                                 onClick={() => setActiveTab('zeitplan')}
                                 className={cn(
                                     "flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-all",
-                                    activeTab === 'zeitplan' ? "bg-white shadow-sm text-[#6bbfd4]" : "text-gray-500 hover:text-gray-700"
+                                    activeTab === 'zeitplan' ? "bg-white dark:bg-gray-700 shadow-sm text-[#6bbfd4]" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                                 )}>
                                 <CalendarDays className="w-4 h-4" /> <span className="hidden xs:inline">Zeitplan</span>
                             </button>
                         </nav>
 
+                        <ThemeToggle />
                         <ShareButton planningId={plan.id} planningTitle={plan.title} />
 
-                        <div className="hidden sm:flex items-center bg-gray-100 rounded-full px-3 py-1 border focus-within:ring-2 ring-[#6bbfd4]/30 transition-all">
-                            <Link className="w-4 h-4 text-gray-500 mr-2" />
+                        <div className="hidden sm:flex items-center bg-gray-100 dark:bg-gray-800 rounded-full px-3 py-1 border border-gray-200 dark:border-gray-700 focus-within:ring-2 ring-[#6bbfd4]/30 transition-all">
+                            <Link className="w-4 h-4 text-gray-500 dark:text-gray-400 mr-2" />
                             <input
                                 type="text"
                                 placeholder="Import URL (jugendarbeit.online)"
-                                className="bg-transparent border-none outline-none text-sm w-48 h-8"
+                                className="bg-transparent border-none outline-none text-sm w-48 h-8 dark:text-gray-100 dark:placeholder-gray-500"
                                 value={importUrl}
                                 onChange={(e) => setImportUrl(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleImport()}
@@ -503,18 +505,18 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                     <input
                         value={plan.title}
                         onChange={(e) => updateActivePlan({ title: e.target.value })}
-                        className="text-base font-bold tracking-tight bg-transparent border-none outline-none focus:bg-gray-50 rounded px-1 w-full"
+                        className="text-base font-bold tracking-tight bg-transparent border-none outline-none focus:bg-gray-50 dark:focus:bg-gray-800 dark:text-gray-50 rounded px-1 w-full"
                         title="Titel bearbeiten"
                         maxLength={200}
                     />
                 </div>
                 {/* Mobile URL import bar */}
-                <div className="sm:hidden flex items-center bg-gray-100 mx-4 mb-2 rounded-full px-3 py-1 border focus-within:ring-2 ring-[#6bbfd4]/30 transition-all">
-                    <Link className="w-4 h-4 text-gray-500 mr-2 shrink-0" />
+                <div className="sm:hidden flex items-center bg-gray-100 dark:bg-gray-800 mx-4 mb-2 rounded-full px-3 py-1 border border-gray-200 dark:border-gray-700 focus-within:ring-2 ring-[#6bbfd4]/30 transition-all">
+                    <Link className="w-4 h-4 text-gray-500 dark:text-gray-400 mr-2 shrink-0" />
                     <input
                         type="text"
                         placeholder="Import URL"
-                        className="bg-transparent border-none outline-none text-sm flex-1 h-8 min-w-0"
+                        className="bg-transparent border-none outline-none text-sm flex-1 h-8 min-w-0 dark:text-gray-100 dark:placeholder-gray-500"
                         value={importUrl}
                         onChange={(e) => setImportUrl(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleImport()}
@@ -531,7 +533,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
 
             <div className="flex flex-1 overflow-hidden">
                 {/* Main Content */}
-                <main className="flex-1 relative bg-gray-100 overflow-hidden flex flex-col">
+                <main className="flex-1 relative bg-gray-100 dark:bg-gray-800 overflow-hidden flex flex-col">
                     {activeTab === 'map' ? (
                         <MapView
                             activePlan={activePlan}
@@ -570,7 +572,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                         <div className="flex-1 overflow-auto p-4 sm:p-8">
                             <div className="max-w-2xl mx-auto">
                                 <div className="flex items-center justify-between mb-6">
-                                    <h2 className="text-lg font-semibold text-gray-900">Vorlagen</h2>
+                                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">Vorlagen</h2>
                                     <button
                                         onClick={handleCreateBlankTemplate}
                                         className="flex items-center gap-2 px-4 py-2 bg-[#6bbfd4] text-white rounded-xl text-sm font-medium hover:bg-[#5aaec3] active:scale-[0.98] transition-all"
@@ -579,10 +581,10 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                                     </button>
                                 </div>
                                 {!templatesLoaded ? (
-                                    <p className="text-center py-12 text-gray-600">Wird geladen…</p>
+                                    <p className="text-center py-12 text-gray-600 dark:text-gray-400">Wird geladen…</p>
                                 ) : templates.length === 0 ? (
                                     <div className="text-center py-12">
-                                        <p className="text-gray-600 mb-4">Noch keine Vorlagen vorhanden.</p>
+                                        <p className="text-gray-600 dark:text-gray-400 mb-4">Noch keine Vorlagen vorhanden.</p>
                                         <button
                                             onClick={handleCreateBlankTemplate}
                                             className="px-5 py-2.5 bg-[#6bbfd4] text-white rounded-xl text-sm font-medium hover:bg-[#5aaec3] transition-all"
@@ -593,33 +595,33 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                                 ) : (
                                     <div className="space-y-3">
                                         {templates.map(t => (
-                                            <div key={t.id} className="bg-white rounded-2xl border p-4 group">
+                                            <div key={t.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 group">
                                                 {editingTemplateId === t.id ? (
                                                     <div className="space-y-3">
                                                         <input
                                                             value={editingTemplateData.name ?? ''}
                                                             onChange={(e) => setEditingTemplateData(d => ({ ...d, name: e.target.value }))}
-                                                            className="w-full font-semibold border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30"
+                                                            className="w-full font-semibold border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30"
                                                             placeholder="Name…"
                                                         />
                                                         <textarea
                                                             value={editingTemplateData.description ?? ''}
                                                             onChange={(e) => setEditingTemplateData(d => ({ ...d, description: e.target.value }))}
-                                                            className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 resize-none"
+                                                            className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 resize-none"
                                                             placeholder="Beschreibung…"
                                                             rows={2}
                                                         />
                                                         <textarea
                                                             value={editingTemplateData.material ?? ''}
                                                             onChange={(e) => setEditingTemplateData(d => ({ ...d, material: e.target.value }))}
-                                                            className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 resize-none"
+                                                            className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 resize-none"
                                                             placeholder="Material…"
                                                             rows={2}
                                                         />
                                                         <textarea
                                                             value={(editingTemplateData.impulses ?? []).join('\n')}
                                                             onChange={(e) => setEditingTemplateData(d => ({ ...d, impulses: e.target.value.split('\n').filter(l => l.trim()) }))}
-                                                            className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 resize-none"
+                                                            className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 resize-none"
                                                             placeholder="Gesprächsimpulse (je Zeile ein Impuls)…"
                                                             rows={3}
                                                         />
@@ -627,20 +629,20 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                                                             <input
                                                                 value={editingTemplateData.setupBy ?? ''}
                                                                 onChange={(e) => setEditingTemplateData(d => ({ ...d, setupBy: e.target.value }))}
-                                                                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30"
+                                                                className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30"
                                                                 placeholder="Aufbau…"
                                                             />
                                                             <input
                                                                 value={editingTemplateData.conductedBy ?? ''}
                                                                 onChange={(e) => setEditingTemplateData(d => ({ ...d, conductedBy: e.target.value }))}
-                                                                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30"
+                                                                className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30"
                                                                 placeholder="Durchführung…"
                                                             />
                                                         </div>
                                                         <div className="flex gap-2 justify-end">
                                                             <button
                                                                 onClick={() => { setEditingTemplateId(null); setEditingTemplateData({}); }}
-                                                                className="px-3 py-1.5 text-sm text-gray-500 border rounded-lg hover:bg-gray-50"
+                                                                className="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
                                                             >Abbrechen</button>
                                                             <button
                                                                 onClick={handleSaveTemplateEdit}
@@ -651,9 +653,9 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                                                 ) : (
                                                     <div className="flex items-start gap-3">
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="font-semibold text-gray-900 text-sm">{t.name || '(Kein Name)'}</p>
-                                                            {t.description && <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{t.description}</p>}
-                                                            {t.material && <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">Material: {t.material}</p>}
+                                                            <p className="font-semibold text-gray-900 dark:text-gray-50 text-sm">{t.name || '(Kein Name)'}</p>
+                                                            {t.description && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{t.description}</p>}
+                                                            {t.material && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">Material: {t.material}</p>}
                                                         </div>
                                                         <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                                                             <button
@@ -677,7 +679,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                         </div>
                     )}
 
-                    <div className="px-4 sm:px-8 py-4 bg-white border-t flex items-center justify-between text-xs text-gray-500">
+                    <div className="px-4 sm:px-8 py-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                         <p>© 2026 Erlebnis Kirche Planner · v{process.env.NEXT_PUBLIC_APP_VERSION}</p>
                         <div className="flex gap-4">
                             <label className="hover:text-gray-600 transition-colors cursor-pointer flex items-center gap-1" title="Backup laden (.rki)">

@@ -7,6 +7,8 @@ type Mode = 'login' | 'register' | 'forgot';
 
 const TEAMS = ['Feucht'];
 
+const inputCls = 'w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 focus:border-[#6bbfd4] transition-all';
+
 export default function LoginScreen() {
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
@@ -93,15 +95,15 @@ export default function LoginScreen() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#fdfdfd] flex items-center justify-center p-4">
+    <div className="min-h-[100dvh] bg-[#fdfdfd] dark:bg-gray-900 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-3 mb-8">
           <div className="h-10 w-10 rounded-xl bg-[#6bbfd4] flex items-center justify-center text-white font-bold text-lg shrink-0">
             EK
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Erlebnis Kirche Planner</h1>
-            <p className="text-sm text-gray-800">
+            <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-50">Erlebnis Kirche Planner</h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               {mode === 'login' ? 'Anmelden, um fortzufahren' : mode === 'register' ? 'Neues Konto erstellen' : 'Passwort zurücksetzen'}
             </p>
           </div>
@@ -110,226 +112,104 @@ export default function LoginScreen() {
         {mode === 'forgot' ? (
           <form onSubmit={handleForgotPassword} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-800 mb-1">E-Mail</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-                placeholder="name@beispiel.de"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 focus:border-[#6bbfd4] transition-all"
-              />
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">E-Mail</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" placeholder="name@beispiel.de" className={inputCls} />
             </div>
 
-            {error && (
-              <p className="text-sm text-red-600 bg-red-50 px-4 py-2.5 rounded-xl">{error}</p>
-            )}
-            {info && (
-              <p className="text-sm text-green-700 bg-green-50 px-4 py-2.5 rounded-xl">{info}</p>
-            )}
+            {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-4 py-2.5 rounded-xl">{error}</p>}
+            {info && <p className="text-sm text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-4 py-2.5 rounded-xl">{info}</p>}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 bg-[#6bbfd4] text-white rounded-xl font-semibold hover:bg-[#5aaec3] active:scale-[0.98] transition-all disabled:opacity-50"
-            >
+            <button type="submit" disabled={loading} className="w-full py-2.5 bg-[#6bbfd4] text-white rounded-xl font-semibold hover:bg-[#5aaec3] active:scale-[0.98] transition-all disabled:opacity-50">
               {loading ? 'Wird gesendet…' : 'Reset-Link senden'}
             </button>
-
-            <p className="text-center text-sm text-gray-800 pt-1">
-              <button
-                type="button"
-                onClick={() => switchMode('login')}
-                className="text-[#6bbfd4] font-medium hover:underline"
-              >
-                Zurück zur Anmeldung
-              </button>
+            <p className="text-center text-sm text-gray-600 dark:text-gray-400 pt-1">
+              <button type="button" onClick={() => switchMode('login')} className="text-[#6bbfd4] font-medium hover:underline">Zurück zur Anmeldung</button>
             </p>
           </form>
         ) : mode === 'login' ? (
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-800 mb-1">E-Mail</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-                placeholder="name@beispiel.de"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 focus:border-[#6bbfd4] transition-all"
-              />
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">E-Mail</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" placeholder="name@beispiel.de" className={inputCls} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-800 mb-1">Passwort</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-                placeholder="••••••••"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 focus:border-[#6bbfd4] transition-all"
-              />
-              <button
-                type="button"
-                onClick={() => switchMode('forgot')}
-                className="mt-1.5 text-xs text-gray-700 hover:text-[#6bbfd4] hover:underline transition-colors"
-              >
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Passwort</label>
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" placeholder="••••••••" className={inputCls} />
+              <button type="button" onClick={() => switchMode('forgot')} className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-[#6bbfd4] hover:underline transition-colors">
                 Passwort vergessen?
               </button>
             </div>
 
-            {error && (
-              <p className="text-sm text-red-600 bg-red-50 px-4 py-2.5 rounded-xl">{error}</p>
-            )}
+            {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-4 py-2.5 rounded-xl">{error}</p>}
 
-            <button
-              type="submit"
-              disabled={loading || googleLoading}
-              className="w-full py-2.5 bg-[#6bbfd4] text-white rounded-xl font-semibold hover:bg-[#5aaec3] active:scale-[0.98] transition-all disabled:opacity-50"
-            >
+            <button type="submit" disabled={loading || googleLoading} className="w-full py-2.5 bg-[#6bbfd4] text-white rounded-xl font-semibold hover:bg-[#5aaec3] active:scale-[0.98] transition-all disabled:opacity-50">
               {loading ? 'Wird angemeldet…' : 'Anmelden'}
             </button>
-
-            <p className="text-center text-sm text-gray-800 pt-1">
+            <p className="text-center text-sm text-gray-600 dark:text-gray-400 pt-1">
               Noch kein Konto?{' '}
-              <button
-                type="button"
-                onClick={() => switchMode('register')}
-                className="text-[#6bbfd4] font-medium hover:underline"
-              >
-                Konto erstellen
-              </button>
+              <button type="button" onClick={() => switchMode('register')} className="text-[#6bbfd4] font-medium hover:underline">Konto erstellen</button>
             </p>
           </form>
         ) : (
           <form onSubmit={handleRegister} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-800 mb-1">E-Mail</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-                placeholder="name@beispiel.de"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 focus:border-[#6bbfd4] transition-all"
-              />
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">E-Mail</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" placeholder="name@beispiel.de" className={inputCls} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-800 mb-1">Passwort</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="new-password"
-                placeholder="Mindestens 6 Zeichen"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 focus:border-[#6bbfd4] transition-all"
-              />
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Passwort</label>
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="new-password" placeholder="Mindestens 6 Zeichen" className={inputCls} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-800 mb-1">Passwort wiederholen</label>
-              <input
-                type="password"
-                value={passwordConfirm}
-                onChange={(e) => setPasswordConfirm(e.target.value)}
-                required
-                autoComplete="new-password"
-                placeholder="••••••••"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 focus:border-[#6bbfd4] transition-all"
-              />
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Passwort wiederholen</label>
+              <input type="password" value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} required autoComplete="new-password" placeholder="••••••••" className={inputCls} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-800 mb-1">Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                autoComplete="name"
-                placeholder="Vor- und Nachname"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 focus:border-[#6bbfd4] transition-all"
-              />
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} required autoComplete="name" placeholder="Vor- und Nachname" className={inputCls} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-800 mb-1">Erlebnis-Kirche-Team</label>
-              <select
-                value={team}
-                onChange={(e) => setTeam(e.target.value)}
-                required
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 focus:border-[#6bbfd4] transition-all"
-              >
-                {TEAMS.map(t => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Erlebnis-Kirche-Team</label>
+              <select value={team} onChange={(e) => setTeam(e.target.value)} required className={inputCls}>
+                {TEAMS.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
 
-            {error && (
-              <p className="text-sm text-red-600 bg-red-50 px-4 py-2.5 rounded-xl">{error}</p>
-            )}
-            {info && (
-              <p className="text-sm text-green-700 bg-green-50 px-4 py-2.5 rounded-xl">{info}</p>
-            )}
+            {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-4 py-2.5 rounded-xl">{error}</p>}
+            {info && <p className="text-sm text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-4 py-2.5 rounded-xl">{info}</p>}
 
-            <button
-              type="submit"
-              disabled={loading || googleLoading}
-              className="w-full py-2.5 bg-[#6bbfd4] text-white rounded-xl font-semibold hover:bg-[#5aaec3] active:scale-[0.98] transition-all disabled:opacity-50"
-            >
+            <button type="submit" disabled={loading || googleLoading} className="w-full py-2.5 bg-[#6bbfd4] text-white rounded-xl font-semibold hover:bg-[#5aaec3] active:scale-[0.98] transition-all disabled:opacity-50">
               {loading ? 'Wird registriert…' : 'Konto erstellen'}
             </button>
-
-            <p className="text-center text-sm text-gray-800 pt-1">
+            <p className="text-center text-sm text-gray-600 dark:text-gray-400 pt-1">
               Bereits ein Konto?{' '}
-              <button
-                type="button"
-                onClick={() => switchMode('login')}
-                className="text-[#6bbfd4] font-medium hover:underline"
-              >
-                Anmelden
-              </button>
+              <button type="button" onClick={() => switchMode('login')} className="text-[#6bbfd4] font-medium hover:underline">Anmelden</button>
             </p>
           </form>
         )}
 
         <div className="flex items-center gap-3 my-5">
-          <div className="flex-1 h-px bg-gray-200" />
-          <span className="text-sm text-gray-700">oder</span>
-          <div className="flex-1 h-px bg-gray-200" />
+          <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+          <span className="text-sm text-gray-500 dark:text-gray-400">oder</span>
+          <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
         </div>
 
         <button
           type="button"
           onClick={handleGoogleLogin}
           disabled={loading || googleLoading}
-          className="w-full flex items-center justify-center gap-3 py-2.5 px-4 border border-gray-200 rounded-xl font-medium text-gray-800 bg-white hover:bg-gray-50 active:scale-[0.98] transition-all disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-3 py-2.5 px-4 border border-gray-200 dark:border-gray-700 rounded-xl font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 active:scale-[0.98] transition-all disabled:opacity-50"
         >
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-            <path
-              d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z"
-              fill="#4285F4"
-            />
-            <path
-              d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z"
-              fill="#34A853"
-            />
-            <path
-              d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332Z"
-              fill="#FBBC05"
-            />
-            <path
-              d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58Z"
-              fill="#EA4335"
-            />
+            <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z" fill="#4285F4" />
+            <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z" fill="#34A853" />
+            <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332Z" fill="#FBBC05" />
+            <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58Z" fill="#EA4335" />
           </svg>
           {googleLoading ? 'Weiterleitung…' : 'Mit Google anmelden'}
         </button>
 
-        <p className="text-center text-xs text-gray-700 mt-8">
+        <p className="text-center text-xs text-gray-500 dark:text-gray-500 mt-8">
           © 2026 Erlebnis Kirche Planner · v{process.env.NEXT_PUBLIC_APP_VERSION}
         </p>
       </div>

@@ -385,14 +385,14 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                 )}
                 <button
                     onClick={onAddStation}
-                    className="flex items-center gap-2 px-3 py-2 bg-white text-[#6bbfd4] rounded-full shadow-lg border border-[#6bbfd4]/20 cursor-pointer hover:bg-[#6bbfd4]/10 transition-all active:scale-95 text-sm font-medium"
+                    className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 text-[#6bbfd4] rounded-full shadow-lg border border-[#6bbfd4]/20 cursor-pointer hover:bg-[#6bbfd4]/10 dark:hover:bg-[#6bbfd4]/20 transition-all active:scale-95 text-sm font-medium"
                 >
                     <Plus className="w-4 h-4" />
                     <span className="hidden sm:inline">Station</span>
                 </button>
                 <button
                     onClick={handleAutoLayout}
-                    className="flex items-center gap-2 px-3 py-2 bg-white text-gray-600 rounded-full shadow-lg border cursor-pointer hover:bg-gray-50 transition-all active:scale-95 text-sm font-medium"
+                    className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full shadow-lg border dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 transition-all active:scale-95 text-sm font-medium"
                     title="Beschriftungen automatisch anordnen"
                 >
                     <Move className="w-4 h-4" />
@@ -400,26 +400,26 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                 </button>
                 <button
                     onClick={handleDistributeColors}
-                    className="flex items-center gap-2 px-3 py-2 bg-white text-gray-600 rounded-full shadow-lg border cursor-pointer hover:bg-gray-50 transition-all active:scale-95 text-sm font-medium"
+                    className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full shadow-lg border dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 transition-all active:scale-95 text-sm font-medium"
                     title="Farben gleichmäßig verteilen"
                 >
                     <Palette className="w-4 h-4" />
                     <span className="hidden sm:inline">Farben</span>
                 </button>
                 {activePlan.backgroundImage && (
-                    <div className="flex items-center bg-white rounded-full shadow-lg border overflow-hidden">
+                    <div className="flex items-center bg-white dark:bg-gray-700 rounded-full shadow-lg border dark:border-gray-600 overflow-hidden">
                         <button
                             onClick={zoomOut}
                             disabled={currentZoom <= ZOOM_STEPS[0]}
-                            className="px-2 py-2 hover:bg-gray-50 disabled:opacity-30 transition-colors"
+                            className="px-2 py-2 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-30 transition-colors"
                             title="Hintergrundbild verkleinern"
                         >
-                            <ZoomOut className="w-4 h-4 text-gray-600" />
+                            <ZoomOut className="w-4 h-4 text-gray-600 dark:text-gray-300" />
                         </button>
                         <select
                             value={currentZoom}
                             onChange={(e) => updateActivePlan({ bgZoom: Number(e.target.value) })}
-                            className="text-xs font-medium text-gray-600 bg-transparent border-none outline-none px-1 cursor-pointer"
+                            className="text-xs font-medium text-gray-600 dark:text-gray-300 bg-transparent border-none outline-none px-1 cursor-pointer"
                             title="Zoom-Stufe"
                         >
                             {ZOOM_STEPS.map(z => (
@@ -429,10 +429,10 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                         <button
                             onClick={zoomIn}
                             disabled={currentZoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1]}
-                            className="px-2 py-2 hover:bg-gray-50 disabled:opacity-30 transition-colors"
+                            className="px-2 py-2 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-30 transition-colors"
                             title="Hintergrundbild vergrößern"
                         >
-                            <ZoomIn className="w-4 h-4 text-gray-600" />
+                            <ZoomIn className="w-4 h-4 text-gray-600 dark:text-gray-300" />
                         </button>
                     </div>
                 )}
@@ -443,9 +443,9 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                     <Download className="w-4 h-4" />
                     <span className="hidden sm:inline">PDF</span>
                 </button>
-                <label className="flex items-center gap-2 px-3 py-2 bg-white rounded-full shadow-lg border cursor-pointer hover:bg-gray-50 transition-all active:scale-95 text-sm font-medium">
+                <label className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 rounded-full shadow-lg border dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 transition-all active:scale-95 text-sm font-medium">
                     <Upload className="w-4 h-4 text-[#6bbfd4]" />
-                    <span className="hidden sm:inline">Lageplan hochladen</span>
+                    <span className="hidden sm:inline text-gray-600 dark:text-gray-300">Lageplan hochladen</span>
                     <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
                 </label>
                 <button
@@ -458,7 +458,7 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                     }}
                     className={cn(
                         "flex items-center gap-2 px-3 py-2 rounded-full shadow-lg border cursor-pointer transition-all active:scale-95 text-sm font-medium",
-                        maskDrawing ? "bg-[#6bbfd4] text-white border-[#6bbfd4]" : "bg-white text-gray-600 hover:bg-gray-50"
+                        maskDrawing ? "bg-[#6bbfd4] text-white border-[#6bbfd4]" : "bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"
                     )}
                     title="Weiße Maske zeichnen"
                 >
@@ -482,7 +482,7 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                 {(activePlan.masks?.length ?? 0) > 0 && !maskDrawing && (
                     <button
                         onClick={clearMasks}
-                        className="flex items-center gap-2 px-3 py-2 bg-white text-red-400 rounded-full shadow-lg border cursor-pointer hover:bg-red-50 transition-all active:scale-95 text-sm font-medium"
+                        className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 text-red-400 rounded-full shadow-lg border dark:border-gray-600 cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/30 transition-all active:scale-95 text-sm font-medium"
                         title="Alle Masken löschen"
                     >
                         <Eraser className="w-4 h-4" />
@@ -492,7 +492,7 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                 {!activePlan.logoOverlay && (
                     <button
                         onClick={addLogoOverlay}
-                        className="flex items-center gap-2 px-3 py-2 bg-white text-gray-600 rounded-full shadow-lg border cursor-pointer hover:bg-gray-50 transition-all active:scale-95 text-sm font-medium"
+                        className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full shadow-lg border dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 transition-all active:scale-95 text-sm font-medium"
                         title="Logo hinzufügen"
                     >
                         <ImageIcon className="w-4 h-4" />
@@ -502,7 +502,7 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                 {activePlan.logoOverlay && (
                     <button
                         onClick={() => updateActivePlan({ logoOverlay: undefined })}
-                        className="flex items-center gap-2 px-3 py-2 bg-white text-red-400 rounded-full shadow-lg border cursor-pointer hover:bg-red-50 transition-all active:scale-95 text-sm font-medium"
+                        className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 text-red-400 rounded-full shadow-lg border dark:border-gray-600 cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/30 transition-all active:scale-95 text-sm font-medium"
                         title="Logo entfernen"
                     >
                         <ImageIcon className="w-4 h-4" />
@@ -512,7 +512,7 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                 {!activePlan.labelOverlay && (
                     <button
                         onClick={addLabelOverlay}
-                        className="flex items-center gap-2 px-3 py-2 bg-white text-gray-600 rounded-full shadow-lg border cursor-pointer hover:bg-gray-50 transition-all active:scale-95 text-sm font-medium"
+                        className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full shadow-lg border dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 transition-all active:scale-95 text-sm font-medium"
                         title="Überschrift hinzufügen"
                     >
                         <Type className="w-4 h-4" />
@@ -522,7 +522,7 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                 {activePlan.labelOverlay && (
                     <button
                         onClick={() => updateActivePlan({ labelOverlay: undefined })}
-                        className="flex items-center gap-2 px-3 py-2 bg-white text-red-400 rounded-full shadow-lg border cursor-pointer hover:bg-red-50 transition-all active:scale-95 text-sm font-medium"
+                        className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 text-red-400 rounded-full shadow-lg border dark:border-gray-600 cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/30 transition-all active:scale-95 text-sm font-medium"
                         title="Überschrift entfernen"
                     >
                         <Type className="w-4 h-4" />

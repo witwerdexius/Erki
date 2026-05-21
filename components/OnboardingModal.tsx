@@ -34,20 +34,20 @@ export default function OnboardingModal({ initialName = '', onComplete }: Props)
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm p-6"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
       >
         <div className="mb-5">
-          <h2 className="font-semibold text-gray-900 text-lg">Konto vervollständigen</h2>
-          <p className="text-sm text-gray-600 mt-1">
+          <h2 className="font-semibold text-gray-900 dark:text-gray-50 text-lg">Konto vervollständigen</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
             Bitte gib deinen Namen und dein Team an, um fortzufahren.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-800 mb-1">Name</label>
+            <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">Name</label>
             <input
               type="text"
               value={name}
@@ -55,17 +55,17 @@ export default function OnboardingModal({ initialName = '', onComplete }: Props)
               required
               autoFocus
               placeholder="Vor- und Nachname"
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 focus:border-[#6bbfd4] transition-all"
+              className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 focus:border-[#6bbfd4] transition-all"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-800 mb-1">
+            <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
               Erlebnis-Kirche-Team
             </label>
             <select
               value={team}
               onChange={(e) => setTeam(e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 focus:border-[#6bbfd4] transition-all"
+              className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 focus:border-[#6bbfd4] transition-all"
             >
               {TEAMS.map(t => (
                 <option key={t} value={t}>{t}</option>
@@ -74,7 +74,7 @@ export default function OnboardingModal({ initialName = '', onComplete }: Props)
           </div>
 
           {error && (
-            <p className="text-sm text-red-600 bg-red-50 px-4 py-2.5 rounded-xl">{error}</p>
+            <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-4 py-2.5 rounded-xl">{error}</p>
           )}
 
           <button
