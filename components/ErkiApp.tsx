@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect, useMemo, useRef, MutableRefObject } from 'react';
 import { ChevronLeft, Plus, Trash2, List, Download, Upload, Link, BookTemplate, Pencil, Loader2, BookOpen, FileText, Map as MapIcon, CalendarDays } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
 import { Plan, Station, StationTemplate } from '@/lib/types';
+import type { Phase, Task } from '@/components/zeitplan/types';
 import { importPlanFromUrl } from '@/lib/actions';
 import { loadTemplates, createTemplate, updateTemplate, deleteTemplate, loadPlanningFull } from '@/lib/db';
 import ShareButton from './ShareButton';
@@ -14,6 +14,7 @@ import NachdenktexteTab from '@/components/NachdenktexteTab';
 import ExplanationPage from '@/components/ExplanationPage';
 import MapView from '@/components/erki/MapView';
 import StationsTable from '@/components/erki/StationsTable';
+import ZeitplanView from '@/components/erki/ZeitplanView';
 import { useRealtimeSync } from '@/lib/realtime/useRealtimeSync';
 import { usePresence } from '@/lib/realtime/usePresence';
 import { planningChannelNames } from '@/lib/realtime/channelNames';
@@ -35,15 +36,38 @@ interface ErkiAppProps {
     isDirtyRef: MutableRefObject<boolean>;
 }
 
+function stationsToPhases(stations: Station[]): Phase[] {
+    const tasks: Task[] = stations.map(s => {
+        const volunteers = [s.conductedBy, s.setupBy].filter(v => v && v.trim() !== '');
+        return {
+            id: s.id,
+            name: `${s.number ? s.number + ' – ' : ''}${s.name}`,
+            slots: 2,
+            filled: volunteers.length,
+            volunteers,
+        };
+    });
+    if (tasks.length === 0) return [];
+    return [{
+        id: 'stationen',
+        name: 'Stationen',
+        description: 'Alle Stationen dieser Planung',
+        time: '',
+        tasks,
+    }];
+}
+
 export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate, onSaveNow, onBack, onImmediateSave, isSaving = false, latestPlanRef, isDirtyRef }: ErkiAppProps) {
-    const router = useRouter();
     const [importUrl, setImportUrl] = useState('');
     const [isImporting, setIsImporting] = useState(false);
     const tabKey = `activeTab_${plan.id}`;
-    const [activeTab, setActiveTab] = useState<'map' | 'table' | 'templates' | 'nachdenk' | 'explanation'>(() => {
+    const [activeTab, setActiveTab] = useState<'map' | 'table' | 'templates' | 'nachdenk' | 'explanation' | 'zeitplan'>(() => {
         const stored = sessionStorage.getItem(tabKey);
-        return (stored as 'map' | 'table' | 'templates' | 'nachdenk' | 'explanation' | null) ?? 'table';
+        return (stored as 'map' | 'table' | 'templates' | 'nachdenk' | 'explanation' | 'zeitplan' | null) ?? 'table';
     });
+    const [zeitplanPhases, setZeitplanPhases] = useState<Phase[]>([]);
+    const [zeitplanFilter, setZeitplanFilter] = useState<'all' | 'open' | 'mine'>('all');
+    const zeitplanInitializedForPlanRef = useRef<string | null>(null);
     const [templates, setTemplates] = useState<StationTemplate[]>([]);
     const [templatesLoaded, setTemplatesLoaded] = useState(false);
     const [showTemplatePicker, setShowTemplatePicker] = useState(false);
@@ -199,6 +223,43 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
     useEffect(() => {
         sessionStorage.setItem(tabKey, activeTab);
     }, [activeTab, tabKey]);
+
+    // Zeitplan-Phasen aus Stationen ableiten, wenn der Tab geöffnet wird.
+    // Einmalig pro Plan-ID initialisieren, damit lokale Sign-up-Interaktionen erhalten bleiben.
+    useEffect(() => {
+        if (activeTab === 'zeitplan' && zeitplanInitializedForPlanRef.current !== plan.id) {
+            zeitplanInitializedForPlanRef.current = plan.id;
+            setZeitplanPhases(stationsToPhases(activePlan.stations));
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, plan.id]);
+
+    const handleZeitplanSignUp = (phaseId: string, taskId: string, name: string) => {
+        setZeitplanPhases(prev => prev.map(phase => {
+            if (phase.id !== phaseId) return phase;
+            return {
+                ...phase,
+                tasks: phase.tasks.map(task => {
+                    if (task.id !== taskId) return task;
+                    return { ...task, filled: task.filled + 1, volunteers: [...task.volunteers, name] };
+                }),
+            };
+        }));
+    };
+
+    const handleZeitplanRemove = (phaseId: string, taskId: string, volunteerName: string) => {
+        setZeitplanPhases(prev => prev.map(phase => {
+            if (phase.id !== phaseId) return phase;
+            return {
+                ...phase,
+                tasks: phase.tasks.map(task => {
+                    if (task.id !== taskId) return task;
+                    const newVolunteers = task.volunteers.filter(v => v !== volunteerName);
+                    return { ...task, filled: newVolunteers.length, volunteers: newVolunteers };
+                }),
+            };
+        }));
+    };
 
     // Realtime-Sync: plannings-UPDATEs + stations-INSERT/UPDATE/DELETE.
     // Verhalten (Echo-Skip, Heavy-Field-Lazy-Loading, Cleanup beider Channels)
@@ -406,9 +467,11 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                                 <FileText className="w-4 h-4" /> <span className="hidden xs:inline">Erklärung</span>
                             </button>
                             <button
-                                onClick={() => router.push(`/planning/${plan.id}/zeitplan`)}
-                                className="flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-all text-gray-500 hover:text-gray-700 hover:bg-white/60"
-                                title="Zeitplan öffnen">
+                                onClick={() => setActiveTab('zeitplan')}
+                                className={cn(
+                                    "flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-all",
+                                    activeTab === 'zeitplan' ? "bg-white shadow-sm text-[#6bbfd4]" : "text-gray-500 hover:text-gray-700"
+                                )}>
                                 <CalendarDays className="w-4 h-4" /> <span className="hidden xs:inline">Zeitplan</span>
                             </button>
                         </nav>
@@ -492,6 +555,15 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                             latestPlanRef={latestPlanRef}
                             onlineUsers={online}
                             currentUser={presenceUser}
+                        />
+                    ) : activeTab === 'zeitplan' ? (
+                        <ZeitplanView
+                            phases={zeitplanPhases}
+                            filter={zeitplanFilter}
+                            onFilterChange={setZeitplanFilter}
+                            onSignUp={handleZeitplanSignUp}
+                            onRemove={handleZeitplanRemove}
+                            currentUser={presenceUser.displayName}
                         />
                     ) : null}
                     {activeTab === 'templates' && (
