@@ -227,7 +227,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
     }), [user.id, user.user_metadata?.name, user.user_metadata?.display_name, user.email]);
 
     const { online } = usePresence({
-        channelName: `planning:${plan.id}`,
+        channelName: `planning-presence:${plan.id}`,
         payload: presenceUser,
     });
 

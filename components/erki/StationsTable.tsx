@@ -58,7 +58,7 @@ export default function StationsTable({
     // Soft-Lock: Broadcast bei Focus/Blur eines Felds einer Station. Andere
     // Clients sehen daraufhin "X bearbeitet…" als visuellen Hinweis (kein harter Lock).
     const { send: sendEditing } = useBroadcast<EditingBroadcast>({
-        channelName: `planning:${activePlan.id}`,
+        channelName: `planning-broadcast:${activePlan.id}`,
         event: 'editing',
         onMessage: (msg) => {
             setEditingMap(curr => applyEditingBroadcast(curr, msg, Date.now()));

@@ -167,7 +167,7 @@ export function useRealtimeSync(options: UseRealtimeSyncOptions): void {
 
     // 1) plannings: Meta-Updates (Titel, Status, … + ggf. schwere Felder).
     const planningChannel = supabase
-      .channel(`planning:${planId}`)
+      .channel(`planning-sync:${planId}`)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
