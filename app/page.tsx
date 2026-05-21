@@ -136,6 +136,11 @@ export default function Home() {
       if (newVersion !== null && latestPlanRef.current === planToSave) {
         latestPlanRef.current = savedPlan;
         setActivePlan(savedPlan);
+      } else if (newVersion !== null && latestPlanRef.current !== null) {
+        // Edit kam während des Saves rein — User-Änderungen behalten, aber
+        // Version hochziehen, damit der nächste Save nicht mit veralteter
+        // expectedVersion einen False-Positive VersionConflictError wirft.
+        latestPlanRef.current = { ...latestPlanRef.current, version: newVersion };
       }
       console.log('[Auto-Save] erfolgreich, neue Version:', newVersion);
     } catch (e) {
@@ -231,6 +236,8 @@ export default function Home() {
         if (newVersion !== null && latestPlanRef.current === planToSave) {
           latestPlanRef.current = savedPlan;
           setActivePlan(savedPlan);
+        } else if (newVersion !== null && latestPlanRef.current !== null) {
+          latestPlanRef.current = { ...latestPlanRef.current, version: newVersion };
         }
         console.log('[handleSaveNow] erfolgreich, neue Version:', newVersion);
       } catch (e) {
