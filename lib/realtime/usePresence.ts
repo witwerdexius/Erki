@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 export type PresenceEntry<T> = T & { presence_ref: string };
 
 export interface UsePresenceOptions<T> {
-  /** Channel-Name, z.B. `planning:${planId}`. */
+  /** Channel-Name, z.B. `planning:${planId}:presence`. */
   channelName: string;
   /** Eigener Tracking-Payload, z.B. `{ userId, name, avatar }`. */
   payload: T;

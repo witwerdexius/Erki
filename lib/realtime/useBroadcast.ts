@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 export interface UseBroadcastOptions<T> {
-  /** Channel-Name, z.B. `planning:${planId}`. */
+  /** Channel-Name, z.B. `planning:${planId}:broadcast`. */
   channelName: string;
   /** Event-Name, z.B. `'editing'` oder `'cursor'`. */
   event: string;

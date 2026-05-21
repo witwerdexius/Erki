@@ -149,15 +149,14 @@ export function applyStationEvent(
 // ── React-Hook ────────────────────────────────────────────────────────────
 
 /**
- * Abonniert die Supabase-Realtime-Channels einer Planung:
- * 1. `planning:${planId}` — UPDATE auf `plannings` (Metadaten + ggf. schwere Felder)
- * 2. `stations:${planId}` — INSERT/UPDATE/DELETE auf `stations`
+ * Abonniert den Supabase-Realtime-Channel `planning:${planId}:sync` und
+ * registriert zwei postgres_changes-Listener (plannings UPDATE + stations *).
  *
  * Ruft `onExternalUpdate(nextPlan)` mit dem gemergten Plan auf, sobald ein anderer
  * Client etwas geändert hat. Echo-Skip + Lazy-Loading-Logik bleiben gegenüber
  * der ehemaligen Inline-Implementierung in `ErkiApp.tsx` 1:1 erhalten.
  *
- * Cleanup: beide Channels werden bei Unmount oder `planId`-Wechsel via
+ * Cleanup: der Channel wird bei Unmount oder `planId`-Wechsel via
  * `supabase.removeChannel` geschlossen — sonst Channel-Leak.
  */
 export function useRealtimeSync(options: UseRealtimeSyncOptions): void {
