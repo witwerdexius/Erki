@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef, MutableRefObject } from 'react';
-import { ChevronLeft, Plus, Trash2, List, Download, Upload, BookTemplate, Pencil, Loader2, BookOpen, FileText, Map as MapIcon, CalendarDays } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, List, Download, Upload, Loader2, BookOpen, FileText, Map as MapIcon, CalendarDays } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { Plan, Station, StationTemplate } from '@/lib/types';
 import type { Phase, Task } from '@/components/zeitplan/types';
@@ -59,9 +59,10 @@ function stationsToPhases(stations: Station[]): Phase[] {
 
 export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate, onSaveNow, onBack, onImmediateSave, isSaving = false, latestPlanRef, isDirtyRef }: ErkiAppProps) {
     const tabKey = `activeTab_${plan.id}`;
-    const [activeTab, setActiveTab] = useState<'map' | 'table' | 'templates' | 'nachdenk' | 'explanation' | 'zeitplan'>(() => {
+    const [activeTab, setActiveTab] = useState<'map' | 'table' | 'nachdenk' | 'explanation' | 'zeitplan'>(() => {
         const stored = sessionStorage.getItem(tabKey);
-        return (stored as 'map' | 'table' | 'templates' | 'nachdenk' | 'explanation' | 'zeitplan' | null) ?? 'table';
+        const valid: string[] = ['map', 'table', 'nachdenk', 'explanation', 'zeitplan'];
+        return (valid.includes(stored ?? '') ? stored : 'table') as 'map' | 'table' | 'nachdenk' | 'explanation' | 'zeitplan';
     });
     const [zeitplanPhases, setZeitplanPhases] = useState<Phase[]>([]);
     const [zeitplanFilter, setZeitplanFilter] = useState<'all' | 'open' | 'mine'>('all');
@@ -69,8 +70,6 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
     const [templates, setTemplates] = useState<StationTemplate[]>([]);
     const [templatesLoaded, setTemplatesLoaded] = useState(false);
     const [showTemplatePicker, setShowTemplatePicker] = useState(false);
-    const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
-    const [editingTemplateData, setEditingTemplateData] = useState<Partial<StationTemplate>>({});
 
     // Immer die aktuellste Version des Plans verwenden. latestPlanRef.current
     // wird in updateActivePlan synchron gesetzt, bevor React re-rendert — ist
@@ -185,24 +184,21 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
         setActiveTab('table');
     };
 
-    const handleCreateBlankTemplate = async () => {
+    const handleCreateBlankTemplate = async (): Promise<StationTemplate | null> => {
         try {
             const t = await createTemplate({ name: 'Neue Vorlage', description: '', material: '', instructions: '', impulses: [], setupBy: '', conductedBy: '' }, user.id);
             setTemplates(prev => [...prev, t].sort((a, b) => a.name.localeCompare(b.name)));
-            setEditingTemplateId(t.id);
-            setEditingTemplateData(t);
+            return t;
         } catch (e) {
             console.error(e);
+            return null;
         }
     };
 
-    const handleSaveTemplateEdit = async () => {
-        if (!editingTemplateId) return;
+    const handleSaveTemplateEdit = async (id: string, data: Partial<StationTemplate>) => {
         try {
-            await updateTemplate(editingTemplateId, editingTemplateData);
-            setTemplates(prev => prev.map(t => t.id === editingTemplateId ? { ...t, ...editingTemplateData } : t).sort((a, b) => a.name.localeCompare(b.name)));
-            setEditingTemplateId(null);
-            setEditingTemplateData({});
+            await updateTemplate(id, data);
+            setTemplates(prev => prev.map(t => t.id === id ? { ...t, ...data } : t).sort((a, b) => a.name.localeCompare(b.name)));
         } catch (e) {
             console.error(e);
         }
@@ -424,14 +420,6 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                                 <List className="w-4 h-4" /> <span className="hidden xs:inline">Tabelle</span>
                             </button>
                             <button
-                                onClick={() => { setActiveTab('templates'); ensureTemplatesLoaded(); }}
-                                className={cn(
-                                    "flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-all",
-                                    activeTab === 'templates' ? "bg-white dark:bg-gray-700 shadow-sm text-[#6bbfd4]" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                                )}>
-                                <BookTemplate className="w-4 h-4" /> <span className="hidden xs:inline">Vorlagen</span>
-                            </button>
-                            <button
                                 onClick={() => setActiveTab('nachdenk')}
                                 className={cn(
                                     "flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-all",
@@ -510,116 +498,6 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                             currentUser={presenceUser.displayName}
                         />
                     ) : null}
-                    {activeTab === 'templates' && (
-                        <div className="flex-1 overflow-auto p-4 sm:p-8">
-                            <div className="max-w-2xl mx-auto">
-                                <div className="flex items-center justify-between mb-6">
-                                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">Vorlagen</h2>
-                                    <button
-                                        onClick={handleCreateBlankTemplate}
-                                        className="flex items-center gap-2 px-4 py-2 bg-[#6bbfd4] text-white rounded-xl text-sm font-medium hover:bg-[#5aaec3] active:scale-[0.98] transition-all"
-                                    >
-                                        <Plus className="w-4 h-4" /> Neue Vorlage
-                                    </button>
-                                </div>
-                                {!templatesLoaded ? (
-                                    <p className="text-center py-12 text-gray-600 dark:text-gray-400">Wird geladen…</p>
-                                ) : templates.length === 0 ? (
-                                    <div className="text-center py-12">
-                                        <p className="text-gray-600 dark:text-gray-400 mb-4">Noch keine Vorlagen vorhanden.</p>
-                                        <button
-                                            onClick={handleCreateBlankTemplate}
-                                            className="px-5 py-2.5 bg-[#6bbfd4] text-white rounded-xl text-sm font-medium hover:bg-[#5aaec3] transition-all"
-                                        >
-                                            Erste Vorlage erstellen
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {templates.map(t => (
-                                            <div key={t.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 group">
-                                                {editingTemplateId === t.id ? (
-                                                    <div className="space-y-3">
-                                                        <input
-                                                            value={editingTemplateData.name ?? ''}
-                                                            onChange={(e) => setEditingTemplateData(d => ({ ...d, name: e.target.value }))}
-                                                            className="w-full font-semibold border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30"
-                                                            placeholder="Name…"
-                                                        />
-                                                        <textarea
-                                                            value={editingTemplateData.description ?? ''}
-                                                            onChange={(e) => setEditingTemplateData(d => ({ ...d, description: e.target.value }))}
-                                                            className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 resize-none"
-                                                            placeholder="Beschreibung…"
-                                                            rows={2}
-                                                        />
-                                                        <textarea
-                                                            value={editingTemplateData.material ?? ''}
-                                                            onChange={(e) => setEditingTemplateData(d => ({ ...d, material: e.target.value }))}
-                                                            className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 resize-none"
-                                                            placeholder="Material…"
-                                                            rows={2}
-                                                        />
-                                                        <textarea
-                                                            value={(editingTemplateData.impulses ?? []).join('\n')}
-                                                            onChange={(e) => setEditingTemplateData(d => ({ ...d, impulses: e.target.value.split('\n').filter(l => l.trim()) }))}
-                                                            className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30 resize-none"
-                                                            placeholder="Gesprächsimpulse (je Zeile ein Impuls)…"
-                                                            rows={3}
-                                                        />
-                                                        <div className="grid grid-cols-2 gap-2">
-                                                            <input
-                                                                value={editingTemplateData.setupBy ?? ''}
-                                                                onChange={(e) => setEditingTemplateData(d => ({ ...d, setupBy: e.target.value }))}
-                                                                className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30"
-                                                                placeholder="Aufbau…"
-                                                            />
-                                                            <input
-                                                                value={editingTemplateData.conductedBy ?? ''}
-                                                                onChange={(e) => setEditingTemplateData(d => ({ ...d, conductedBy: e.target.value }))}
-                                                                className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]/30"
-                                                                placeholder="Durchführung…"
-                                                            />
-                                                        </div>
-                                                        <div className="flex gap-2 justify-end">
-                                                            <button
-                                                                onClick={() => { setEditingTemplateId(null); setEditingTemplateData({}); }}
-                                                                className="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                                                            >Abbrechen</button>
-                                                            <button
-                                                                onClick={handleSaveTemplateEdit}
-                                                                className="px-3 py-1.5 text-sm bg-[#6bbfd4] text-white rounded-lg hover:bg-[#5aaec3]"
-                                                            >Speichern</button>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <div className="flex items-start gap-3">
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="font-semibold text-gray-900 dark:text-gray-50 text-sm">{t.name || '(Kein Name)'}</p>
-                                                            {t.description && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{t.description}</p>}
-                                                            {t.material && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">Material: {t.material}</p>}
-                                                        </div>
-                                                        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <button
-                                                                onClick={() => { setEditingTemplateId(t.id); setEditingTemplateData(t); }}
-                                                                className="p-1.5 text-gray-500 hover:text-[#6bbfd4] transition-colors"
-                                                                title="Bearbeiten"
-                                                            ><Pencil className="w-4 h-4" /></button>
-                                                            <button
-                                                                onClick={() => handleDeleteTemplate(t.id, t.name)}
-                                                                className="p-1.5 text-gray-500 hover:text-red-400 transition-colors"
-                                                                title="Löschen"
-                                                            ><Trash2 className="w-4 h-4" /></button>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
 
                     <div className="px-4 sm:px-8 py-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                         <p>© 2026 Erlebnis Kirche Planner · v{process.env.NEXT_PUBLIC_APP_VERSION}</p>
@@ -656,6 +534,9 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                     templates={templates}
                     onSelect={handleApplyTemplate}
                     onClose={() => setShowTemplatePicker(false)}
+                    onCreateTemplate={handleCreateBlankTemplate}
+                    onSaveTemplate={handleSaveTemplateEdit}
+                    onDeleteTemplate={handleDeleteTemplate}
                 />
             )}
         </div>
