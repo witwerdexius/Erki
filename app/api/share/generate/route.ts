@@ -2,15 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { slugify } from '@/lib/slugify'
+import { ShareGenerateBodySchema } from '@/lib/api/validation'
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { planning_id, planning_title } = body
-
-    if (!planning_id) {
-      return NextResponse.json({ error: 'planning_id is required' }, { status: 400 })
+    const raw = await request.json().catch(() => null)
+    const parsed = ShareGenerateBodySchema.safeParse(raw)
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
     }
+    const { planning_id, planning_title } = parsed.data
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!

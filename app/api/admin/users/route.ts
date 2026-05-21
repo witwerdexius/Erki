@@ -1,46 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { requireAdmin } from '@/lib/api/auth';
+import { AdminUsersBodySchema } from '@/lib/api/validation';
 
 export async function POST(req: NextRequest) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const auth = await requireAdmin(req);
+  if ('error' in auth) return auth.error;
+  const { client } = auth;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 });
+  const raw = await req.json().catch(() => null);
+  const parsed = AdminUsersBodySchema.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-
-  const token = req.headers.get('Authorization')?.replace('Bearer ', '').trim();
-  if (!token) {
-    return NextResponse.json({ error: 'Nicht authentifiziert' }, { status: 401 });
-  }
-
-  const { team, communityId } = await req.json();
-  if (!team || typeof team !== 'string') {
-    return NextResponse.json({ error: 'team fehlt' }, { status: 400 });
-  }
-
-  // Authenticated client: sets Authorization header on all PostgREST requests
-  // so auth.uid() is available in RLS policies
-  const client = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-
-  const { data: { user }, error: authError } = await client.auth.getUser(token);
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Nicht authentifiziert' }, { status: 401 });
-  }
-
-  // RLS: "id = auth.uid()" erlaubt immer das eigene Profil
-  const { data: callerProfile } = await client
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  if (callerProfile?.role !== 'admin') {
-    return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
-  }
+  const { team, communityId } = parsed.data;
 
   // RLS: neue Policy "Admins read all team profiles" erlaubt den Rest
   const [teamResult, noTeamResult] = await Promise.all([

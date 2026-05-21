@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireAdmin } from '@/lib/api/auth';
+import {
+  SnapshotCreateBodySchema,
+  SnapshotListQuerySchema,
+} from '@/lib/api/validation';
 
 function makeAdminClient() {
   return createClient(
@@ -9,6 +14,9 @@ function makeAdminClient() {
   );
 }
 
+// Lightweight Auth-Helper für POST: jeder authentifizierte User darf einen
+// Snapshot anlegen (z. B. vor Stations-Löschung).  GET ist Admin-only und
+// nutzt requireAdmin().
 async function authenticateUser(req: NextRequest) {
   const token = req.headers.get('Authorization')?.replace('Bearer ', '');
   if (!token) return { user: null, adminClient: null, error: 'Nicht authentifiziert' };
@@ -20,24 +28,19 @@ async function authenticateUser(req: NextRequest) {
 
 // GET /api/admin/snapshots?planningId=... — Snapshots einer Planung (nur Admins)
 export async function GET(req: NextRequest) {
-  const { user, adminClient, error } = await authenticateUser(req);
-  if (!user || !adminClient) {
-    return NextResponse.json({ error }, { status: 401 });
+  const auth = await requireAdmin(req);
+  if ('error' in auth) return auth.error;
+
+  const url = new URL(req.url);
+  const parsed = SnapshotListQuerySchema.safeParse({
+    planningId: url.searchParams.get('planningId'),
+  });
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
+  const { planningId } = parsed.data;
 
-  const { data: profile } = await adminClient
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  if (profile?.role !== 'admin') {
-    return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
-  }
-
-  const planningId = new URL(req.url).searchParams.get('planningId');
-  if (!planningId) return NextResponse.json({ error: 'planningId fehlt' }, { status: 400 });
-
+  const adminClient = makeAdminClient();
   const { data, error: dbError } = await adminClient
     .from('planning_snapshots')
     .select('id, planning_id, created_at, created_by, trigger_action, stations_json')
@@ -57,12 +60,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error }, { status: 401 });
   }
 
-  const body = await req.json().catch(() => null);
-  const planningId: string | undefined = body?.planningId;
-  const triggerAction: string | undefined = body?.triggerAction;
-  if (!planningId || !triggerAction) {
-    return NextResponse.json({ error: 'planningId und triggerAction sind erforderlich' }, { status: 400 });
+  const raw = await req.json().catch(() => null);
+  const parsed = SnapshotCreateBodySchema.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
+  const { planningId, triggerAction } = parsed.data;
 
   const { data: stations, error: stErr } = await adminClient
     .from('stations')

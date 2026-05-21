@@ -36,6 +36,7 @@ export default function OnboardingModal({ initialName = '', onComplete }: Props)
       <div
         className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
       >
         <div className="mb-5">
           <h2 className="font-semibold text-gray-900 text-lg">Konto vervollständigen</h2>
