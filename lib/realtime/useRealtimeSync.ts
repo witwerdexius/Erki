@@ -53,6 +53,7 @@ export function rowToStation(row: Record<string, unknown>): Station {
     targetY: row.target_y as number,
     isFilled: row.is_filled as boolean | undefined,
     colorVariant: row.color_variant as number | undefined,
+    helpersRequired: (row.helpers_required as number | null | undefined) ?? 1,
   };
 }
 
@@ -81,7 +82,8 @@ export function isStationEcho(existing: Station, incoming: Station): boolean {
     existing.targetX === incoming.targetX &&
     existing.targetY === incoming.targetY &&
     existing.isFilled === incoming.isFilled &&
-    existing.colorVariant === incoming.colorVariant
+    existing.colorVariant === incoming.colorVariant &&
+    (existing.helpersRequired ?? 1) === (incoming.helpersRequired ?? 1)
   );
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "erki-app",
-  "version": "0.7.160",
+  "version": "0.7.163",
   "private": true,
   "scripts": {
     "dev": "next dev",

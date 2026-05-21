@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Plan, PlanStatus, Station, LogoOverlay, LabelOverlay, StationTemplate, Profile, Community, UserRole } from './types';
+import { Plan, PlanStatus, Station, LogoOverlay, LabelOverlay, StationTemplate, Profile, Community, UserRole, PlanningTask, TaskSection } from './types';
 
 // ── Errors ──────────────────────────────────────────────────────
 
@@ -58,6 +58,7 @@ export function rowToStation(row: any): Station {
     targetY: row.target_y,
     isFilled: row.is_filled,
     colorVariant: row.color_variant,
+    helpersRequired: row.helpers_required ?? 1,
   };
 }
 
@@ -80,6 +81,7 @@ export function stationToRow(station: Station, planningId: string, sortOrder: nu
     is_filled: station.isFilled ?? false,
     color_variant: station.colorVariant ?? 0,
     sort_order: sortOrder,
+    helpers_required: station.helpersRequired ?? 1,
   };
 }
 
@@ -517,4 +519,63 @@ export async function sendInvite(email: string, communityId?: string, isAdmin?: 
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? 'Einladung fehlgeschlagen');
   }
+}
+
+// ── Planning Tasks ──────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToTask(row: any): PlanningTask {
+  return {
+    id: row.id,
+    planningId: row.planning_id,
+    section: row.section as TaskSection,
+    name: row.name,
+    helpersRequired: row.helpers_required,
+    sortOrder: row.sort_order,
+    createdAt: row.created_at,
+  };
+}
+
+export async function loadPlanningTasks(planningId: string): Promise<PlanningTask[]> {
+  const { data, error } = await supabase
+    .from('planning_tasks')
+    .select('*')
+    .eq('planning_id', planningId)
+    .order('sort_order');
+  if (error) throw error;
+  return (data ?? []).map(rowToTask);
+}
+
+export async function createPlanningTask(
+  planningId: string,
+  section: TaskSection,
+  name: string,
+  helpersRequired: number,
+): Promise<PlanningTask> {
+  const { data, error } = await supabase
+    .from('planning_tasks')
+    .insert({
+      planning_id: planningId,
+      section,
+      name,
+      helpers_required: helpersRequired,
+      sort_order: Date.now(),
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToTask(data);
+}
+
+export async function deletePlanningTask(id: string): Promise<void> {
+  const { error } = await supabase.from('planning_tasks').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function updateStationHelpersRequired(stationId: string, helpersRequired: number): Promise<void> {
+  const { error } = await supabase
+    .from('stations')
+    .update({ helpers_required: helpersRequired })
+    .eq('id', stationId);
+  if (error) throw error;
 }

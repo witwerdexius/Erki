@@ -14,6 +14,19 @@ export interface Station {
   targetY: number; // Percentage from top for connection point
   isFilled?: boolean;
   colorVariant?: number; // 0-3 for specific color override
+  helpersRequired?: number;
+}
+
+export type TaskSection = 'aufbau' | 'feierzeit' | 'catering' | 'abbau';
+
+export interface PlanningTask {
+  id: string;
+  planningId: string;
+  section: TaskSection;
+  name: string;
+  helpersRequired: number;
+  sortOrder: number;
+  createdAt?: string;
 }
 
 export interface MaskPolygon {
