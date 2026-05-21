@@ -212,7 +212,7 @@ function buildPlanningUpdatePayload(plan: Plan, previousPlan: Plan | undefined):
   };
 }
 
-export async function savePlanning(plan: Plan, previousPlan?: Plan): Promise<void> {
+export async function savePlanning(plan: Plan, previousPlan?: Plan): Promise<number | null> {
   if (!plan || !plan.id) return;
   console.log('[savePlanning] starte für:', plan.id, '|', plan.title, '| status:', plan.status, '| Stationen:', plan.stations.length);
 
@@ -254,9 +254,11 @@ export async function savePlanning(plan: Plan, previousPlan?: Plan): Promise<voi
   if (expectedVersion !== null) {
     planUpdateBuilder = planUpdateBuilder.eq('version', expectedVersion);
   }
-  // .select('id') liefert nach dem UPDATE die Zeilen-IDs zurück, damit wir
-  // erkennen, ob die Version-Bedingung gematcht hat.
-  const planUpdate = planUpdateBuilder.select('id');
+  // .select('id,version') liefert nach dem UPDATE die neue Version zurück (die
+  // DB-Trigger bump_plannings_version() inkrementiert sie), damit der Client
+  // immer gegen die aktuelle Version speichert und keinen False-Positive
+  // VersionConflictError auslöst.
+  const planUpdate = planUpdateBuilder.select('id,version');
   const stationsUpsert = rows.length > 0
     ? supabase.from('stations').upsert(rows, { onConflict: 'id' })
     : Promise.resolve({ error: null, data: null });
@@ -276,7 +278,12 @@ export async function savePlanning(plan: Plan, previousPlan?: Plan): Promise<voi
     console.warn('[savePlanning] VersionConflictError: erwartete Version', expectedVersion, 'für', plan.id);
     throw new VersionConflictError(plan.id, expectedVersion);
   }
-  console.log('[savePlanning] plannings UPDATE + stations UPSERT ok (' + rows.length + ' Zeilen)');
+  // Neue Version aus der DB-Antwort lesen (vom Trigger hochgezählt)
+  const newVersion: number | null =
+    Array.isArray(planUpdateData) && planUpdateData.length > 0
+      ? (planUpdateData[0] as { version: number }).version
+      : null;
+  console.log('[savePlanning] plannings UPDATE + stations UPSERT ok (' + rows.length + ' Zeilen), neue Version:', newVersion);
 
   // Entfernte Stationen gezielt löschen (nicht mehr im neuen Array vorhanden)
   if (idsToDelete.length > 0) {
@@ -304,6 +311,7 @@ export async function savePlanning(plan: Plan, previousPlan?: Plan): Promise<voi
   }
 
   console.log('[savePlanning] komplett abgeschlossen');
+  return newVersion;
 }
 
 export async function deletePlanning(id: string): Promise<void> {

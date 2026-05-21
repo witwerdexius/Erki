@@ -120,12 +120,24 @@ export default function Home() {
   // weiterhin gegen den letzten bekannten DB-Stand diffed.
   const runSave = useCallback(async (planToSave: Plan): Promise<void> => {
     try {
-      await savePlanning(planToSave, previousPlanRef.current ?? undefined);
+      const newVersion = await savePlanning(planToSave, previousPlanRef.current ?? undefined);
       if (latestPlanRef.current === planToSave) {
         isDirtyRef.current = false;
       }
-      previousPlanRef.current = JSON.parse(JSON.stringify(planToSave)) as Plan;
-      console.log('[Auto-Save] erfolgreich');
+      // Neue Version in den Plan-Snapshot schreiben, damit der nächste Save
+      // die richtige Version im WHERE-Filter hat (verhindert False-Positive
+      // VersionConflictError wenn der DB-Trigger die Version hochgezählt hat).
+      const savedPlan: Plan = newVersion !== null
+        ? { ...planToSave, version: newVersion }
+        : planToSave;
+      previousPlanRef.current = JSON.parse(JSON.stringify(savedPlan)) as Plan;
+      // Auch latestPlanRef und activePlan aktualisieren, falls keine neuere
+      // Änderung reingekommen ist (latestPlanRef === planToSave).
+      if (newVersion !== null && latestPlanRef.current === planToSave) {
+        latestPlanRef.current = savedPlan;
+        setActivePlan(savedPlan);
+      }
+      console.log('[Auto-Save] erfolgreich, neue Version:', newVersion);
     } catch (e) {
       console.error('[Auto-Save] fehlgeschlagen:', e);
       if (e instanceof VersionConflictError) {
@@ -210,12 +222,17 @@ export default function Home() {
     setIsSaving(true);
     const savePromise = (async () => {
       try {
-        await savePlanning(planToSave, previousPlanRef.current ?? undefined);
+        const newVersion = await savePlanning(planToSave, previousPlanRef.current ?? undefined);
         if (latestPlanRef.current === planToSave) {
           isDirtyRef.current = false;
         }
-        previousPlanRef.current = JSON.parse(JSON.stringify(planToSave)) as Plan;
-        console.log('[handleSaveNow] erfolgreich');
+        const savedPlan: Plan = newVersion !== null ? { ...planToSave, version: newVersion } : planToSave;
+        previousPlanRef.current = JSON.parse(JSON.stringify(savedPlan)) as Plan;
+        if (newVersion !== null && latestPlanRef.current === planToSave) {
+          latestPlanRef.current = savedPlan;
+          setActivePlan(savedPlan);
+        }
+        console.log('[handleSaveNow] erfolgreich, neue Version:', newVersion);
       } catch (e) {
         console.error('[handleSaveNow] FEHLGESCHLAGEN:', e);
         if (e instanceof VersionConflictError) {
@@ -266,10 +283,11 @@ export default function Home() {
       console.log('[handleBack] starte savePlanning (unbedingt)...');
       setIsSaving(true);
       try {
-        await savePlanning(plan, previousPlanRef.current ?? undefined);
+        const newVersion = await savePlanning(plan, previousPlanRef.current ?? undefined);
         isDirtyRef.current = false;
-        previousPlanRef.current = JSON.parse(JSON.stringify(plan)) as Plan;
-        console.log('[handleBack] savePlanning erfolgreich');
+        const savedPlan: Plan = newVersion !== null ? { ...plan, version: newVersion } : plan;
+        previousPlanRef.current = JSON.parse(JSON.stringify(savedPlan)) as Plan;
+        console.log('[handleBack] savePlanning erfolgreich, neue Version:', newVersion);
       } catch (e) {
         console.error('[handleBack] savePlanning FEHLGESCHLAGEN:', e);
         if (e instanceof VersionConflictError) {
