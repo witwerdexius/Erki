@@ -118,6 +118,20 @@ export default function RubrikenView({
           const sectionTasks = isStationen ? [] : filteredTasks.filter(t => t.section === id);
           const itemCount = isStationen ? stationCount : sectionTasks.length;
 
+          // Bei aktivem Filter: Rubrik ausblenden wenn keine Aufgaben übrig
+          if (filter !== 'all') {
+            if (isStationen) {
+              const visibleStationTasks = phases.flatMap(p => p.tasks).filter(t => {
+                if (filter === 'open') return t.filled < t.slots;
+                if (filter === 'mine') return t.volunteers.includes(currentUser);
+                return true;
+              });
+              if (visibleStationTasks.length === 0) return null;
+            } else {
+              if (sectionTasks.length === 0) return null;
+            }
+          }
+
           return (
             <section key={id} className="rounded-2xl border border-border bg-card overflow-hidden">
               {/* Section Header */}
