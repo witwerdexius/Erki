@@ -72,9 +72,9 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
       {/* Main Content — Klick auf die Karte klappt auf/zu */}
       <div className="p-4 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
         {/* Top Row: Circle + Name + Button */}
-        <div className="flex items-start gap-3">
+        <div className="flex items-center gap-3">
           {/* Progress Circle */}
-          <div className="relative h-10 w-10 shrink-0 mt-0.5">
+          <div className="relative h-10 w-10 shrink-0">
             <svg className="h-10 w-10 -rotate-90" viewBox="0 0 36 36">
               <circle
                 cx="18"
@@ -105,7 +105,7 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
           </div>
           
           {/* Title & Badges */}
-          <div className="flex-1 min-w-0 pt-0.5">
+          <div className="flex-1 min-w-0">
             <p
               className="font-semibold text-base leading-snug"
               style={{ hyphens: 'auto', wordBreak: 'break-word' }}
