@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Plus, Trash2, Users } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, Users } from 'lucide-react';
 import type { PlanningTask, TaskSection } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Timeline } from '@/components/zeitplan/timeline';
 import { FilterTabs } from '@/components/zeitplan/filter-tabs';
-import type { Phase } from '@/components/zeitplan/types';
+import { TaskCard } from '@/components/zeitplan/task-card';
+import type { Phase, Task } from '@/components/zeitplan/types';
 
 type RubrikenViewProps = {
   /** Anzahl Stationen — nur für den Zähler-Badge der Stationen-Sektion. */
@@ -135,13 +136,20 @@ export default function RubrikenView({
                     <>
                       {sectionTasks.length > 0 && (
                         <div className="space-y-2 p-3">
-                          {sectionTasks.map(task => (
-                            <PlanningTaskCard
-                              key={task.id}
-                              task={task}
-                              onDelete={() => onDeleteTask(task.id)}
-                            />
-                          ))}
+                          {sectionTasks.map(task => {
+                            const asTask: Task = { id: task.id, name: task.name, slots: task.helpersRequired, filled: 0, volunteers: [] };
+                            return (
+                              <TaskCard
+                                key={task.id}
+                                task={asTask}
+                                phaseId={id as string}
+                                onSignUp={() => {}}
+                                onRemove={() => {}}
+                                currentUser=""
+                                onDelete={() => onDeleteTask(task.id)}
+                              />
+                            );
+                          })}
                         </div>
                       )}
 
@@ -214,56 +222,3 @@ export default function RubrikenView({
   );
 }
 
-function PlanningTaskCard({
-  task,
-  onDelete,
-}: {
-  task: PlanningTask;
-  onDelete: () => void;
-}) {
-  return (
-    <div
-      className="rounded-2xl border bg-card transition-all"
-      style={{ borderColor: 'var(--error)', backgroundColor: 'var(--error-bg)' }}
-    >
-      <div className="p-4">
-        {/* Top Row: Circle + Name + Delete */}
-        <div className="flex items-start gap-3">
-          {/* Progress Circle — always 0% */}
-          <div className="relative h-10 w-10 shrink-0 mt-0.5">
-            <svg className="h-10 w-10 -rotate-90" viewBox="0 0 36 36">
-              <circle cx="18" cy="18" r="15" fill="none" className="stroke-border" strokeWidth="3" />
-              <circle cx="18" cy="18" r="15" fill="none" style={{ stroke: 'var(--error)' }} strokeWidth="3" strokeLinecap="round" strokeDasharray="0 100" />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </div>
-          </div>
-          {/* Title */}
-          <div className="flex-1 min-w-0 pt-0.5">
-            <p className="font-semibold text-base leading-snug" style={{ hyphens: 'auto', wordBreak: 'break-word' }} lang="de">
-              {task.name}
-            </p>
-          </div>
-          {/* Delete Button */}
-          <button
-            onClick={onDelete}
-            className="h-10 w-10 shrink-0 flex items-center justify-center rounded-full hover:bg-destructive/10 hover:text-destructive transition-colors text-muted-foreground"
-            aria-label={`${task.name} löschen`}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
-        {/* Bottom Row: Helfer Info */}
-        <div className="pl-[52px] mt-2">
-          <span className="text-sm font-medium" style={{ color: 'var(--error-foreground)' }}>
-            0/{task.helpersRequired} Helfer
-          </span>
-          <span className="text-sm ml-2" style={{ color: 'var(--warning-foreground)' }}>
-            ({task.helpersRequired} offen)
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}

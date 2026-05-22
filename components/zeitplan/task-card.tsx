@@ -8,15 +8,16 @@ import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
-import { 
-  UserPlus, 
-  ChevronDown, 
-  ChevronUp, 
-  Zap, 
-  Check, 
+import {
+  UserPlus,
+  ChevronDown,
+  ChevronUp,
+  Zap,
+  Check,
   X,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  Trash2,
 } from "lucide-react"
 
 type TaskCardProps = {
@@ -25,9 +26,11 @@ type TaskCardProps = {
   onSignUp: (phaseId: string, taskId: string, name: string) => void
   onRemove: (phaseId: string, taskId: string, volunteerName: string) => void
   currentUser: string
+  /** Wenn gesetzt: Eintragen-Button und Expand werden ausgeblendet, stattdessen Löschen-Button. */
+  onDelete?: () => void
 }
 
-export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser }: TaskCardProps) {
+export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDelete }: TaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isSigningUp, setIsSigningUp] = useState(false)
   const [name, setName] = useState("")
@@ -141,22 +144,33 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser }: Tas
           </div>
           
           {/* Sign Up Button - Top Right */}
-          {!isSigningUp && !isUserSignedUp && (
-            <Button
-              onClick={handleQuickSignUp}
-              size="sm"
-              className="h-10 px-4 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+          {onDelete ? (
+            <button
+              onClick={onDelete}
+              className="h-10 w-10 shrink-0 flex items-center justify-center rounded-full hover:bg-destructive/10 hover:text-destructive transition-colors text-muted-foreground"
+              aria-label={`${task.name} löschen`}
             >
-              <UserPlus className="h-4 w-4 mr-2" />
-              Eintragen
-            </Button>
-          )}
-          
-          {isUserSignedUp && (
-            <Badge className="h-10 px-4 rounded-full shrink-0" style={{ backgroundColor: 'var(--success-bg)', color: 'var(--success-foreground)' }}>
-              <Check className="h-4 w-4 mr-2" />
-              Eingetragen
-            </Badge>
+              <Trash2 className="h-4 w-4" />
+            </button>
+          ) : (
+            <>
+              {!isSigningUp && !isUserSignedUp && (
+                <Button
+                  onClick={handleQuickSignUp}
+                  size="sm"
+                  className="h-10 px-4 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Eintragen
+                </Button>
+              )}
+              {isUserSignedUp && (
+                <Badge className="h-10 px-4 rounded-full shrink-0" style={{ backgroundColor: 'var(--success-bg)', color: 'var(--success-foreground)' }}>
+                  <Check className="h-4 w-4 mr-2" />
+                  Eingetragen
+                </Badge>
+              )}
+            </>
           )}
         </div>
         
@@ -176,23 +190,25 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser }: Tas
             )}
           </div>
           
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="h-10 w-10 shrink-0 flex items-center justify-center rounded-full hover:bg-secondary transition-colors"
-            aria-expanded={isExpanded}
-            aria-label={`${task.name} Details ${isExpanded ? "zuklappen" : "aufklappen"}`}
-          >
-            {isExpanded ? (
-              <ChevronUp className="h-5 w-5 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="h-5 w-5 text-muted-foreground" />
-            )}
-          </button>
+          {!onDelete && (
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="h-10 w-10 shrink-0 flex items-center justify-center rounded-full hover:bg-secondary transition-colors"
+              aria-expanded={isExpanded}
+              aria-label={`${task.name} Details ${isExpanded ? "zuklappen" : "aufklappen"}`}
+            >
+              {isExpanded ? (
+                <ChevronUp className="h-5 w-5 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-5 w-5 text-muted-foreground" />
+              )}
+            </button>
+          )}
         </div>
       </div>
       
       {/* Expanded Content */}
-      {isExpanded && (
+      {isExpanded && !onDelete && (
         <div className="px-4 pb-4 pt-0 border-t border-border mt-0">
           <div className="pt-4">
             {/* Progress Bar */}
