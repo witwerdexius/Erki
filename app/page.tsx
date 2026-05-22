@@ -347,8 +347,8 @@ export default function Home() {
 
   if (loadingPlan) {
     return (
-      <main className="min-h-[100dvh] flex items-center justify-center bg-[#fdfdfd]">
-        <p className="text-gray-600">Wird geladen…</p>
+      <main className="min-h-[100dvh] flex items-center justify-center bg-background">
+        <p className="text-muted-foreground">Wird geladen…</p>
       </main>
     );
   }
