@@ -277,9 +277,13 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
     }, [plan.id]);
 
     const handleAddTask = async (section: TaskSection, name: string, helpersRequired: number) => {
-        const task = await createPlanningTask(plan.id, section, name, helpersRequired);
-        // Realtime-Insert wird via usePlanningTasksSync verarbeitet; lokaler Fallback:
-        setPlanningTasks(prev => [...prev, task]);
+        try {
+            const task = await createPlanningTask(plan.id, section, name, helpersRequired);
+            // Realtime-Insert wird via usePlanningTasksSync verarbeitet; lokaler Fallback:
+            setPlanningTasks(prev => [...prev, task]);
+        } catch (e) {
+            console.error('[handleAddTask] Fehler beim Erstellen der Aufgabe:', e);
+        }
     };
 
     const handleDeleteTask = async (id: string) => {
@@ -536,6 +540,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                             stationenContent={
                                 <ZeitplanView
                                     embedded
+                                    hideFilterBar
                                     phases={zeitplanPhases}
                                     filter={zeitplanFilter}
                                     onFilterChange={setZeitplanFilter}
@@ -547,6 +552,10 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                             tasks={planningTasks}
                             onAddTask={handleAddTask}
                             onDeleteTask={handleDeleteTask}
+                            filter={zeitplanFilter}
+                            onFilterChange={setZeitplanFilter}
+                            phases={zeitplanPhases}
+                            currentUser={presenceUser.displayName}
                         />
                     ) : null}
 

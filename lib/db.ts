@@ -541,7 +541,7 @@ export async function loadPlanningTasks(planningId: string): Promise<PlanningTas
     .from('planning_tasks')
     .select('*')
     .eq('planning_id', planningId)
-    .order('sort_order');
+    .order('created_at');
   if (error) throw error;
   return (data ?? []).map(rowToTask);
 }
@@ -559,7 +559,7 @@ export async function createPlanningTask(
       section,
       name,
       helpers_required: helpersRequired,
-      sort_order: Date.now(),
+      sort_order: 0,
     })
     .select()
     .single();

@@ -4,6 +4,9 @@ import { useState } from 'react';
 import { ChevronDown, ChevronUp, Plus, Trash2, Users } from 'lucide-react';
 import type { PlanningTask, TaskSection } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { Timeline } from '@/components/zeitplan/timeline';
+import { FilterTabs } from '@/components/zeitplan/filter-tabs';
+import type { Phase } from '@/components/zeitplan/types';
 
 type RubrikenViewProps = {
   /** Anzahl Stationen — nur für den Zähler-Badge der Stationen-Sektion. */
@@ -13,6 +16,10 @@ type RubrikenViewProps = {
   tasks: PlanningTask[];
   onAddTask: (section: TaskSection, name: string, helpersRequired: number) => Promise<void>;
   onDeleteTask: (id: string) => Promise<void>;
+  filter: 'all' | 'open' | 'mine';
+  onFilterChange: (filter: 'all' | 'open' | 'mine') => void;
+  phases: Phase[];
+  currentUser: string;
 };
 
 type SectionId = TaskSection | 'stationen';
@@ -36,7 +43,15 @@ export default function RubrikenView({
   tasks,
   onAddTask,
   onDeleteTask,
+  filter,
+  onFilterChange,
+  phases,
+  currentUser,
 }: RubrikenViewProps) {
+  const openTasks = phases.reduce((acc, p) => acc + p.tasks.filter(t => t.filled < t.slots).length, 0);
+  const myTasks = phases.reduce((acc, p) => acc + p.tasks.filter(t => t.volunteers.includes(currentUser)).length, 0);
+  const filteredTasks = filter === 'mine' ? [] : tasks;
+
   const [collapsed, setCollapsed] = useState<Record<SectionId, boolean>>({
     aufbau: false,
     stationen: false,
@@ -75,11 +90,20 @@ export default function RubrikenView({
 
   return (
     <div className="flex-1 overflow-auto bg-background">
-      <div className="px-4 py-6 pb-24 max-w-lg mx-auto space-y-3">
+      <div className="px-4 pt-6 max-w-lg mx-auto space-y-3">
+        {phases.length > 0 && <Timeline phases={phases} />}
+        <FilterTabs
+          filter={filter}
+          onFilterChange={onFilterChange}
+          openCount={openTasks}
+          myCount={myTasks}
+        />
+      </div>
+      <div className="px-4 py-3 pb-24 max-w-lg mx-auto space-y-3">
         {SECTIONS.map(({ id, label }) => {
           const isOpen = !collapsed[id];
           const isStationen = id === 'stationen';
-          const sectionTasks = isStationen ? [] : tasks.filter(t => t.section === id);
+          const sectionTasks = isStationen ? [] : filteredTasks.filter(t => t.section === id);
           const itemCount = isStationen ? stationCount : sectionTasks.length;
 
           return (

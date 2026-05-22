@@ -15,6 +15,8 @@ type ZeitplanViewProps = {
     currentUser: string;
     /** Wenn true: kein eigener Scroll-Wrapper — zur Einbettung in andere Scroll-Container. */
     embedded?: boolean;
+    /** Wenn true: Timeline + FilterTabs nicht rendern (nur Phasen-/Task-Liste). */
+    hideFilterBar?: boolean;
 };
 
 export default function ZeitplanView({
@@ -25,6 +27,7 @@ export default function ZeitplanView({
     onRemove,
     currentUser,
     embedded = false,
+    hideFilterBar = false,
 }: ZeitplanViewProps) {
     const openTasks = phases.reduce((acc, p) => acc + p.tasks.filter(t => t.filled < t.slots).length, 0);
     const myTasks = phases.reduce((acc, p) => acc + p.tasks.filter(t => t.volunteers.includes(currentUser)).length, 0);
@@ -42,15 +45,17 @@ export default function ZeitplanView({
 
     const content = (
         <>
-            {phases.length > 0 && (
+            {!hideFilterBar && phases.length > 0 && (
                 <Timeline phases={phases} />
             )}
-            <FilterTabs
-                filter={filter}
-                onFilterChange={onFilterChange}
-                openCount={openTasks}
-                myCount={myTasks}
-            />
+            {!hideFilterBar && (
+                <FilterTabs
+                    filter={filter}
+                    onFilterChange={onFilterChange}
+                    openCount={openTasks}
+                    myCount={myTasks}
+                />
+            )}
             {filteredPhases.length > 0 ? (
                 <PhaseList
                     phases={filteredPhases}
