@@ -185,12 +185,14 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {task.volunteers.map((volunteer, index) => (
-                    <Badge 
-                      key={index} 
+                    <Badge
+                      key={index}
                       variant="secondary"
                       className={cn(
-                        "h-8 pl-3 pr-1 gap-1 rounded-full",
-                        volunteer === currentUser && "bg-primary text-primary-foreground"
+                        "h-8 rounded-full flex items-center",
+                        volunteer === currentUser
+                          ? "pl-3 pr-1 gap-1 bg-primary text-primary-foreground"
+                          : "px-3"
                       )}
                     >
                       {volunteer}
