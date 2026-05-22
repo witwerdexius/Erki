@@ -177,18 +177,11 @@ export default function StationsTable({
 
     return (
         <div ref={tableRef} className="flex-1 min-h-0 overflow-auto p-4 sm:p-12" style={{ overscrollBehavior: 'contain' }}>
-            <div className="flex justify-end items-center gap-3 mb-4">
-                {onlineUsers && currentUser && (
+            {onlineUsers && currentUser && (
+                <div className="flex justify-end mb-4">
                     <PresenceStack onlineUsers={onlineUsers} currentUser={currentUser} />
-                )}
-                <button
-                    onClick={exportTableToPDF}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#6bbfd4] text-white rounded-full shadow-lg border-none cursor-pointer hover:bg-[#5aaec3] transition-all active:scale-95 text-sm font-medium"
-                >
-                    <Download className="w-4 h-4" />
-                    <span className="hidden sm:inline">Tabelle als PDF</span>
-                </button>
-            </div>
+                </div>
+            )}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -461,6 +454,15 @@ export default function StationsTable({
                     </button>
                 </div>
             </motion.div>
+            <div className="flex justify-center mt-4">
+                <button
+                    onClick={exportTableToPDF}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#6bbfd4] text-white rounded-full shadow-lg border-none cursor-pointer hover:bg-[#5aaec3] transition-all active:scale-95 text-sm font-medium"
+                >
+                    <Download className="w-4 h-4" />
+                    <span>Tabelle als PDF</span>
+                </button>
+            </div>
         </div>
     );
 }
