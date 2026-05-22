@@ -186,7 +186,12 @@ export default function Home() {
     isDirtyRef.current = true;
     setActivePlan(updatedPlan);
     clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
+    saveTimer.current = setTimeout(async () => {
+      // Laufenden Save abwarten — sonst feuern zwei Saves gleichzeitig mit
+      // derselben expectedVersion und der zweite wirft VersionConflictError.
+      if (inFlightSaveRef.current) {
+        try { await inFlightSaveRef.current; } catch { /* bereits geloggt */ }
+      }
       const planToSave = latestPlanRef.current;
       if (!planToSave || !isDirtyRef.current) return;
       console.log('[Auto-Save] speichere:', planToSave.title, '| Stationen:', planToSave.stations.length);

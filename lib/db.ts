@@ -328,12 +328,16 @@ export async function deletePlanning(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function updatePlanningStatus(id: string, status: PlanStatus): Promise<void> {
-  const { error } = await supabase
+export async function updatePlanningStatus(id: string, status: PlanStatus): Promise<number | null> {
+  const { data, error } = await supabase
     .from('plannings')
     .update({ status, updated_at: new Date().toISOString() })
-    .eq('id', id);
+    .eq('id', id)
+    .select('id,version');
   if (error) throw error;
+  return Array.isArray(data) && data.length > 0
+    ? (data[0] as { version: number }).version
+    : null;
 }
 
 /** Import a .rki array of plans, creating new DB entries for each. */
