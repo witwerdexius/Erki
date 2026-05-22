@@ -11,9 +11,10 @@ type PhaseListProps = {
   onSignUp: (phaseId: string, taskId: string, name: string) => void
   onRemove: (phaseId: string, taskId: string, volunteerName: string) => void
   currentUser: string
+  hidePhaseTitles?: boolean
 }
 
-export function PhaseList({ phases, onSignUp, onRemove, currentUser }: PhaseListProps) {
+export function PhaseList({ phases, onSignUp, onRemove, currentUser, hidePhaseTitles = false }: PhaseListProps) {
   return (
     <div className="space-y-6">
       {phases.map((phase) => {
@@ -21,15 +22,15 @@ export function PhaseList({ phases, onSignUp, onRemove, currentUser }: PhaseList
         const filledSlots = phase.tasks.reduce((acc, task) => acc + task.filled, 0)
         const percentage = Math.round((filledSlots / totalSlots) * 100)
         const openCount = phase.tasks.filter(t => t.filled < t.slots).length
-        
+
         return (
-          <section 
-            key={phase.id} 
+          <section
+            key={phase.id}
             id={`phase-${phase.id}`}
             className="scroll-mt-20"
           >
             {/* Phase Header */}
-            <div className="mb-3">
+            {!hidePhaseTitles && <div className="mb-3">
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
                   <h2 className="text-lg font-semibold">{phase.name}</h2>
@@ -60,8 +61,8 @@ export function PhaseList({ phases, onSignUp, onRemove, currentUser }: PhaseList
                   )}
                 </span>
               </div>
-            </div>
-            
+            </div>}
+
             {/* Tasks */}
             <div className="space-y-2">
               {phase.tasks.map((task) => (

@@ -62,6 +62,7 @@ export default function ZeitplanView({
                     onSignUp={onSignUp}
                     onRemove={onRemove}
                     currentUser={currentUser}
+                    hidePhaseTitles={embedded}
                 />
             ) : (
                 <EmptyState filter={filter} />

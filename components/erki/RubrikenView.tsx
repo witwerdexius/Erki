@@ -134,15 +134,15 @@ export default function RubrikenView({
                   ) : (
                     <>
                       {sectionTasks.length > 0 && (
-                        <ul className="divide-y divide-border">
+                        <div className="space-y-2 p-3">
                           {sectionTasks.map(task => (
-                            <TaskRow
+                            <PlanningTaskCard
                               key={task.id}
                               task={task}
                               onDelete={() => onDeleteTask(task.id)}
                             />
                           ))}
-                        </ul>
+                        </div>
                       )}
 
                       {/* Add Form */}
@@ -214,7 +214,7 @@ export default function RubrikenView({
   );
 }
 
-function TaskRow({
+function PlanningTaskCard({
   task,
   onDelete,
 }: {
@@ -222,19 +222,48 @@ function TaskRow({
   onDelete: () => void;
 }) {
   return (
-    <li className="flex items-center gap-3 px-4 py-2.5">
-      <span className="flex-1 text-sm truncate">{task.name}</span>
-      <div className="flex items-center gap-1.5 shrink-0 text-muted-foreground text-xs">
-        <Users className="h-3.5 w-3.5" />
-        <span>{task.helpersRequired}</span>
+    <div
+      className="rounded-2xl border bg-card transition-all"
+      style={{ borderColor: 'var(--error)', backgroundColor: 'var(--error-bg)' }}
+    >
+      <div className="p-4">
+        {/* Top Row: Circle + Name + Delete */}
+        <div className="flex items-start gap-3">
+          {/* Progress Circle — always 0% */}
+          <div className="relative h-10 w-10 shrink-0 mt-0.5">
+            <svg className="h-10 w-10 -rotate-90" viewBox="0 0 36 36">
+              <circle cx="18" cy="18" r="15" fill="none" className="stroke-border" strokeWidth="3" />
+              <circle cx="18" cy="18" r="15" fill="none" style={{ stroke: 'var(--error)' }} strokeWidth="3" strokeLinecap="round" strokeDasharray="0 100" />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </div>
+          {/* Title */}
+          <div className="flex-1 min-w-0 pt-0.5">
+            <p className="font-semibold text-base leading-snug" style={{ hyphens: 'auto', wordBreak: 'break-word' }} lang="de">
+              {task.name}
+            </p>
+          </div>
+          {/* Delete Button */}
+          <button
+            onClick={onDelete}
+            className="h-10 w-10 shrink-0 flex items-center justify-center rounded-full hover:bg-destructive/10 hover:text-destructive transition-colors text-muted-foreground"
+            aria-label={`${task.name} löschen`}
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+        {/* Bottom Row: Helfer Info */}
+        <div className="pl-[52px] mt-2">
+          <span className="text-sm font-medium" style={{ color: 'var(--error-foreground)' }}>
+            0/{task.helpersRequired} Helfer
+          </span>
+          <span className="text-sm ml-2" style={{ color: 'var(--warning-foreground)' }}>
+            ({task.helpersRequired} offen)
+          </span>
+        </div>
       </div>
-      <button
-        onClick={onDelete}
-        className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-destructive/10 hover:text-destructive transition-colors text-muted-foreground"
-        aria-label={`${task.name} löschen`}
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
-    </li>
+    </div>
   );
 }
