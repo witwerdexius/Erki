@@ -115,6 +115,11 @@ export function mergeExternalPlanUpdate(
     bgZoom: (row.bg_zoom as number | undefined) ?? current.bgZoom,
     sourceUrl: (row.source_url as string | undefined) ?? current.sourceUrl,
     updatedAt: (row.updated_at as string | undefined) ?? current.updatedAt,
+    // version aus DB-Payload übernehmen: verhindert false-positive
+    // VersionConflictError, wenn die DB-Version durch einen Trigger
+    // (z.B. planning_tasks → plannings bump) erhöht wurde, ohne dass
+    // ein anderer Client den Plan tatsächlich bearbeitet hat.
+    version: (row.version as number | undefined) ?? current.version,
     ...heavy,
   };
 }

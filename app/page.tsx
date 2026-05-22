@@ -104,7 +104,7 @@ export default function Home() {
       setActivePlan(plan);
       setView('editor');
     } catch (e) {
-      console.error(e);
+      console.error('[handleOpenPlan] Fehler beim Laden:', e);
       sessionStorage.removeItem('activePlanId');
       alert('Fehler beim Laden der Planung.');
     }
@@ -276,10 +276,17 @@ export default function Home() {
     saveTimer.current = undefined;
     // Einen Microtask-Tick abwarten, damit React etwaige onBlur-Handler
     // vollständig verarbeiten kann, bevor wir latestPlanRef lesen.
+    // Dirty-Flag sofort deaktivieren: ausstehende Timer-Callbacks prüfen
+    // isDirtyRef.current und starten keinen parallelen Auto-Save mehr, was
+    // sonst mit identischem expectedVersion zum false-positive VersionConflictError
+    // führt. handleBack speichert weiter unbedingt (if plan) – kein Datenverlust.
+    isDirtyRef.current = false;
     await Promise.resolve();
-    // Noch laufenden Save abwarten, damit sich DELETE+INSERT zweier parallel
-    // laufender savePlanning-Aufrufe nicht überlagern.
-    if (inFlightSaveRef.current) {
+    // While-Schleife statt if: ein bereits laufender Timer-Callback kann nach dem
+    // ersten Await einen neuen In-Flight-Save (savePromise2) starten. Wir warten
+    // so lange, bis keiner mehr läuft — sonst zwei parallele Saves mit gleichem
+    // expectedVersion → false-positive VersionConflictError.
+    while (inFlightSaveRef.current) {
       console.log('[handleBack] warte auf laufenden Save...');
       try { await inFlightSaveRef.current; } catch { /* bereits geloggt */ }
     }

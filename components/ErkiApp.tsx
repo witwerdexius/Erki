@@ -287,9 +287,13 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
     };
 
     const handleDeleteTask = async (id: string) => {
-        await deletePlanningTask(id);
-        // Realtime-Delete wird via usePlanningTasksSync verarbeitet; lokaler Fallback:
-        setPlanningTasks(prev => prev.filter(t => t.id !== id));
+        try {
+            await deletePlanningTask(id);
+            // Realtime-Delete wird via usePlanningTasksSync verarbeitet; lokaler Fallback:
+            setPlanningTasks(prev => prev.filter(t => t.id !== id));
+        } catch (e) {
+            console.error('[handleDeleteTask] Fehler:', e);
+        }
     };
 
     const handlePlanningTaskSignUp = async (taskId: string, name: string) => {
