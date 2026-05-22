@@ -34,6 +34,7 @@ export function rowToPlan(row: any, stations: Station[]): Plan {
     explanationData: row.explanation_data ?? undefined,
     sourceUrl: row.source_url ?? undefined,
     version: typeof row.version === 'number' ? row.version : undefined,
+    taskSections: Array.isArray(row.task_sections) ? row.task_sections : undefined,
     stations,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -116,7 +117,7 @@ export async function loadPlanningMeta(id: string): Promise<Plan> {
     await Promise.all([
       supabase
         .from('plannings')
-        .select('id, title, status, url, bg_zoom, source_url, version, created_at, updated_at')
+        .select('id, title, status, url, bg_zoom, source_url, version, task_sections, created_at, updated_at')
         .eq('id', id)
         .single(),
       supabase.from('stations').select('*').eq('planning_id', id).order('sort_order'),
@@ -181,6 +182,9 @@ export function diffPlanRow(prev: Plan, next: Plan): Record<string, unknown> {
   if (JSON.stringify(prev.explanationData ?? null) !== JSON.stringify(next.explanationData ?? null)) {
     patch.explanation_data = next.explanationData ?? null;
   }
+  if (JSON.stringify(prev.taskSections ?? null) !== JSON.stringify(next.taskSections ?? null)) {
+    patch.task_sections = next.taskSections ?? null;
+  }
   return patch;
 }
 
@@ -211,6 +215,7 @@ function buildPlanningUpdatePayload(plan: Plan, previousPlan: Plan | undefined):
     bg_zoom: plan.bgZoom ?? 1,
     source_url: plan.sourceUrl ?? null,
     explanation_data: plan.explanationData ?? null,
+    task_sections: plan.taskSections ?? null,
     updated_at: nowIso,
   };
 }

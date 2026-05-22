@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Clock, Plus, Users } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock, Plus, Trash2, Users } from 'lucide-react';
 import type { PlanningTask, TaskSection } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { FilterTabs } from '@/components/zeitplan/filter-tabs';
@@ -14,8 +14,11 @@ type RubrikenViewProps = {
   /** Inhalt der Stationen-Sektion (ZeitplanView embedded). */
   stationenContent: React.ReactNode;
   tasks: PlanningTask[];
+  taskSections: string[];
   onAddTask: (section: TaskSection, name: string, helpersRequired: number, time?: string) => Promise<void>;
   onDeleteTask: (id: string) => Promise<void>;
+  onAddSection: (name: string) => void;
+  onDeleteSection: (id: string) => void;
   onSignUpTask: (taskId: string, name: string) => void;
   onRemoveFromTask: (taskId: string, name: string) => void;
   filter: 'all' | 'open' | 'mine';
@@ -23,16 +26,6 @@ type RubrikenViewProps = {
   phases: Phase[];
   currentUser: string;
 };
-
-type SectionId = TaskSection | 'stationen';
-
-const SECTIONS: { id: SectionId; label: string }[] = [
-  { id: 'aufbau', label: 'Aufbau' },
-  { id: 'stationen', label: 'Stationen' },
-  { id: 'feierzeit', label: 'Feierzeit' },
-  { id: 'catering', label: 'Catering' },
-  { id: 'abbau', label: 'Abbau' },
-];
 
 type AddFormState = {
   name: string;
@@ -44,8 +37,11 @@ export default function RubrikenView({
   stationCount,
   stationenContent,
   tasks,
+  taskSections,
   onAddTask,
   onDeleteTask,
+  onAddSection,
+  onDeleteSection,
   onSignUpTask,
   onRemoveFromTask,
   filter,
@@ -65,18 +61,22 @@ export default function RubrikenView({
     filter === 'open' ? tasks.filter(t => t.volunteers.length < t.helpersRequired) :
     tasks;
 
-  const [collapsed, setCollapsed] = useState<Record<SectionId, boolean>>({
-    aufbau: false,
-    stationen: false,
-    feierzeit: false,
-    catering: false,
-    abbau: false,
-  });
+  // Build ordered section list: first custom section, then stationen, then the rest
+  const customSections = taskSections.map(id => ({ id, label: id.charAt(0).toUpperCase() + id.slice(1), isStationen: false }));
+  const stationenEntry = { id: 'stationen', label: 'Stationen', isStationen: true };
+  const allSections = customSections.length > 0
+    ? [customSections[0], stationenEntry, ...customSections.slice(1)]
+    : [stationenEntry];
+
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [addingIn, setAddingIn] = useState<TaskSection | null>(null);
   const [addForm, setAddForm] = useState<AddFormState>({ name: '', helpersRequired: 1 });
   const [saving, setSaving] = useState(false);
 
-  const toggleSection = (id: SectionId) => {
+  const [showAddSectionForm, setShowAddSectionForm] = useState(false);
+  const [newSectionName, setNewSectionName] = useState('');
+
+  const toggleSection = (id: string) => {
     setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
@@ -102,6 +102,14 @@ export default function RubrikenView({
     }
   };
 
+  const submitAddSection = () => {
+    const name = newSectionName.trim();
+    if (!name) return;
+    onAddSection(name);
+    setShowAddSectionForm(false);
+    setNewSectionName('');
+  };
+
   return (
     <div className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-800">
       <div className="px-4 pt-6 max-w-lg mx-auto space-y-3">
@@ -113,11 +121,12 @@ export default function RubrikenView({
         />
       </div>
       <div className="px-4 py-3 pb-24 max-w-lg mx-auto space-y-3">
-        {SECTIONS.map(({ id, label }) => {
-          const isOpen = !collapsed[id];
-          const isStationen = id === 'stationen';
+        {allSections.map(({ id, label, isStationen }) => {
+          const isOpen = !(collapsed[id] ?? false);
           const sectionTasks = isStationen ? [] : filteredTasks.filter(t => t.section === id);
+          const allSectionTasks = isStationen ? [] : tasks.filter(t => t.section === id);
           const itemCount = isStationen ? stationCount : sectionTasks.length;
+          const canDelete = !isStationen && allSectionTasks.length === 0;
 
           // Bei aktivem Filter: Rubrik ausblenden wenn keine Aufgaben übrig
           if (filter !== 'all') {
@@ -156,6 +165,15 @@ export default function RubrikenView({
                       aria-label={`Aufgabe zu ${label} hinzufügen`}
                     >
                       <Plus className="h-4 w-4" />
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button
+                      onClick={e => { e.stopPropagation(); onDeleteSection(id); }}
+                      className="h-11 w-11 flex items-center justify-center rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 text-muted-foreground hover:text-red-500 transition-colors"
+                      aria-label={`Rubrik ${label} löschen`}
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   )}
                 </div>
@@ -262,8 +280,47 @@ export default function RubrikenView({
             </section>
           );
         })}
+
+        {/* Rubrik hinzufügen */}
+        {showAddSectionForm ? (
+          <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 px-4 py-3 flex items-center gap-2">
+            <input
+              className="flex-1 h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
+              placeholder="Name der Rubrik…"
+              value={newSectionName}
+              autoFocus
+              onChange={e => setNewSectionName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') submitAddSection();
+                if (e.key === 'Escape') { setShowAddSectionForm(false); setNewSectionName(''); }
+              }}
+            />
+            <button
+              disabled={!newSectionName.trim()}
+              onClick={submitAddSection}
+              className={cn(
+                'h-10 px-4 rounded-full text-sm font-medium bg-[#6bbfd4] text-white hover:bg-[#5aaec3] transition-colors shrink-0',
+                !newSectionName.trim() && 'opacity-50 cursor-not-allowed',
+              )}
+            >
+              Hinzufügen
+            </button>
+            <button
+              onClick={() => { setShowAddSectionForm(false); setNewSectionName(''); }}
+              className="h-10 px-3 rounded-full text-sm text-muted-foreground hover:bg-muted transition-colors shrink-0"
+            >
+              Abbrechen
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowAddSectionForm(true)}
+            className="w-full rounded-2xl border border-dashed border-gray-300 dark:border-gray-600 bg-transparent py-3 text-sm text-muted-foreground hover:border-[#6bbfd4] hover:text-[#6bbfd4] transition-colors"
+          >
+            ＋ Rubrik hinzufügen
+          </button>
+        )}
       </div>
     </div>
   );
 }
-

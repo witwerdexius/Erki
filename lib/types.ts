@@ -17,7 +17,9 @@ export interface Station {
   helpersRequired?: number;
 }
 
-export type TaskSection = 'aufbau' | 'feierzeit' | 'catering' | 'abbau';
+export type TaskSection = string;
+
+export const DEFAULT_TASK_SECTIONS: TaskSection[] = ['aufbau', 'feierzeit', 'catering', 'abbau'];
 
 export interface PlanningTask {
   id: string;
@@ -110,6 +112,7 @@ export interface Plan {
   status: PlanStatus;
   url?: string;
   stations: Station[];
+  taskSections?: string[];
   stationCount?: number; // Nur in der Listenansicht gesetzt (ohne vollständiges Laden der Stationen)
   backgroundImage?: string; // Data URL
   masks?: MaskPolygon[];

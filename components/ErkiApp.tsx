@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef, MutableRefObject } from 'react';
 import { ChevronLeft, Plus, Trash2, List, Download, Upload, Loader2, BookOpen, FileText, Map as MapIcon, CalendarDays } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
-import { Plan, Station, StationTemplate, PlanningTask, TaskSection } from '@/lib/types';
+import { Plan, Station, StationTemplate, PlanningTask, TaskSection, DEFAULT_TASK_SECTIONS } from '@/lib/types';
 import type { Phase, Task } from '@/components/zeitplan/types';
 import { loadTemplates, createTemplate, updateTemplate, deleteTemplate, loadPlanningFull, loadPlanningTasks, createPlanningTask, deletePlanningTask, updatePlanningTaskVolunteers } from '@/lib/db';
 import ShareButton from './ShareButton';
@@ -454,6 +454,21 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
         void onSaveNow(newPlan);
     };
 
+    const taskSections = activePlan.taskSections ?? DEFAULT_TASK_SECTIONS;
+
+    const handleAddSection = (name: string) => {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        const current = (latestPlanRef.current ?? plan).taskSections ?? DEFAULT_TASK_SECTIONS;
+        if (current.includes(trimmed)) return;
+        updateActivePlan({ taskSections: [...current, trimmed] });
+    };
+
+    const handleDeleteSection = (id: string) => {
+        const current = (latestPlanRef.current ?? plan).taskSections ?? DEFAULT_TASK_SECTIONS;
+        updateActivePlan({ taskSections: current.filter(s => s !== id) });
+    };
+
     return (
         <div className="flex h-[100dvh] w-full flex-col bg-[#fdfdfd] dark:bg-gray-900 text-[#1a1a1a] dark:text-gray-100 font-sans selection:bg-[#e8f7fb]">
             {/* Header */}
@@ -570,6 +585,9 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                     ) : activeTab === 'zeitplan' ? (
                         <RubrikenView
                             stationCount={activePlan.stations.length}
+                            taskSections={taskSections}
+                            onAddSection={handleAddSection}
+                            onDeleteSection={handleDeleteSection}
                             stationenContent={
                                 <ZeitplanView
                                     embedded
