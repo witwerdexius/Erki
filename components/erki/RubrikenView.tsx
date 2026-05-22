@@ -136,7 +136,7 @@ export default function RubrikenView({
             <section key={id} className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 overflow-hidden">
               {/* Section Header */}
               <div
-                className="w-full flex items-center justify-between px-4 py-3 min-h-[56px] hover:bg-muted/50 transition-colors cursor-pointer select-none"
+                className="w-full flex items-center justify-between px-4 min-h-[56px] hover:bg-muted/50 transition-colors cursor-pointer select-none"
                 onClick={() => toggleSection(id)}
                 role="button"
                 tabIndex={0}
