@@ -80,6 +80,7 @@ export default function RubrikenView({
   };
 
   const openAddForm = (section: TaskSection) => {
+    setCollapsed(prev => ({ ...prev, [section]: false }));
     setAddingIn(section);
     setAddForm({ name: '', helpersRequired: 1 });
   };
@@ -120,10 +121,13 @@ export default function RubrikenView({
           return (
             <section key={id} className="rounded-2xl border border-border bg-card overflow-hidden">
               {/* Section Header */}
-              <button
-                className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+              <div
+                className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors cursor-pointer select-none"
                 onClick={() => toggleSection(id)}
+                role="button"
+                tabIndex={0}
                 aria-expanded={isOpen}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') toggleSection(id); }}
               >
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-base">{label}</span>
@@ -131,14 +135,25 @@ export default function RubrikenView({
                     {itemCount}
                   </span>
                 </div>
-                {isOpen
-                  ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                  : <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                }
-              </button>
+                <div className="flex items-center gap-1">
+                  {!isStationen && (
+                    <button
+                      onClick={e => { e.stopPropagation(); openAddForm(id as TaskSection); }}
+                      className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-[#6bbfd4]/20 text-[#6bbfd4] transition-colors"
+                      aria-label={`Aufgabe zu ${label} hinzufügen`}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  )}
+                  {isOpen
+                    ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  }
+                </div>
+              </div>
 
               {/* Section Content */}
-              {isOpen && (
+              {isOpen && (isStationen || sectionTasks.length > 0 || addingIn === id) && (
                 <div className="border-t border-border">
                   {isStationen ? (
                     stationenContent
@@ -168,10 +183,8 @@ export default function RubrikenView({
                           })}
                         </div>
                       )}
-
-                      {/* Add Form */}
-                      {addingIn === id ? (
-                        <div className="px-4 py-3 flex flex-col gap-2 border-t border-border">
+                      {addingIn === id && (
+                        <div className={cn('px-4 py-3 flex flex-col gap-2', sectionTasks.length > 0 && 'border-t border-border')}>
                           <input
                             className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
                             placeholder="Aufgabe benennen…"
@@ -214,16 +227,6 @@ export default function RubrikenView({
                               Abbrechen
                             </button>
                           </div>
-                        </div>
-                      ) : (
-                        <div className="px-4 py-3">
-                          <button
-                            onClick={() => openAddForm(id as TaskSection)}
-                            className="flex items-center gap-2 text-sm text-[#6bbfd4] hover:text-[#5aaec3] transition-colors"
-                          >
-                            <Plus className="h-4 w-4" />
-                            Aufgabe hinzufügen
-                          </button>
                         </div>
                       )}
                     </>
