@@ -5,13 +5,10 @@ import type { Task } from "@/components/zeitplan/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Progress } from "@/components/ui/progress"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import {
   UserPlus,
-  ChevronDown,
-  ChevronUp,
   Zap,
   Check,
   X,
@@ -72,8 +69,8 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
       className="rounded-2xl border bg-card transition-all"
       style={getStatusStyle()}
     >
-      {/* Main Content */}
-      <div className="p-4">
+      {/* Main Content — Klick auf die Karte klappt auf/zu */}
+      <div className="p-4 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
         {/* Top Row: Circle + Name + Button */}
         <div className="flex items-start gap-3">
           {/* Progress Circle */}
@@ -146,7 +143,7 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
           {/* Sign Up Button - Top Right */}
           {!isSigningUp && !isUserSignedUp && (
             <Button
-              onClick={handleQuickSignUp}
+              onClick={(e) => { e.stopPropagation(); handleQuickSignUp(); }}
               size="sm"
               className="h-10 px-4 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
             >
@@ -161,50 +158,25 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
             </Badge>
           )}
         </div>
-        
-        {/* Bottom Row: Helfer Info + Chevron */}
-        <div className="flex items-center justify-between mt-2 pl-[52px]">
-          <div className="text-sm text-muted-foreground whitespace-nowrap">
-            <span className={cn(
-              isEmpty && "font-medium",
-              isOverbooked && "font-medium"
-            )} style={isEmpty ? { color: 'var(--error-foreground)' } : isOverbooked ? { color: 'var(--over-foreground)' } : undefined}>
-              {task.filled}/{task.slots} Helfer
-            </span>
-            {!isFull && (
-              <span className="ml-2" style={{ color: 'var(--warning-foreground)' }}>
-                ({task.slots - task.filled} offen)
-              </span>
-            )}
-          </div>
-          
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="h-10 w-10 shrink-0 flex items-center justify-center rounded-full hover:bg-secondary transition-colors"
-            aria-expanded={isExpanded}
-            aria-label={`${task.name} Details ${isExpanded ? "zuklappen" : "aufklappen"}`}
-          >
-            {isExpanded ? (
-              <ChevronUp className="h-5 w-5 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="h-5 w-5 text-muted-foreground" />
-            )}
-          </button>
-        </div>
       </div>
       
       {/* Expanded Content */}
       {isExpanded && (
         <div className="px-4 pb-4 pt-0 border-t border-border mt-0">
           <div className="pt-4">
-            {/* Progress Bar */}
-            <div className="mb-4">
-              <Progress 
-                value={Math.min(100, percentage)} 
-                className="h-2"
-              />
+            {/* Helfer-Info */}
+            <div className="mb-4 text-sm text-muted-foreground">
+              <span className={cn(isEmpty && "font-medium", isOverbooked && "font-medium")}
+                style={isEmpty ? { color: 'var(--error-foreground)' } : isOverbooked ? { color: 'var(--over-foreground)' } : undefined}>
+                {task.filled}/{task.slots} Helfer
+              </span>
+              {!isFull && (
+                <span className="ml-2" style={{ color: 'var(--warning-foreground)' }}>
+                  ({task.slots - task.filled} offen)
+                </span>
+              )}
             </div>
-            
+
             {/* Volunteers List */}
             {task.volunteers.length > 0 && (
               <div className="mb-4">
