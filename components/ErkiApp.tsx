@@ -594,32 +594,30 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                         />
                     ) : null}
 
-                    <div className="px-4 sm:px-8 py-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                        <p>© 2026 Erlebnis Kirche Planner · v{process.env.NEXT_PUBLIC_APP_VERSION}</p>
-                        <div className="flex gap-4">
-                            <label className="hover:text-gray-600 transition-colors cursor-pointer flex items-center gap-1" title="Backup laden (.rki)">
-                                <Upload className="w-4 h-4" />
-                                <span className="hidden sm:inline">Backup laden</span>
-                                <input type="file" className="hidden" accept=".rki" onChange={handleBackupImport} />
-                            </label>
-                            <button
-                                onClick={() => {
-                                    const data = JSON.stringify([plan]);
-                                    const blob = new Blob([data], { type: 'application/octet-stream' });
-                                    const url = URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    const safeName = plan.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(?:^-+)|(?:-+$)/g, '') || 'plan';
-                                    a.download = `erki-${safeName}-${new Date().toISOString().split('T')[0]}.rki`;
-                                    a.click();
-                                    URL.revokeObjectURL(url);
-                                }}
-                                className="hover:text-gray-600 transition-colors"
-                                title="Diese Planung als .rki exportieren"
-                            >
-                                <Download className="w-4 h-4" />
-                            </button>
-                        </div>
+                    <div className="px-4 sm:px-8 py-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 flex items-center justify-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                        <label className="hover:text-gray-600 transition-colors cursor-pointer flex items-center gap-1" title="Backup laden (.rki)">
+                            <Upload className="w-4 h-4" />
+                            <span className="hidden sm:inline">Backup laden</span>
+                            <input type="file" className="hidden" accept=".rki" onChange={handleBackupImport} />
+                        </label>
+                        <p className="text-center">© 2026 Erlebnis Kirche Planner · v{process.env.NEXT_PUBLIC_APP_VERSION}</p>
+                        <button
+                            onClick={() => {
+                                const data = JSON.stringify([plan]);
+                                const blob = new Blob([data], { type: 'application/octet-stream' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                const safeName = plan.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(?:^-+)|(?:-+$)/g, '') || 'plan';
+                                a.download = `erki-${safeName}-${new Date().toISOString().split('T')[0]}.rki`;
+                                a.click();
+                                URL.revokeObjectURL(url);
+                            }}
+                            className="hover:text-gray-600 transition-colors"
+                            title="Diese Planung als .rki exportieren"
+                        >
+                            <Download className="w-4 h-4" />
+                        </button>
                     </div>
                 </main>
             </div>
