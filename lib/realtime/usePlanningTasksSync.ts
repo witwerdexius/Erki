@@ -10,6 +10,7 @@ function rowToTask(row: Record<string, unknown>): PlanningTask {
     name: row.name as string,
     helpersRequired: row.helpers_required as number,
     sortOrder: row.sort_order as number,
+    volunteers: (row.volunteers as string[] | null) ?? [],
     createdAt: row.created_at as string | undefined,
   };
 }
@@ -17,20 +18,20 @@ function rowToTask(row: Record<string, unknown>): PlanningTask {
 export interface UsePlanningTasksSyncOptions {
   planId: string;
   onInsert: (task: PlanningTask) => void;
+  onUpdate: (task: PlanningTask) => void;
   onDelete: (taskId: string) => void;
   enabled?: boolean;
 }
 
 /**
  * Abonniert Realtime-Events auf `planning_tasks` für eine Planung.
- * INSERT → onInsert, DELETE → onDelete.
- * UPDATE wird nicht genutzt (Tasks haben keine editierbaren Felder nach dem Erstellen).
+ * INSERT → onInsert, UPDATE → onUpdate, DELETE → onDelete.
  *
  * Separater Channel `planning:<id>:tasks`, damit kein Konflikt mit dem
  * bestehenden sync-Channel (postgres_changes + subscribe race).
  */
 export function usePlanningTasksSync(options: UsePlanningTasksSyncOptions): void {
-  const { planId, onInsert, onDelete, enabled = true } = options;
+  const { planId, onInsert, onUpdate, onDelete, enabled = true } = options;
 
   useEffect(() => {
     if (!enabled) return;
@@ -44,6 +45,14 @@ export function usePlanningTasksSync(options: UsePlanningTasksSyncOptions): void
         filter: `planning_id=eq.${planId}`,
       }, (payload) => {
         onInsert(rowToTask(payload.new as Record<string, unknown>));
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'planning_tasks',
+        filter: `planning_id=eq.${planId}`,
+      }, (payload) => {
+        onUpdate(rowToTask(payload.new as Record<string, unknown>));
       })
       .on('postgres_changes', {
         event: 'DELETE',

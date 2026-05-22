@@ -17,6 +17,8 @@ type RubrikenViewProps = {
   tasks: PlanningTask[];
   onAddTask: (section: TaskSection, name: string, helpersRequired: number) => Promise<void>;
   onDeleteTask: (id: string) => Promise<void>;
+  onSignUpTask: (taskId: string, name: string) => void;
+  onRemoveFromTask: (taskId: string, name: string) => void;
   filter: 'all' | 'open' | 'mine';
   onFilterChange: (filter: 'all' | 'open' | 'mine') => void;
   phases: Phase[];
@@ -44,14 +46,24 @@ export default function RubrikenView({
   tasks,
   onAddTask,
   onDeleteTask,
+  onSignUpTask,
+  onRemoveFromTask,
   filter,
   onFilterChange,
   phases,
   currentUser,
 }: RubrikenViewProps) {
-  const openTasks = phases.reduce((acc, p) => acc + p.tasks.filter(t => t.filled < t.slots).length, 0);
-  const myTasks = phases.reduce((acc, p) => acc + p.tasks.filter(t => t.volunteers.includes(currentUser)).length, 0);
-  const filteredTasks = filter === 'mine' ? [] : tasks;
+  const openStationTasks = phases.reduce((acc, p) => acc + p.tasks.filter(t => t.filled < t.slots).length, 0);
+  const myStationTasks = phases.reduce((acc, p) => acc + p.tasks.filter(t => t.volunteers.includes(currentUser)).length, 0);
+  const openPlanningTasks = tasks.filter(t => t.volunteers.length < t.helpersRequired).length;
+  const myPlanningTasks = tasks.filter(t => t.volunteers.includes(currentUser)).length;
+  const openTasks = openStationTasks + openPlanningTasks;
+  const myTasks = myStationTasks + myPlanningTasks;
+
+  const filteredTasks =
+    filter === 'mine' ? tasks.filter(t => t.volunteers.includes(currentUser)) :
+    filter === 'open' ? tasks.filter(t => t.volunteers.length < t.helpersRequired) :
+    tasks;
 
   const [collapsed, setCollapsed] = useState<Record<SectionId, boolean>>({
     aufbau: false,
@@ -137,15 +149,21 @@ export default function RubrikenView({
                       {sectionTasks.length > 0 && (
                         <div className="space-y-2 p-3">
                           {sectionTasks.map(task => {
-                            const asTask: Task = { id: task.id, name: task.name, slots: task.helpersRequired, filled: 0, volunteers: [] };
+                            const asTask: Task = {
+                              id: task.id,
+                              name: task.name,
+                              slots: task.helpersRequired,
+                              filled: task.volunteers.length,
+                              volunteers: task.volunteers,
+                            };
                             return (
                               <TaskCard
                                 key={task.id}
                                 task={asTask}
                                 phaseId={id as string}
-                                onSignUp={() => {}}
-                                onRemove={() => {}}
-                                currentUser=""
+                                onSignUp={(_phaseId, taskId, name) => onSignUpTask(taskId, name)}
+                                onRemove={(_phaseId, taskId, name) => onRemoveFromTask(taskId, name)}
+                                currentUser={currentUser}
                                 onDelete={() => onDeleteTask(task.id)}
                               />
                             );

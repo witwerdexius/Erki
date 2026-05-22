@@ -532,6 +532,7 @@ function rowToTask(row: any): PlanningTask {
     name: row.name,
     helpersRequired: row.helpers_required,
     sortOrder: row.sort_order,
+    volunteers: row.volunteers ?? [],
     createdAt: row.created_at,
   };
 }
@@ -569,6 +570,14 @@ export async function createPlanningTask(
 
 export async function deletePlanningTask(id: string): Promise<void> {
   const { error } = await supabase.from('planning_tasks').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function updatePlanningTaskVolunteers(taskId: string, volunteers: string[]): Promise<void> {
+  const { error } = await supabase
+    .from('planning_tasks')
+    .update({ volunteers })
+    .eq('id', taskId);
   if (error) throw error;
 }
 

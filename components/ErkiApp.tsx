@@ -5,7 +5,7 @@ import { ChevronLeft, Plus, Trash2, List, Download, Upload, Loader2, BookOpen, F
 import type { User } from '@supabase/supabase-js';
 import { Plan, Station, StationTemplate, PlanningTask, TaskSection } from '@/lib/types';
 import type { Phase, Task } from '@/components/zeitplan/types';
-import { loadTemplates, createTemplate, updateTemplate, deleteTemplate, loadPlanningFull, loadPlanningTasks, createPlanningTask, deletePlanningTask } from '@/lib/db';
+import { loadTemplates, createTemplate, updateTemplate, deleteTemplate, loadPlanningFull, loadPlanningTasks, createPlanningTask, deletePlanningTask, updatePlanningTaskVolunteers } from '@/lib/db';
 import ShareButton from './ShareButton';
 import { ThemeToggle } from './ThemeToggle';
 import { cn } from '@/lib/utils';
@@ -292,6 +292,32 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
         setPlanningTasks(prev => prev.filter(t => t.id !== id));
     };
 
+    const handlePlanningTaskSignUp = async (taskId: string, name: string) => {
+        const task = planningTasks.find(t => t.id === taskId);
+        if (!task) return;
+        const newVolunteers = [...task.volunteers, name];
+        // Optimistic update
+        setPlanningTasks(prev => prev.map(t => t.id === taskId ? { ...t, volunteers: newVolunteers } : t));
+        try {
+            await updatePlanningTaskVolunteers(taskId, newVolunteers);
+        } catch (e) {
+            console.error('[handlePlanningTaskSignUp] Fehler:', e);
+        }
+    };
+
+    const handlePlanningTaskRemove = async (taskId: string, name: string) => {
+        const task = planningTasks.find(t => t.id === taskId);
+        if (!task) return;
+        const newVolunteers = task.volunteers.filter(v => v !== name);
+        // Optimistic update
+        setPlanningTasks(prev => prev.map(t => t.id === taskId ? { ...t, volunteers: newVolunteers } : t));
+        try {
+            await updatePlanningTaskVolunteers(taskId, newVolunteers);
+        } catch (e) {
+            console.error('[handlePlanningTaskRemove] Fehler:', e);
+        }
+    };
+
     // Realtime-Sync: plannings-UPDATEs + stations-INSERT/UPDATE/DELETE.
     // Verhalten (Echo-Skip, Heavy-Field-Lazy-Loading, Cleanup beider Channels)
     // ist im Hook gekapselt — Logik unverändert gegenüber der ehemaligen
@@ -314,6 +340,9 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
         planId: plan.id,
         onInsert: (task) => setPlanningTasks(prev =>
             prev.some(t => t.id === task.id) ? prev : [...prev, task],
+        ),
+        onUpdate: (task) => setPlanningTasks(prev =>
+            prev.map(t => t.id === task.id ? task : t),
         ),
         onDelete: (taskId) => setPlanningTasks(prev => prev.filter(t => t.id !== taskId)),
         enabled: true,
@@ -552,6 +581,8 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                             tasks={planningTasks}
                             onAddTask={handleAddTask}
                             onDeleteTask={handleDeleteTask}
+                            onSignUpTask={handlePlanningTaskSignUp}
+                            onRemoveFromTask={handlePlanningTaskRemove}
                             filter={zeitplanFilter}
                             onFilterChange={setZeitplanFilter}
                             phases={zeitplanPhases}

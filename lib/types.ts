@@ -26,6 +26,7 @@ export interface PlanningTask {
   name: string;
   helpersRequired: number;
   sortOrder: number;
+  volunteers: string[];
   createdAt?: string;
 }
 
