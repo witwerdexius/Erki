@@ -210,7 +210,7 @@ export default function RubrikenView({
                               if (e.key === 'Escape') cancelAdd();
                             }}
                           />
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <label className="text-xs text-muted-foreground flex items-center gap-1 shrink-0">
                               <Users className="h-3.5 w-3.5" />
                               Helfer
@@ -229,27 +229,29 @@ export default function RubrikenView({
                             </label>
                             <input
                               type="time"
-                              className="w-28 h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
+                              className="w-32 h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
                               value={addForm.time}
                               onChange={e => setAddForm(f => ({ ...f, time: e.target.value }))}
                             />
                             <div className="flex-1" />
-                            <button
-                              disabled={saving || !addForm.name.trim()}
-                              onClick={() => void submitAdd(id as TaskSection)}
-                              className={cn(
-                                'h-10 px-4 rounded-full text-sm font-medium bg-[#6bbfd4] text-white hover:bg-[#5aaec3] transition-colors',
-                                (saving || !addForm.name.trim()) && 'opacity-50 cursor-not-allowed',
-                              )}
-                            >
-                              Hinzufügen
-                            </button>
-                            <button
-                              onClick={cancelAdd}
-                              className="h-10 px-3 rounded-full text-sm text-muted-foreground hover:bg-muted transition-colors"
-                            >
-                              Abbrechen
-                            </button>
+                            <div className="flex gap-2 ml-auto">
+                              <button
+                                disabled={saving || !addForm.name.trim()}
+                                onClick={() => void submitAdd(id as TaskSection)}
+                                className={cn(
+                                  'h-10 px-4 rounded-full text-sm font-medium bg-[#6bbfd4] text-white hover:bg-[#5aaec3] transition-colors',
+                                  (saving || !addForm.name.trim()) && 'opacity-50 cursor-not-allowed',
+                                )}
+                              >
+                                Hinzufügen
+                              </button>
+                              <button
+                                onClick={cancelAdd}
+                                className="h-10 px-3 rounded-full text-sm text-muted-foreground hover:bg-muted transition-colors"
+                              >
+                                Abbrechen
+                              </button>
+                            </div>
                           </div>
                         </div>
                       )}
