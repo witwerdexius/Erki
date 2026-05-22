@@ -281,11 +281,11 @@ export async function savePlanning(plan: Plan, previousPlan?: Plan): Promise<num
     throw new VersionConflictError(plan.id, expectedVersion);
   }
   // Neue Version aus der DB-Antwort lesen (vom Trigger hochgezählt)
-  const newVersion: number | null =
+  let finalVersion: number | null =
     Array.isArray(planUpdateData) && planUpdateData.length > 0
       ? (planUpdateData[0] as { version: number }).version
       : null;
-  console.log('[savePlanning] plannings UPDATE + stations UPSERT ok (' + rows.length + ' Zeilen), neue Version:', newVersion);
+  console.log('[savePlanning] plannings UPDATE + stations UPSERT ok (' + rows.length + ' Zeilen), neue Version:', finalVersion);
 
   // Entfernte Stationen gezielt löschen (nicht mehr im neuen Array vorhanden)
   if (idsToDelete.length > 0) {
@@ -300,20 +300,27 @@ export async function savePlanning(plan: Plan, previousPlan?: Plan): Promise<num
     console.log('[savePlanning] entfernte Stationen gelöscht:', idsToDelete.length);
   }
 
-  // explanation_data separat updaten (kann bei großen Base64-Bildern timeoutten)
+  // explanation_data separat updaten (kann bei großen Base64-Bildern timeoutten).
+  // Auch hier .select('id,version') um die vom Trigger hochgezählte Version zu lesen —
+  // sonst wäre finalVersion um 1 zu niedrig und der nächste Save würde mit einem
+  // False-Positive VersionConflictError scheitern.
   try {
-    const { error: explError } = await supabase
+    const { data: explData, error: explError } = await supabase
       .from('plannings')
       .update({ explanation_data: plan.explanationData ?? null })
-      .eq('id', plan.id);
+      .eq('id', plan.id)
+      .select('id,version');
     if (explError) throw explError;
-    console.log('[savePlanning] explanation_data UPDATE ok');
+    if (Array.isArray(explData) && explData.length > 0) {
+      finalVersion = (explData[0] as { version: number }).version;
+    }
+    console.log('[savePlanning] explanation_data UPDATE ok, finale Version:', finalVersion);
   } catch (e) {
     console.error('[savePlanning] explanation_data UPDATE Fehler (ignoriert):', e);
   }
 
   console.log('[savePlanning] komplett abgeschlossen');
-  return newVersion;
+  return finalVersion;
 }
 
 export async function deletePlanning(id: string): Promise<void> {
