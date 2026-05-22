@@ -13,11 +13,11 @@ type FilterTabsProps = {
 export function FilterTabs({ filter, onFilterChange, openCount, myCount }: FilterTabsProps) {
   return (
     <Tabs value={filter} onValueChange={(v) => onFilterChange(v as "all" | "open" | "mine")} className="mb-4">
-      <TabsList className="w-full h-12 p-1 rounded-full bg-secondary">
-        <TabsTrigger value="all" className="flex-1 h-10 text-sm gap-2 rounded-full data-[state=active]:bg-card data-[state=active]:shadow-sm">
+      <TabsList className="w-full h-12 p-1 rounded-full bg-secondary dark:bg-gray-600">
+        <TabsTrigger value="all" className="flex-1 h-10 text-sm gap-2 rounded-full dark:text-gray-300 data-[state=active]:bg-card data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-300 dark:data-[state=active]:text-gray-900">
           Alle
         </TabsTrigger>
-        <TabsTrigger value="open" className="flex-1 h-10 text-sm gap-2 rounded-full data-[state=active]:bg-card data-[state=active]:shadow-sm">
+        <TabsTrigger value="open" className="flex-1 h-10 text-sm gap-2 rounded-full dark:text-gray-300 data-[state=active]:bg-card data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-300 dark:data-[state=active]:text-gray-900">
           Offen
           {openCount > 0 && (
             <Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1.5 text-xs rounded-full">
@@ -25,7 +25,7 @@ export function FilterTabs({ filter, onFilterChange, openCount, myCount }: Filte
             </Badge>
           )}
         </TabsTrigger>
-        <TabsTrigger value="mine" className="flex-1 h-10 text-sm gap-2 rounded-full data-[state=active]:bg-card data-[state=active]:shadow-sm">
+        <TabsTrigger value="mine" className="flex-1 h-10 text-sm gap-2 rounded-full dark:text-gray-300 data-[state=active]:bg-card data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-300 dark:data-[state=active]:text-gray-900">
           Meine
           {myCount > 0 && (
             <Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1.5 text-xs rounded-full">
