@@ -37,7 +37,7 @@ const SECTIONS: { id: SectionId; label: string }[] = [
 type AddFormState = {
   name: string;
   helpersRequired: number;
-  time: string;
+  time?: string;
 };
 
 export default function RubrikenView({
