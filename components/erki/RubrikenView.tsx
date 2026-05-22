@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { ChevronDown, ChevronUp, Plus, Users } from 'lucide-react';
 import type { PlanningTask, TaskSection } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { Timeline } from '@/components/zeitplan/timeline';
 import { FilterTabs } from '@/components/zeitplan/filter-tabs';
 import { TaskCard } from '@/components/zeitplan/task-card';
 import type { Phase, Task } from '@/components/zeitplan/types';
@@ -104,7 +103,6 @@ export default function RubrikenView({
   return (
     <div className="flex-1 overflow-auto bg-background">
       <div className="px-4 pt-6 max-w-lg mx-auto space-y-3">
-        {phases.length > 0 && <Timeline phases={phases} />}
         <FilterTabs
           filter={filter}
           onFilterChange={onFilterChange}
