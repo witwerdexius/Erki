@@ -120,6 +120,7 @@ export default function Home() {
   // weiterhin gegen den letzten bekannten DB-Stand diffed.
   const runSave = useCallback(async (planToSave: Plan): Promise<void> => {
     try {
+      console.log('[runSave] planToSave.version=', planToSave.version, 'previousPlanRef.version=', previousPlanRef.current?.version);
       const newVersion = await savePlanning(planToSave, previousPlanRef.current ?? undefined);
       if (latestPlanRef.current === planToSave) {
         isDirtyRef.current = false;
@@ -192,6 +193,7 @@ export default function Home() {
       if (inFlightSaveRef.current) {
         try { await inFlightSaveRef.current; } catch { /* bereits geloggt */ }
       }
+      console.log('[Timer] nach await inFlightSaveRef: latestPlanRef.version=', latestPlanRef.current?.version, 'isDirty=', isDirtyRef.current);
       const planToSave = latestPlanRef.current;
       if (!planToSave || !isDirtyRef.current) return;
       console.log('[Auto-Save] speichere:', planToSave.title, '| Stationen:', planToSave.stations.length);
