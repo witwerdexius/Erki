@@ -172,7 +172,7 @@ export default function RubrikenView({
                   ) : (
                     <>
                       {sectionTasks.length > 0 && (
-                        <div className="space-y-2 p-3">
+                        <div className="space-y-2 px-3 pt-1 pb-3">
                           {sectionTasks.map(task => {
                             const asTask: Task = {
                               id: task.id,
