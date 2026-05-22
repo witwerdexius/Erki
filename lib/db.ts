@@ -526,6 +526,7 @@ function rowToTask(row: any): PlanningTask {
     helpersRequired: row.helpers_required,
     sortOrder: row.sort_order,
     volunteers: row.volunteers ?? [],
+    time: row.time ?? undefined,
     createdAt: row.created_at,
   };
 }
@@ -545,6 +546,7 @@ export async function createPlanningTask(
   section: TaskSection,
   name: string,
   helpersRequired: number,
+  time?: string,
 ): Promise<PlanningTask> {
   const { data, error } = await supabase
     .from('planning_tasks')
@@ -554,6 +556,7 @@ export async function createPlanningTask(
       name,
       helpers_required: helpersRequired,
       sort_order: 0,
+      ...(time ? { time } : {}),
     })
     .select()
     .single();

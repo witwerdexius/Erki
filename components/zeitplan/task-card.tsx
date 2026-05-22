@@ -106,12 +106,15 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
           
           {/* Title & Badges */}
           <div className="flex-1 min-w-0 pt-0.5">
-            <p 
+            <p
               className="font-semibold text-base leading-snug"
               style={{ hyphens: 'auto', wordBreak: 'break-word' }}
               lang="de"
             >
               {task.name}
+              {task.time && (
+                <span className="ml-1.5 font-normal text-muted-foreground text-sm">· {task.time}</span>
+              )}
               {task.isAuto && (
                 <Tooltip>
                   <TooltipTrigger asChild>

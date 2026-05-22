@@ -11,6 +11,7 @@ function rowToTask(row: Record<string, unknown>): PlanningTask {
     helpersRequired: row.helpers_required as number,
     sortOrder: row.sort_order as number,
     volunteers: (row.volunteers as string[] | null) ?? [],
+    time: (row.time as string | null) ?? undefined,
     createdAt: row.created_at as string | undefined,
   };
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Plus, Users } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock, Plus, Users } from 'lucide-react';
 import type { PlanningTask, TaskSection } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { FilterTabs } from '@/components/zeitplan/filter-tabs';
@@ -14,7 +14,7 @@ type RubrikenViewProps = {
   /** Inhalt der Stationen-Sektion (ZeitplanView embedded). */
   stationenContent: React.ReactNode;
   tasks: PlanningTask[];
-  onAddTask: (section: TaskSection, name: string, helpersRequired: number) => Promise<void>;
+  onAddTask: (section: TaskSection, name: string, helpersRequired: number, time?: string) => Promise<void>;
   onDeleteTask: (id: string) => Promise<void>;
   onSignUpTask: (taskId: string, name: string) => void;
   onRemoveFromTask: (taskId: string, name: string) => void;
@@ -37,6 +37,7 @@ const SECTIONS: { id: SectionId; label: string }[] = [
 type AddFormState = {
   name: string;
   helpersRequired: number;
+  time: string;
 };
 
 export default function RubrikenView({
@@ -82,7 +83,7 @@ export default function RubrikenView({
   const openAddForm = (section: TaskSection) => {
     setCollapsed(prev => ({ ...prev, [section]: false }));
     setAddingIn(section);
-    setAddForm({ name: '', helpersRequired: 1 });
+    setAddForm({ name: '', helpersRequired: 1, time: '' });
   };
 
   const cancelAdd = () => {
@@ -94,7 +95,7 @@ export default function RubrikenView({
     if (!name) return;
     setSaving(true);
     try {
-      await onAddTask(section, name, addForm.helpersRequired);
+      await onAddTask(section, name, addForm.helpersRequired, addForm.time || undefined);
       setAddingIn(null);
     } finally {
       setSaving(false);
@@ -180,6 +181,7 @@ export default function RubrikenView({
                               slots: task.helpersRequired,
                               filled: task.volunteers.length,
                               volunteers: task.volunteers,
+                              time: task.time,
                             };
                             return (
                               <TaskCard
@@ -220,6 +222,16 @@ export default function RubrikenView({
                               className="w-16 h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
                               value={addForm.helpersRequired}
                               onChange={e => setAddForm(f => ({ ...f, helpersRequired: Math.max(1, parseInt(e.target.value) || 1) }))}
+                            />
+                            <label className="text-xs text-muted-foreground flex items-center gap-1 shrink-0">
+                              <Clock className="h-3.5 w-3.5" />
+                              Uhrzeit
+                            </label>
+                            <input
+                              type="time"
+                              className="w-28 h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
+                              value={addForm.time}
+                              onChange={e => setAddForm(f => ({ ...f, time: e.target.value }))}
                             />
                             <div className="flex-1" />
                             <button

@@ -276,9 +276,9 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
         aufgabenLoadedForPlanRef.current = null;
     }, [plan.id]);
 
-    const handleAddTask = async (section: TaskSection, name: string, helpersRequired: number) => {
+    const handleAddTask = async (section: TaskSection, name: string, helpersRequired: number, time?: string) => {
         try {
-            const task = await createPlanningTask(plan.id, section, name, helpersRequired);
+            const task = await createPlanningTask(plan.id, section, name, helpersRequired, time);
             // Realtime-Insert wird via usePlanningTasksSync verarbeitet; lokaler Fallback:
             setPlanningTasks(prev => [...prev, task]);
         } catch (e) {
