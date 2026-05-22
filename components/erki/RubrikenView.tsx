@@ -102,7 +102,7 @@ export default function RubrikenView({
   };
 
   return (
-    <div className="flex-1 overflow-auto bg-background">
+    <div className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-800">
       <div className="px-4 pt-6 max-w-lg mx-auto space-y-3">
         <FilterTabs
           filter={filter}
@@ -133,7 +133,7 @@ export default function RubrikenView({
           }
 
           return (
-            <section key={id} className="rounded-2xl border border-border bg-card overflow-hidden">
+            <section key={id} className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 overflow-hidden">
               {/* Section Header */}
               <div
                 className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors cursor-pointer select-none"
