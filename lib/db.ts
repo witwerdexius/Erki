@@ -154,13 +154,10 @@ export async function createPlanning(title: string, userId: string): Promise<Pla
  * Pure helper: berechnet, welche plannings-Spalten zwischen prev und next
  * geändert wurden. Liefert die Patch-Map mit snake_case-Keys.
  *
- * Komplexe Felder (masks-Array, logo_overlay-Objekt, label_overlay-Objekt)
- * werden via JSON.stringify shallow verglichen — pragmatisch, nicht
- * bulletproof: bei unterschiedlicher Key-Reihenfolge sind false-positives
+ * Komplexe Felder (masks-Array, logo_overlay-Objekt, label_overlay-Objekt,
+ * explanation_data) werden via JSON.stringify shallow verglichen — pragmatisch,
+ * nicht bulletproof: bei unterschiedlicher Key-Reihenfolge sind false-positives
  * möglich, das ist akzeptabel (überflüssiger DB-Write < verlorene Felder).
- *
- * Hinweis: explanation_data wird hier NICHT diffen, weil es in savePlanning
- * separat ge-updated wird (Timeout-Schutz bei großen Base64-Bildern).
  */
 export function diffPlanRow(prev: Plan, next: Plan): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
@@ -181,6 +178,9 @@ export function diffPlanRow(prev: Plan, next: Plan): Record<string, unknown> {
   }
   if ((prev.bgZoom ?? 1) !== (next.bgZoom ?? 1)) patch.bg_zoom = next.bgZoom ?? 1;
   if ((prev.sourceUrl ?? null) !== (next.sourceUrl ?? null)) patch.source_url = next.sourceUrl ?? null;
+  if (JSON.stringify(prev.explanationData ?? null) !== JSON.stringify(next.explanationData ?? null)) {
+    patch.explanation_data = next.explanationData ?? null;
+  }
   return patch;
 }
 
@@ -210,6 +210,7 @@ function buildPlanningUpdatePayload(plan: Plan, previousPlan: Plan | undefined):
     label_overlay: plan.labelOverlay ?? null,
     bg_zoom: plan.bgZoom ?? 1,
     source_url: plan.sourceUrl ?? null,
+    explanation_data: plan.explanationData ?? null,
     updated_at: nowIso,
   };
 }
@@ -281,11 +282,11 @@ export async function savePlanning(plan: Plan, previousPlan?: Plan): Promise<num
     throw new VersionConflictError(plan.id, expectedVersion);
   }
   // Neue Version aus der DB-Antwort lesen (vom Trigger hochgezählt)
-  let finalVersion: number | null =
+  const newVersion: number | null =
     Array.isArray(planUpdateData) && planUpdateData.length > 0
       ? (planUpdateData[0] as { version: number }).version
       : null;
-  console.log('[savePlanning] plannings UPDATE + stations UPSERT ok (' + rows.length + ' Zeilen), neue Version:', finalVersion);
+  console.log('[savePlanning] plannings UPDATE + stations UPSERT ok (' + rows.length + ' Zeilen), neue Version:', newVersion);
 
   // Entfernte Stationen gezielt löschen (nicht mehr im neuen Array vorhanden)
   if (idsToDelete.length > 0) {
@@ -300,27 +301,8 @@ export async function savePlanning(plan: Plan, previousPlan?: Plan): Promise<num
     console.log('[savePlanning] entfernte Stationen gelöscht:', idsToDelete.length);
   }
 
-  // explanation_data separat updaten (kann bei großen Base64-Bildern timeoutten).
-  // Auch hier .select('id,version') um die vom Trigger hochgezählte Version zu lesen —
-  // sonst wäre finalVersion um 1 zu niedrig und der nächste Save würde mit einem
-  // False-Positive VersionConflictError scheitern.
-  try {
-    const { data: explData, error: explError } = await supabase
-      .from('plannings')
-      .update({ explanation_data: plan.explanationData ?? null })
-      .eq('id', plan.id)
-      .select('id,version');
-    if (explError) throw explError;
-    if (Array.isArray(explData) && explData.length > 0) {
-      finalVersion = (explData[0] as { version: number }).version;
-    }
-    console.log('[savePlanning] explanation_data UPDATE ok, finale Version:', finalVersion);
-  } catch (e) {
-    console.error('[savePlanning] explanation_data UPDATE Fehler (ignoriert):', e);
-  }
-
   console.log('[savePlanning] komplett abgeschlossen');
-  return finalVersion;
+  return newVersion;
 }
 
 export async function deletePlanning(id: string): Promise<void> {
