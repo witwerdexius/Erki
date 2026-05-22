@@ -261,14 +261,12 @@ export async function savePlanning(plan: Plan, previousPlan?: Plan): Promise<num
   // DB-Trigger bump_plannings_version() inkrementiert sie), damit der Client
   // immer gegen die aktuelle Version speichert und keinen False-Positive
   // VersionConflictError auslöst.
-  console.log('[savePlanning] UPDATE payload:', JSON.stringify(updatePayload), 'expectedVersion:', expectedVersion);
   const planUpdate = planUpdateBuilder.select('id,version');
   const stationsUpsert = rows.length > 0
     ? supabase.from('stations').upsert(rows, { onConflict: 'id' })
     : Promise.resolve({ error: null, data: null });
 
   const [{ data: planUpdateData, error: planError }, { error: upsertError }] = await Promise.all([planUpdate, stationsUpsert]);
-  console.log('[savePlanning] UPDATE result: planUpdateData=', JSON.stringify(planUpdateData), 'planError=', planError);
   if (planError) {
     console.error('[savePlanning] plannings UPDATE Fehler:', planError);
     console.error('[savePlanning] plannings UPDATE Fehler detail:', JSON.stringify(planError));
