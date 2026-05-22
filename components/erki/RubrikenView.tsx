@@ -129,27 +129,25 @@ export default function RubrikenView({
                 aria-expanded={isOpen}
                 onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') toggleSection(id); }}
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-1">
                   <span className="font-semibold text-base">{label}</span>
                   <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                     {itemCount}
                   </span>
-                </div>
-                <div className="flex items-center gap-1">
                   {!isStationen && (
                     <button
                       onClick={e => { e.stopPropagation(); openAddForm(id as TaskSection); }}
-                      className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-[#6bbfd4]/20 text-[#6bbfd4] transition-colors"
+                      className="h-11 w-11 flex items-center justify-center rounded-full hover:bg-[#6bbfd4]/20 text-[#6bbfd4] transition-colors"
                       aria-label={`Aufgabe zu ${label} hinzufügen`}
                     >
                       <Plus className="h-4 w-4" />
                     </button>
                   )}
-                  {isOpen
-                    ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                    : <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  }
                 </div>
+                {isOpen
+                  ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                  : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                }
               </div>
 
               {/* Section Content */}
