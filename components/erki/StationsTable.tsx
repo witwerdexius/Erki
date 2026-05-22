@@ -338,7 +338,7 @@ export default function StationsTable({
                                     <div className="flex items-center justify-end gap-2">
                                         <button
                                             onClick={() => onSaveAsTemplate(s)}
-                                            className="p-2 -m-2 text-gray-500 dark:text-gray-400 hover:text-[#6bbfd4] transition-colors opacity-0 group-hover:opacity-100"
+                                            className="p-2 -m-2 text-gray-500 dark:text-gray-400 hover:text-[#6bbfd4] transition-colors"
                                             title="Als Vorlage speichern"
                                         >
                                             <Bookmark className="w-4 h-4" />

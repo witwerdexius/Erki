@@ -172,7 +172,7 @@ export default function TemplatePickerDialog({ templates, onSelect, onClose, onC
                 </p>
               ) : (
                 filtered.map(t => (
-                  <div key={t.id} className="flex items-start px-5 py-3 hover:bg-[#6bbfd4]/10 transition-colors border-b last:border-0 group">
+                  <div key={t.id} className="flex items-start px-5 py-3 hover:bg-[#6bbfd4]/10 transition-colors border-b last:border-0">
                     <button
                       className="flex-1 text-left min-w-0"
                       onClick={() => { onSelect(t); onClose(); }}
@@ -185,7 +185,7 @@ export default function TemplatePickerDialog({ templates, onSelect, onClose, onC
                         <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">Material: {t.material}</p>
                       )}
                     </button>
-                    <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 mt-0.5">
+                    <div className="flex items-center gap-1 shrink-0 ml-2 mt-0.5">
                       <button
                         onClick={() => { setEditingTemplateId(t.id); setEditingTemplateData(t); }}
                         className="p-1.5 text-gray-500 hover:text-[#6bbfd4] transition-colors"

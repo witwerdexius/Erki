@@ -261,7 +261,7 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
             {plans.map(plan => (
               <div
                 key={plan.id}
-                className="flex items-center gap-3 p-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-[#6bbfd4]/40 dark:hover:border-[#6bbfd4]/50 transition-all group"
+                className="flex items-center gap-3 p-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-[#6bbfd4]/40 dark:hover:border-[#6bbfd4]/50 transition-all"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -288,14 +288,14 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
                     <>
                       <button
                         onClick={() => setHistoryPlan({ id: plan.id, title: plan.title })}
-                        className="p-2 text-gray-400 dark:text-gray-500 hover:text-[#6bbfd4] transition-colors opacity-0 group-hover:opacity-100"
+                        className="p-2 text-gray-400 dark:text-gray-500 hover:text-[#6bbfd4] transition-colors"
                         title="Verlauf anzeigen"
                       >
                         <History className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(plan.id, plan.title)}
-                        className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                        className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                         title="Planung löschen"
                       >
                         <Trash2 className="w-4 h-4" />
