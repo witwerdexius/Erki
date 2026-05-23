@@ -313,6 +313,21 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
                 </div>
                 {/* Actions */}
                 <div className="flex gap-2">
+                  {onDelete ? (
+                    <button
+                      onClick={() => { onDelete(); setIsEditing(false); }}
+                      className="flex-1 h-11 rounded-full text-sm font-medium border border-destructive text-destructive hover:bg-destructive/10 transition-colors"
+                    >
+                      Löschen
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setIsEditing(false)}
+                      className="flex-1 h-11 rounded-full text-sm font-medium border border-border text-muted-foreground hover:bg-muted transition-colors"
+                    >
+                      Abbrechen
+                    </button>
+                  )}
                   <button
                     disabled={editSaving || !editName.trim()}
                     onClick={() => void handleSaveEdit()}
@@ -323,21 +338,6 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
                   >
                     Speichern
                   </button>
-                  {onDelete ? (
-                    <button
-                      onClick={() => { onDelete(); setIsEditing(false); }}
-                      className="h-11 px-4 rounded-full text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
-                    >
-                      Löschen
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => setIsEditing(false)}
-                      className="h-11 px-4 rounded-full text-sm text-muted-foreground hover:bg-muted transition-colors"
-                    >
-                      Abbrechen
-                    </button>
-                  )}
                 </div>
               </div>
             ) : (
