@@ -192,22 +192,20 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
                       key={index}
                       variant="secondary"
                       className={cn(
-                        "h-8 rounded-full flex items-center",
+                        "h-8 rounded-full flex items-center pl-3 pr-1 gap-1",
                         volunteer === currentUser
-                          ? "pl-3 pr-1 gap-1 bg-primary text-primary-foreground"
-                          : "px-3"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-secondary-foreground"
                       )}
                     >
                       {volunteer}
-                      {volunteer === currentUser && (
-                        <button
-                          onClick={() => onRemove(phaseId, task.id, volunteer)}
-                          className="ml-1 h-6 w-6 rounded-full hover:bg-background/20 flex items-center justify-center"
-                          aria-label={`${volunteer} austragen`}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onRemove(phaseId, task.id, volunteer); }}
+                        className="ml-1 h-6 w-6 rounded-full hover:bg-background/20 flex items-center justify-center shrink-0"
+                        aria-label={`${volunteer} austragen`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
                     </Badge>
                   ))}
                 </div>
