@@ -21,6 +21,7 @@ type RubrikenViewProps = {
   onDeleteSection: (id: string) => void;
   onSignUpTask: (taskId: string, name: string) => void;
   onRemoveFromTask: (taskId: string, name: string) => void;
+  onEditTask: (id: string, updates: { name: string; helpersRequired: number; time?: string }) => Promise<void>;
   filter: 'all' | 'open' | 'mine';
   onFilterChange: (filter: 'all' | 'open' | 'mine') => void;
   phases: Phase[];
@@ -44,6 +45,7 @@ export default function RubrikenView({
   onDeleteSection,
   onSignUpTask,
   onRemoveFromTask,
+  onEditTask,
   filter,
   onFilterChange,
   phases,
@@ -210,6 +212,7 @@ export default function RubrikenView({
                                 onRemove={(_phaseId, taskId, name) => onRemoveFromTask(taskId, name)}
                                 currentUser={currentUser}
                                 onDelete={() => onDeleteTask(task.id)}
+                                onEdit={(updates) => onEditTask(task.id, { name: updates.name, helpersRequired: updates.slots, time: updates.time })}
                               />
                             );
                           })}

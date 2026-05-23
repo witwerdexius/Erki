@@ -14,7 +14,9 @@ import {
   X,
   AlertTriangle,
   CheckCircle,
-  Trash2,
+  Settings,
+  Users,
+  Clock,
 } from "lucide-react"
 
 type TaskCardProps = {
@@ -23,21 +25,29 @@ type TaskCardProps = {
   onSignUp: (phaseId: string, taskId: string, name: string) => void
   onRemove: (phaseId: string, taskId: string, volunteerName: string) => void
   currentUser: string
-  /** Wenn gesetzt: Eintragen-Button und Expand werden ausgeblendet, stattdessen Löschen-Button. */
+  /** Wenn gesetzt: Zahnrad-Button erscheint, Löschen im Edit-Formular möglich. */
   onDelete?: () => void
+  /** Wenn gesetzt: Parameter der Aufgabe bearbeitbar. */
+  onEdit?: (updates: { name: string; slots: number; time?: string }) => Promise<void>
 }
 
-export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDelete }: TaskCardProps) {
+export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDelete, onEdit }: TaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isSigningUp, setIsSigningUp] = useState(false)
   const [name, setName] = useState("")
-  
+
+  const [isEditing, setIsEditing] = useState(false)
+  const [editName, setEditName] = useState(task.name)
+  const [editSlots, setEditSlots] = useState(task.slots)
+  const [editTime, setEditTime] = useState(task.time ?? '')
+  const [editSaving, setEditSaving] = useState(false)
+
   const isFull = task.filled >= task.slots
   const isOverbooked = task.filled > task.slots
   const isEmpty = task.filled === 0
   const percentage = Math.min(100, Math.round((task.filled / task.slots) * 100))
   const isUserSignedUp = task.volunteers.includes(currentUser)
-  
+
   const handleSignUp = () => {
     if (name.trim()) {
       onSignUp(phaseId, task.id, name.trim())
@@ -48,6 +58,26 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
 
   const handleQuickSignUp = () => {
     onSignUp(phaseId, task.id, currentUser)
+  }
+
+  const openEdit = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEditName(task.name)
+    setEditSlots(task.slots)
+    setEditTime(task.time ?? '')
+    setIsSigningUp(false)
+    setIsEditing(true)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editName.trim() || !onEdit) return
+    setEditSaving(true)
+    try {
+      await onEdit({ name: editName.trim(), slots: editSlots, time: editTime || undefined })
+      setIsEditing(false)
+    } finally {
+      setEditSaving(false)
+    }
   }
 
   const getStatusStyle = () => {
@@ -65,7 +95,7 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
   }
 
   return (
-    <div 
+    <div
       className="rounded-2xl border bg-card transition-all"
       style={getStatusStyle()}
     >
@@ -103,7 +133,7 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
               )}
             </div>
           </div>
-          
+
           {/* Title & Badges */}
           <div className="flex-1 min-w-0">
             <p
@@ -142,7 +172,7 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
               )}
             </p>
           </div>
-          
+
           {/* Sign Up Button - Top Right */}
           {!isSigningUp && !isUserSignedUp && (
             <Button
@@ -162,7 +192,7 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
           )}
         </div>
       </div>
-      
+
       {/* Expanded Content */}
       {isExpanded && (
         <div className="px-4 pb-4 pt-0 border-t border-border mt-0">
@@ -211,8 +241,8 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
                 </div>
               </div>
             )}
-            
-            {/* Sign Up Form + optional Delete */}
+
+            {/* Sign Up Form / Edit Form / Default Row */}
             {isSigningUp ? (
               <div className="flex gap-2">
                 <Input
@@ -237,7 +267,76 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
                   <X className="h-4 w-4" />
                 </Button>
               </div>
+            ) : isEditing ? (
+              /* ── Edit Form ── */
+              <div className="flex flex-col gap-2">
+                <input
+                  className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
+                  placeholder="Aufgabe benennen…"
+                  value={editName}
+                  autoFocus
+                  onChange={e => setEditName(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') void handleSaveEdit()
+                    if (e.key === 'Escape') setIsEditing(false)
+                  }}
+                />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <label className="text-xs text-muted-foreground flex items-center gap-1 shrink-0">
+                    <Users className="h-3.5 w-3.5" />
+                    Helfer
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={99}
+                    className="w-16 h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
+                    value={editSlots}
+                    onChange={e => setEditSlots(Math.max(1, parseInt(e.target.value) || 1))}
+                  />
+                  <label className="text-xs text-muted-foreground flex items-center gap-1 shrink-0">
+                    <Clock className="h-3.5 w-3.5" />
+                    Uhrzeit
+                  </label>
+                  <input
+                    type="time"
+                    className="w-32 h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
+                    value={editTime}
+                    onChange={e => setEditTime(e.target.value)}
+                  />
+                  <div className="flex-1" />
+                  <div className="flex gap-2 ml-auto">
+                    <button
+                      disabled={editSaving || !editName.trim()}
+                      onClick={() => void handleSaveEdit()}
+                      className={cn(
+                        'h-10 px-4 rounded-full text-sm font-medium bg-[#6bbfd4] text-white hover:bg-[#5aaec3] transition-colors',
+                        (editSaving || !editName.trim()) && 'opacity-50 cursor-not-allowed',
+                      )}
+                    >
+                      Speichern
+                    </button>
+                    {onDelete && (
+                      <button
+                        onClick={() => { onDelete(); setIsEditing(false); }}
+                        className="h-10 px-3 rounded-full text-sm text-destructive hover:bg-destructive/10 transition-colors"
+                      >
+                        Löschen
+                      </button>
+                    )}
+                    {!onDelete && (
+                      <button
+                        onClick={() => setIsEditing(false)}
+                        className="h-10 px-3 rounded-full text-sm text-muted-foreground hover:bg-muted transition-colors"
+                      >
+                        Abbrechen
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
             ) : (
+              /* ── Default Row ── */
               <div className="flex gap-2">
                 <Button
                   onClick={() => setIsSigningUp(true)}
@@ -247,14 +346,14 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
                   <UserPlus className="h-4 w-4 mr-2" />
                   Weitere Person eintragen
                 </Button>
-                {onDelete && (
+                {(onEdit || onDelete) && (
                   <Button
                     variant="ghost"
-                    onClick={onDelete}
-                    className="h-12 w-12 rounded-full hover:bg-destructive/10 hover:text-destructive"
-                    aria-label={`${task.name} löschen`}
+                    onClick={openEdit}
+                    className="h-12 w-12 rounded-full hover:bg-muted"
+                    aria-label={`${task.name} bearbeiten`}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Settings className="h-4 w-4" />
                   </Button>
                 )}
               </div>

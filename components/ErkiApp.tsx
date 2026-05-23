@@ -5,7 +5,7 @@ import { ChevronLeft, Plus, Trash2, List, Download, Upload, Loader2, BookOpen, F
 import type { User } from '@supabase/supabase-js';
 import { Plan, Station, StationTemplate, PlanningTask, TaskSection, DEFAULT_TASK_SECTIONS } from '@/lib/types';
 import type { Phase, Task } from '@/components/zeitplan/types';
-import { loadTemplates, createTemplate, updateTemplate, deleteTemplate, loadPlanningFull, loadPlanningTasks, createPlanningTask, deletePlanningTask, updatePlanningTaskVolunteers } from '@/lib/db';
+import { loadTemplates, createTemplate, updateTemplate, deleteTemplate, loadPlanningFull, loadPlanningTasks, createPlanningTask, deletePlanningTask, updatePlanningTask, updatePlanningTaskVolunteers } from '@/lib/db';
 import ShareButton from './ShareButton';
 import { ThemeToggle } from './ThemeToggle';
 import { cn } from '@/lib/utils';
@@ -293,6 +293,17 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
             setPlanningTasks(prev => prev.filter(t => t.id !== id));
         } catch (e) {
             console.error('[handleDeleteTask] Fehler:', e);
+        }
+    };
+
+    const handleEditTask = async (id: string, updates: { name: string; helpersRequired: number; time?: string }) => {
+        // Optimistic update
+        setPlanningTasks(prev => prev.map(t => t.id === id ? { ...t, name: updates.name, helpersRequired: updates.helpersRequired, time: updates.time } : t));
+        try {
+            await updatePlanningTask(id, updates);
+        } catch (e) {
+            console.error('[handleEditTask] Fehler:', e);
+            // Revert on error — realtime will re-sync
         }
     };
 
@@ -603,6 +614,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                             tasks={planningTasks}
                             onAddTask={handleAddTask}
                             onDeleteTask={handleDeleteTask}
+                            onEditTask={handleEditTask}
                             onSignUpTask={handlePlanningTaskSignUp}
                             onRemoveFromTask={handlePlanningTaskRemove}
                             filter={zeitplanFilter}

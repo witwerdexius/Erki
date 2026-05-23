@@ -574,6 +574,17 @@ export async function deletePlanningTask(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function updatePlanningTask(
+  id: string,
+  updates: { name: string; helpersRequired: number; time?: string },
+): Promise<void> {
+  const { error } = await supabase
+    .from('planning_tasks')
+    .update({ name: updates.name, helpers_required: updates.helpersRequired, time: updates.time ?? null })
+    .eq('id', id);
+  if (error) throw error;
+}
+
 export async function updatePlanningTaskVolunteers(taskId: string, volunteers: string[]): Promise<void> {
   const { error } = await supabase
     .from('planning_tasks')
