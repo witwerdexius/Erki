@@ -269,10 +269,10 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
               </div>
             ) : isEditing ? (
               /* ── Edit Form ── */
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2">
                 {/* Name */}
                 <input
-                  className="w-full h-11 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
+                  className="w-full h-10 rounded-xl border border-border bg-muted/50 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
                   placeholder="Aufgabe benennen…"
                   value={editName}
                   autoFocus
@@ -282,48 +282,38 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
                     if (e.key === 'Escape') setIsEditing(false)
                   }}
                 />
-                {/* Helfer + Uhrzeit */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs text-muted-foreground flex items-center gap-1 px-1">
-                      <Users className="h-3 w-3" />
-                      Helfer
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={99}
-                      className="w-full h-11 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
-                      value={editSlots}
-                      onChange={e => setEditSlots(Math.max(1, parseInt(e.target.value) || 1))}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs text-muted-foreground flex items-center gap-1 px-1">
-                      <Clock className="h-3 w-3" />
-                      Uhrzeit
-                    </label>
-                    <input
-                      type="time"
-                      className="w-full h-11 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
-                      value={editTime}
-                      onChange={e => setEditTime(e.target.value)}
-                    />
-                  </div>
+                {/* Helfer + Uhrzeit — kompakte inline-Zeile */}
+                <div className="flex items-center gap-2">
+                  <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <input
+                    type="number"
+                    min={1}
+                    max={99}
+                    className="w-14 h-9 rounded-lg border border-border bg-muted/50 px-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
+                    value={editSlots}
+                    onChange={e => setEditSlots(Math.max(1, parseInt(e.target.value) || 1))}
+                  />
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
+                  <input
+                    type="time"
+                    className="flex-1 h-9 rounded-lg border border-border bg-muted/50 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
+                    value={editTime}
+                    onChange={e => setEditTime(e.target.value)}
+                  />
                 </div>
                 {/* Actions */}
-                <div className="flex gap-2">
+                <div className="flex gap-2 pt-1">
                   {onDelete ? (
                     <button
                       onClick={() => { onDelete(); setIsEditing(false); }}
-                      className="flex-1 h-11 rounded-full text-sm font-medium border border-destructive text-destructive hover:bg-destructive/10 transition-colors"
+                      className="flex-1 h-10 rounded-full text-sm font-medium border border-destructive/60 text-destructive hover:bg-destructive/10 transition-colors"
                     >
                       Löschen
                     </button>
                   ) : (
                     <button
                       onClick={() => setIsEditing(false)}
-                      className="flex-1 h-11 rounded-full text-sm font-medium border border-border text-muted-foreground hover:bg-muted transition-colors"
+                      className="flex-1 h-10 rounded-full text-sm font-medium border border-border text-muted-foreground hover:bg-muted transition-colors"
                     >
                       Abbrechen
                     </button>
@@ -332,7 +322,7 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
                     disabled={editSaving || !editName.trim()}
                     onClick={() => void handleSaveEdit()}
                     className={cn(
-                      'flex-1 h-11 rounded-full text-sm font-medium bg-[#6bbfd4] text-white hover:bg-[#5aaec3] transition-colors',
+                      'flex-1 h-10 rounded-full text-sm font-medium bg-[#6bbfd4] text-white hover:bg-[#5aaec3] transition-colors',
                       (editSaving || !editName.trim()) && 'opacity-50 cursor-not-allowed',
                     )}
                   >
