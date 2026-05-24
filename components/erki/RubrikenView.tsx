@@ -16,7 +16,7 @@ type RubrikenViewProps = {
   tasks: PlanningTask[];
   taskSections: string[];
   onAddTask: (section: TaskSection, name: string, helpersRequired: number, time?: string) => Promise<void>;
-  onDeleteTask: (id: string) => Promise<void>;
+  onDeleteTask: (id: string) => void;
   onAddSection: (name: string) => void;
   onDeleteSection: (id: string) => void;
   onReorderSections: (sections: string[]) => void;
