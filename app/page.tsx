@@ -385,6 +385,7 @@ export default function Home() {
         <ErkiApp
           plan={activePlan}
           user={user}
+          displayName={profile?.name || profile?.displayName || undefined}
           onPlanUpdate={handlePlanUpdate}
           onExternalPlanUpdate={handleExternalPlanUpdate}
           onSaveNow={handleSaveNow}

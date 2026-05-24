@@ -26,6 +26,7 @@ import { planningChannelNames } from '@/lib/realtime/channelNames';
 interface ErkiAppProps {
     plan: Plan;
     user: User;
+    displayName?: string;
     onPlanUpdate: (plan: Plan) => void;
     // Externes Update durch anderen Client (Realtime) – triggert keinen Auto-Save.
     onExternalPlanUpdate?: (plan: Plan) => void;
@@ -63,7 +64,7 @@ function stationsToPhases(stations: Station[]): Phase[] {
     }];
 }
 
-export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate, onSaveNow, onBack, onImmediateSave, isSaving = false, latestPlanRef, isDirtyRef }: ErkiAppProps) {
+export default function ErkiApp({ plan, user, displayName, onPlanUpdate, onExternalPlanUpdate, onSaveNow, onBack, onImmediateSave, isSaving = false, latestPlanRef, isDirtyRef }: ErkiAppProps) {
     const tabKey = `activeTab_${plan.id}`;
     const [activeTab, setActiveTab] = useState<'map' | 'table' | 'nachdenk' | 'explanation' | 'zeitplan'>(() => {
         const stored = sessionStorage.getItem(tabKey);
@@ -438,11 +439,12 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
     const presenceUser = useMemo(() => ({
         userId: user.id,
         displayName:
+            displayName ||
             (user.user_metadata?.name as string | undefined) ||
             (user.user_metadata?.display_name as string | undefined) ||
             user.email ||
             'Unbekannt',
-    }), [user.id, user.user_metadata?.name, user.user_metadata?.display_name, user.email]);
+    }), [displayName, user.id, user.user_metadata?.name, user.user_metadata?.display_name, user.email]);
 
     const { online } = usePresence({
         channelName: planningChannelNames(plan.id).presence,
