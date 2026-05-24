@@ -333,8 +333,8 @@ export default function RubrikenView({
           );
         })}
 
-        {/* Rubrik hinzufügen + Reihenfolge */}
-        {showAddSectionForm ? (
+        {/* Rubrik hinzufügen + Reihenfolge — nur sichtbar wenn nicht "Meine" */}
+        {filter !== 'mine' && showAddSectionForm ? (
           <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 px-4 py-3 flex items-center gap-2">
             <input
               className="flex-1 h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
@@ -364,7 +364,7 @@ export default function RubrikenView({
               Abbrechen
             </button>
           </div>
-        ) : (
+        ) : filter !== 'mine' ? (
           <div className="flex gap-2">
             <button
               onClick={() => { setIsReordering(false); setShowAddSectionForm(true); }}
@@ -387,7 +387,7 @@ export default function RubrikenView({
               </button>
             )}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
