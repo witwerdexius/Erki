@@ -16,6 +16,7 @@ import MapView from '@/components/erki/MapView';
 import StationsTable from '@/components/erki/StationsTable';
 import ZeitplanView from '@/components/erki/ZeitplanView';
 import RubrikenView from '@/components/erki/RubrikenView';
+import { UndoToast } from '@/components/erki/UndoToast';
 import { useRealtimeSync } from '@/lib/realtime/useRealtimeSync';
 import { usePresence } from '@/lib/realtime/usePresence';
 import { usePlanningTasksSync } from '@/lib/realtime/usePlanningTasksSync';
@@ -71,6 +72,38 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
     const zeitplanInitializedForPlanRef = useRef<string | null>(null);
     const [planningTasks, setPlanningTasks] = useState<PlanningTask[]>([]);
     const aufgabenLoadedForPlanRef = useRef<string | null>(null);
+
+    // ── Undo-Toast ──────────────────────────────────────────────────────────
+    type UndoEntry = { message: string; commit: () => Promise<void>; restore: () => void };
+    const [undoDisplay, setUndoDisplay] = useState<{ key: string; message: string } | null>(null);
+    const pendingUndoRef = useRef<UndoEntry | null>(null);
+    const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const showUndo = (entry: UndoEntry) => {
+        // Commit any pending previous action immediately
+        if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+        if (pendingUndoRef.current) void pendingUndoRef.current.commit();
+        pendingUndoRef.current = entry;
+        setUndoDisplay({ key: String(Date.now()), message: entry.message });
+        undoTimerRef.current = setTimeout(() => {
+            if (pendingUndoRef.current) { void pendingUndoRef.current.commit(); pendingUndoRef.current = null; }
+            setUndoDisplay(null);
+        }, 15000);
+    };
+
+    const handleUndoClick = () => {
+        if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+        pendingUndoRef.current?.restore();
+        pendingUndoRef.current = null;
+        setUndoDisplay(null);
+    };
+
+    const handleDismissToast = () => {
+        if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+        if (pendingUndoRef.current) { void pendingUndoRef.current.commit(); pendingUndoRef.current = null; }
+        setUndoDisplay(null);
+    };
+    // ────────────────────────────────────────────────────────────────────────
     const [templates, setTemplates] = useState<StationTemplate[]>([]);
     const [templatesLoaded, setTemplatesLoaded] = useState(false);
     const [showTemplatePicker, setShowTemplatePicker] = useState(false);
@@ -246,6 +279,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
     };
 
     const handleZeitplanRemove = (phaseId: string, taskId: string, volunteerName: string) => {
+        const snapshot = zeitplanPhases;
         setZeitplanPhases(prev => prev.map(phase => {
             if (phase.id !== phaseId) return phase;
             return {
@@ -257,6 +291,11 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                 }),
             };
         }));
+        showUndo({
+            message: `${volunteerName} wurde ausgetragen.`,
+            commit: async () => {},
+            restore: () => setZeitplanPhases(snapshot),
+        });
     };
 
     // Aufgaben-Rubriken: Tasks beim ersten Öffnen des Zeitplan-Tabs laden
@@ -286,14 +325,19 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
         }
     };
 
-    const handleDeleteTask = async (id: string) => {
-        try {
-            await deletePlanningTask(id);
-            // Realtime-Delete wird via usePlanningTasksSync verarbeitet; lokaler Fallback:
-            setPlanningTasks(prev => prev.filter(t => t.id !== id));
-        } catch (e) {
-            console.error('[handleDeleteTask] Fehler:', e);
-        }
+    const handleDeleteTask = (id: string) => {
+        const task = planningTasks.find(t => t.id === id);
+        if (!task) return;
+        // Optimistic remove — DB commit deferred until toast expires / dismissed
+        setPlanningTasks(prev => prev.filter(t => t.id !== id));
+        showUndo({
+            message: `Aufgabe „${task.name}" gelöscht.`,
+            commit: async () => {
+                try { await deletePlanningTask(id); }
+                catch (e) { console.error('[handleDeleteTask] Fehler:', e); }
+            },
+            restore: () => setPlanningTasks(prev => [...prev, task]),
+        });
     };
 
     const handleEditTask = async (id: string, updates: { name: string; helpersRequired: number; time?: string }) => {
@@ -320,17 +364,21 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
         }
     };
 
-    const handlePlanningTaskRemove = async (taskId: string, name: string) => {
+    const handlePlanningTaskRemove = (taskId: string, name: string) => {
         const task = planningTasks.find(t => t.id === taskId);
         if (!task) return;
-        const newVolunteers = task.volunteers.filter(v => v !== name);
-        // Optimistic update
+        const oldVolunteers = task.volunteers;
+        const newVolunteers = oldVolunteers.filter(v => v !== name);
+        // Optimistic update — DB commit deferred
         setPlanningTasks(prev => prev.map(t => t.id === taskId ? { ...t, volunteers: newVolunteers } : t));
-        try {
-            await updatePlanningTaskVolunteers(taskId, newVolunteers);
-        } catch (e) {
-            console.error('[handlePlanningTaskRemove] Fehler:', e);
-        }
+        showUndo({
+            message: `${name} wurde ausgetragen.`,
+            commit: async () => {
+                try { await updatePlanningTaskVolunteers(taskId, newVolunteers); }
+                catch (e) { console.error('[handlePlanningTaskRemove] Fehler:', e); }
+            },
+            restore: () => setPlanningTasks(prev => prev.map(t => t.id === taskId ? { ...t, volunteers: oldVolunteers } : t)),
+        });
     };
 
     // Realtime-Sync: plannings-UPDATEs + stations-INSERT/UPDATE/DELETE.
@@ -477,7 +525,19 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
 
     const handleDeleteSection = (id: string) => {
         const current = (latestPlanRef.current ?? plan).taskSections ?? DEFAULT_TASK_SECTIONS;
-        updateActivePlan({ taskSections: current.filter(s => s !== id) });
+        const idx = current.indexOf(id);
+        const reduced = current.filter(s => s !== id);
+        updateActivePlan({ taskSections: reduced });
+        const label = id.charAt(0).toUpperCase() + id.slice(1);
+        showUndo({
+            message: `Rubrik „${label}" gelöscht.`,
+            commit: async () => {},
+            restore: () => {
+                const restored = [...reduced];
+                if (idx >= 0) restored.splice(idx, 0, id);
+                updateActivePlan({ taskSections: restored });
+            },
+        });
     };
 
     const handleReorderSections = (sections: string[]) => {
@@ -665,6 +725,16 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                     onCreateTemplate={handleCreateBlankTemplate}
                     onSaveTemplate={handleSaveTemplateEdit}
                     onDeleteTemplate={handleDeleteTemplate}
+                />
+            )}
+
+            {undoDisplay && (
+                <UndoToast
+                    toastKey={undoDisplay.key}
+                    message={undoDisplay.message}
+                    onUndo={handleUndoClick}
+                    onDismiss={handleDismissToast}
+                    duration={15000}
                 />
             )}
         </div>
