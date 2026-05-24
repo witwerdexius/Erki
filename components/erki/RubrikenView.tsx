@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { ChevronDown, ChevronUp, Clock, GripVertical, Plus, Trash2, Users } from 'lucide-react';
 import type { PlanningTask, TaskSection } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -169,7 +170,7 @@ export default function RubrikenView({
           }
 
           return (
-            <section key={id} className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 overflow-hidden">
+            <motion.section layout key={id} transition={{ type: 'spring', stiffness: 400, damping: 35 }} className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 overflow-hidden">
               {/* Section Header */}
               <div
                 className={cn(
@@ -329,7 +330,7 @@ export default function RubrikenView({
                   )}
                 </div>
               )}
-            </section>
+            </motion.section>
           );
         })}
 
