@@ -393,6 +393,7 @@ export default function RubrikenView({
                               className="w-16 h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
                               value={addForm.helpersRequired}
                               onChange={e => setAddForm(f => ({ ...f, helpersRequired: Math.max(1, parseInt(e.target.value) || 1) }))}
+                              onFocus={e => e.target.select()}
                             />
                             <label className="text-xs text-muted-foreground flex items-center gap-1 shrink-0">
                               <Clock className="h-3.5 w-3.5" />

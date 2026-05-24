@@ -347,6 +347,7 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
                       className="flex-1 h-9 rounded-lg border border-border bg-muted/50 px-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
                       value={editSlots}
                       onChange={e => setEditSlots(Math.max(1, parseInt(e.target.value) || 1))}
+                      onFocus={e => e.target.select()}
                     />
                   </div>
                   <div className="flex items-center gap-1.5">
