@@ -18,6 +18,8 @@ import {
   Users,
   Clock,
 } from "lucide-react"
+import type { EditingEntry } from "@/lib/realtime/editingMapHelpers"
+import { getPresenceColor } from "@/lib/realtime/presenceUtils"
 
 type TaskCardProps = {
   task: Task
@@ -31,9 +33,15 @@ type TaskCardProps = {
   onEdit?: (updates: { name: string; slots: number; time?: string; symbol?: string }) => Promise<void>
   /** Wenn true: Namensfeld im Edit-Formular ausgeblendet (z.B. bei Stationskarten). */
   readonlyName?: boolean
+  /** Soft-Lock: Eintrag eines anderen Users, der diese Aufgabe gerade bearbeitet. */
+  editingEntry?: EditingEntry
+  /** Callback wenn Edit-Formular geöffnet wird (für Broadcast). */
+  onEditOpen?: () => void
+  /** Callback wenn Edit-Formular geschlossen wird (für Broadcast). */
+  onEditClose?: () => void
 }
 
-export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDelete, onEdit, readonlyName }: TaskCardProps) {
+export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDelete, onEdit, readonlyName, editingEntry, onEditOpen, onEditClose }: TaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isSigningUp, setIsSigningUp] = useState(false)
   const [name, setName] = useState("")
@@ -71,6 +79,12 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
     setEditSymbol(task.symbol ?? '')
     setIsSigningUp(false)
     setIsEditing(true)
+    onEditOpen?.()
+  }
+
+  const closeEdit = () => {
+    setIsEditing(false)
+    onEditClose?.()
   }
 
   const handleSaveEdit = async () => {
@@ -84,7 +98,7 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
         time: editTime || undefined,
         symbol: editSymbol || undefined,
       })
-      setIsEditing(false)
+      closeEdit()
     } finally {
       setEditSaving(false)
     }
@@ -109,6 +123,19 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
       className="rounded-2xl border bg-card transition-all"
       style={getStatusStyle()}
     >
+      {/* Soft-Lock Indicator */}
+      {editingEntry && (
+        <div
+          className="px-4 pt-2 pb-0 flex items-center gap-1.5 text-xs italic text-muted-foreground"
+          title={`${editingEntry.displayName} bearbeitet diese Aufgabe gerade`}
+        >
+          <span
+            className="inline-block w-2 h-2 rounded-full animate-pulse shrink-0"
+            style={{ backgroundColor: getPresenceColor(editingEntry.userId) }}
+          />
+          <span>{editingEntry.displayName} bearbeitet…</span>
+        </div>
+      )}
       {/* Main Content — Klick auf die Karte klappt auf/zu */}
       <div className="p-4 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
         {/* Top Row: Circle + Name + Button */}
@@ -291,7 +318,7 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
                     autoFocus={readonlyName}
                     onChange={e => setEditSymbol(e.target.value)}
                     onKeyDown={e => {
-                      if (e.key === 'Escape') setIsEditing(false)
+                      if (e.key === 'Escape') closeEdit()
                     }}
                   />
                 </div>
@@ -305,7 +332,7 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
                     onChange={e => setEditName(e.target.value)}
                     onKeyDown={e => {
                       if (e.key === 'Enter') void handleSaveEdit()
-                      if (e.key === 'Escape') setIsEditing(false)
+                      if (e.key === 'Escape') closeEdit()
                     }}
                   />
                 )}
@@ -336,14 +363,14 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
                 <div className="flex gap-2 pt-1">
                   {onDelete ? (
                     <button
-                      onClick={() => { onDelete(); setIsEditing(false); }}
+                      onClick={() => { onDelete(); closeEdit(); }}
                       className="flex-1 h-10 rounded-full text-sm font-medium border border-destructive/60 text-destructive hover:bg-destructive/10 transition-colors"
                     >
                       Löschen
                     </button>
                   ) : (
                     <button
-                      onClick={() => setIsEditing(false)}
+                      onClick={closeEdit}
                       className="flex-1 h-10 rounded-full text-sm font-medium border border-border text-muted-foreground hover:bg-muted transition-colors"
                     >
                       Abbrechen

@@ -74,6 +74,46 @@ export function applyEditingBroadcast(
   return map;
 }
 
+/** Task-Pendant zu EditingBroadcast — verwendet taskId statt stationId. */
+export interface TaskEditingBroadcast {
+  taskId: string;
+  action: 'start' | 'stop';
+  userId?: string;
+  displayName?: string;
+}
+
+/**
+ * Wie applyEditingBroadcast, aber für Tasks (keyField = taskId).
+ * Dieselbe Defensive-Logik: stop kann nur vom ursprünglichen Editor gesendet werden.
+ */
+export function applyTaskEditingBroadcast(
+  map: EditingMap,
+  msg: TaskEditingBroadcast,
+  now: number,
+): EditingMap {
+  const { taskId, action } = msg;
+  if (!taskId) return map;
+
+  if (action === 'start') {
+    if (!msg.userId || !msg.displayName) return map;
+    return {
+      ...map,
+      [taskId]: { userId: msg.userId, displayName: msg.displayName, ts: now },
+    };
+  }
+
+  if (action === 'stop') {
+    const existing = map[taskId];
+    if (!existing) return map;
+    if (msg.userId && existing.userId !== msg.userId) return map;
+    const next = { ...map };
+    delete next[taskId];
+    return next;
+  }
+
+  return map;
+}
+
 /**
  * Entfernt alle Einträge, die älter sind als `STALE_MS`.
  * Reine Funktion. Liefert die alte Referenz zurück, wenn nichts entfernt

@@ -739,6 +739,8 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                             stations={activePlan.stations}
                             currentUser={presenceUser.displayName}
                             planningName={activePlan.title}
+                            planId={activePlan.id}
+                            currentUserPresence={presenceUser}
                         />
                     ) : null}
 

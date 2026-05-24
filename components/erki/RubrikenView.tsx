@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronDown, ChevronUp, Clock, Download, GripVertical, Plus, Trash2, Users } from 'lucide-react';
 import type { PlanningTask, Station, TaskSection } from '@/lib/types';
@@ -8,6 +8,15 @@ import { cn } from '@/lib/utils';
 import { FilterTabs } from '@/components/zeitplan/filter-tabs';
 import { TaskCard } from '@/components/zeitplan/task-card';
 import type { Phase, Task } from '@/components/zeitplan/types';
+import { useBroadcast } from '@/lib/realtime/useBroadcast';
+import { planningChannelNames } from '@/lib/realtime/channelNames';
+import {
+    applyTaskEditingBroadcast,
+    pruneStaleEditing,
+    type EditingMap,
+    type TaskEditingBroadcast,
+} from '@/lib/realtime/editingMapHelpers';
+import type { PresenceUserLike } from '@/lib/realtime/presenceUtils';
 
 type RubrikenViewProps = {
   /** Anzahl Stationen — nur für den Zähler-Badge der Stationen-Sektion. */
@@ -30,6 +39,10 @@ type RubrikenViewProps = {
   stations: Station[];
   currentUser: string;
   planningName: string;
+  /** Plan-ID für den Broadcast-Channel (Soft-Lock). */
+  planId?: string;
+  /** Voller Presence-User des aktuellen Nutzers (für Broadcast). */
+  currentUserPresence?: PresenceUserLike;
 };
 
 type AddFormState = {
@@ -57,6 +70,8 @@ export default function RubrikenView({
   stations,
   currentUser,
   planningName,
+  planId,
+  currentUserPresence,
 }: RubrikenViewProps) {
   const openStationTasks = phases.reduce((acc, p) => acc + p.tasks.filter(t => t.filled < t.slots).length, 0);
   const myStationTasks = phases.reduce((acc, p) => acc + p.tasks.filter(t => t.volunteers.includes(currentUser)).length, 0);
@@ -83,6 +98,44 @@ export default function RubrikenView({
       ? { id: 'stationen', label: 'Stationen', isStationen: true }
       : { id, label: id.charAt(0).toUpperCase() + id.slice(1), isStationen: false }
   );
+
+  const [editingMap, setEditingMap] = useState<EditingMap>({});
+
+  const { send: sendEditing } = useBroadcast<TaskEditingBroadcast>({
+    channelName: planId ? planningChannelNames(planId).broadcast : '',
+    event: 'task-editing',
+    onMessage: (msg) => {
+      setEditingMap(curr => applyTaskEditingBroadcast(curr, msg, Date.now()));
+    },
+    enabled: !!planId && !!currentUserPresence,
+  });
+
+  useEffect(() => {
+    if (!planId) return;
+    const interval = setInterval(() => {
+      setEditingMap(curr => pruneStaleEditing(curr, Date.now()));
+    }, 5_000);
+    return () => clearInterval(interval);
+  }, [planId]);
+
+  const handleTaskEditOpen = (taskId: string) => {
+    if (!currentUserPresence) return;
+    void sendEditing({
+      taskId,
+      action: 'start',
+      userId: currentUserPresence.userId,
+      displayName: currentUserPresence.displayName,
+    });
+  };
+
+  const handleTaskEditClose = (taskId: string) => {
+    if (!currentUserPresence) return;
+    void sendEditing({
+      taskId,
+      action: 'stop',
+      userId: currentUserPresence.userId,
+    });
+  };
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [addingIn, setAddingIn] = useState<TaskSection | null>(null);
@@ -295,6 +348,8 @@ export default function RubrikenView({
                               volunteers: task.volunteers,
                               time: task.time,
                             };
+                            const entry = editingMap[task.id];
+                            const editingEntry = entry && currentUserPresence && entry.userId !== currentUserPresence.userId ? entry : undefined;
                             return (
                               <TaskCard
                                 key={task.id}
@@ -305,6 +360,9 @@ export default function RubrikenView({
                                 currentUser={currentUser}
                                 onDelete={() => onDeleteTask(task.id)}
                                 onEdit={(updates) => onEditTask(task.id, { name: updates.name, helpersRequired: updates.slots, time: updates.time })}
+                                editingEntry={editingEntry}
+                                onEditOpen={() => handleTaskEditOpen(task.id)}
+                                onEditClose={() => handleTaskEditClose(task.id)}
                               />
                             );
                           })}
