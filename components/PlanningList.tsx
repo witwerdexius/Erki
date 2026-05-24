@@ -187,13 +187,13 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
             )}
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <span className="text-sm text-gray-500 dark:text-gray-400 max-w-[140px] sm:max-w-none truncate">{profile?.name || profile?.displayName || user.email}</span>
           <ThemeToggle />
           {isAdmin && (
             <button
               onClick={() => setShowAdmin(true)}
-              className="flex items-center gap-1.5 text-sm text-[#6bbfd4] hover:text-[#5aaec3] transition-colors"
+              className="flex items-center gap-1.5 text-sm text-[#6bbfd4] hover:text-[#5aaec3] transition-colors p-1.5 -m-1.5 rounded-lg"
               title="Verwaltung"
             >
               <Settings className="w-4 h-4" />
@@ -202,7 +202,7 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
           )}
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+            className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors p-1.5 -m-1.5 rounded-lg"
             title="Abmelden"
           >
             <LogOut className="w-4 h-4" />
