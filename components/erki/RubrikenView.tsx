@@ -65,12 +65,19 @@ export default function RubrikenView({
     filter === 'open' ? tasks.filter(t => t.volunteers.length < t.helpersRequired) :
     tasks;
 
-  // Build ordered section list: first custom section, then stationen, then the rest
-  const customSections = taskSections.map(id => ({ id, label: id.charAt(0).toUpperCase() + id.slice(1), isStationen: false }));
-  const stationenEntry = { id: 'stationen', label: 'Stationen', isStationen: true };
-  const allSections = customSections.length > 0
-    ? [customSections[0], stationenEntry, ...customSections.slice(1)]
-    : [stationenEntry];
+  // Build ordered section list — stationen ist beweglich und wird in taskSections gespeichert.
+  // Fallback für ältere Pläne ohne 'stationen' in taskSections: nach dem ersten Element einfügen.
+  const fullSectionIds = taskSections.includes('stationen')
+    ? taskSections
+    : taskSections.length > 0
+      ? [taskSections[0], 'stationen', ...taskSections.slice(1)]
+      : ['stationen'];
+
+  const allSections = fullSectionIds.map(id =>
+    id === 'stationen'
+      ? { id: 'stationen', label: 'Stationen', isStationen: true }
+      : { id, label: id.charAt(0).toUpperCase() + id.slice(1), isStationen: false }
+  );
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [addingIn, setAddingIn] = useState<TaskSection | null>(null);
@@ -87,9 +94,9 @@ export default function RubrikenView({
   };
 
   const moveSection = (id: string, direction: 'up' | 'down') => {
-    const idx = taskSections.indexOf(id);
+    const idx = fullSectionIds.indexOf(id);
     if (idx === -1) return;
-    const next = [...taskSections];
+    const next = [...fullSectionIds];
     if (direction === 'up' && idx > 0) {
       [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
     } else if (direction === 'down' && idx < next.length - 1) {
@@ -145,7 +152,7 @@ export default function RubrikenView({
           const allSectionTasks = isStationen ? [] : tasks.filter(t => t.section === id);
           const itemCount = isStationen ? stationCount : sectionTasks.length;
           const canDelete = !isStationen && !isReordering && allSectionTasks.length === 0;
-          const sectionIdx = taskSections.indexOf(id);
+          const sectionIdx = fullSectionIds.indexOf(id);
 
           // Bei aktivem Filter: Rubrik ausblenden wenn keine Aufgaben übrig
           if (filter !== 'all') {
@@ -201,7 +208,7 @@ export default function RubrikenView({
                 </div>
 
                 {/* Reorder controls or expand chevron */}
-                {isReordering && !isStationen ? (
+                {isReordering ? (
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={e => { e.stopPropagation(); moveSection(id, 'up'); }}
@@ -213,15 +220,13 @@ export default function RubrikenView({
                     </button>
                     <button
                       onClick={e => { e.stopPropagation(); moveSection(id, 'down'); }}
-                      disabled={sectionIdx >= taskSections.length - 1}
+                      disabled={sectionIdx >= fullSectionIds.length - 1}
                       className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-muted disabled:opacity-25 transition-colors"
                       aria-label={`${label} nach unten`}
                     >
                       <ChevronDown className="h-5 w-5" />
                     </button>
                   </div>
-                ) : isReordering && isStationen ? (
-                  <span className="text-xs text-muted-foreground shrink-0 pr-1">fest</span>
                 ) : (
                   isOpen
                     ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
