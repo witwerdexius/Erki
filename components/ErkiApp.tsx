@@ -715,6 +715,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                             onFilterChange={setZeitplanFilter}
                             phases={zeitplanPhases}
                             currentUser={presenceUser.displayName}
+                            planningName={activePlan.title}
                         />
                     ) : null}
 

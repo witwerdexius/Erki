@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronDown, ChevronUp, Clock, GripVertical, Plus, Trash2, Users } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock, Download, GripVertical, Plus, Trash2, Users } from 'lucide-react';
 import type { PlanningTask, TaskSection } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { FilterTabs } from '@/components/zeitplan/filter-tabs';
@@ -28,6 +28,7 @@ type RubrikenViewProps = {
   onFilterChange: (filter: 'all' | 'open' | 'mine') => void;
   phases: Phase[];
   currentUser: string;
+  planningName: string;
 };
 
 type AddFormState = {
@@ -53,6 +54,7 @@ export default function RubrikenView({
   onFilterChange,
   phases,
   currentUser,
+  planningName,
 }: RubrikenViewProps) {
   const openStationTasks = phases.reduce((acc, p) => acc + p.tasks.filter(t => t.filled < t.slots).length, 0);
   const myStationTasks = phases.reduce((acc, p) => acc + p.tasks.filter(t => t.volunteers.includes(currentUser)).length, 0);
@@ -134,6 +136,40 @@ export default function RubrikenView({
     onAddSection(name);
     setShowAddSectionForm(false);
     setNewSectionName('');
+  };
+
+  const downloadPDF = async () => {
+    const { jsPDF } = await import('jspdf');
+    const autoTable = (await import('jspdf-autotable')).default;
+
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text(planningName, 14, 18);
+
+    const rows: string[][] = [];
+    for (const sectionId of taskSections) {
+      const sectionLabel = sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
+      const sectionTasks = tasks.filter(t => t.section === sectionId);
+      for (const task of sectionTasks) {
+        rows.push([
+          sectionLabel,
+          task.name,
+          task.time ?? '',
+          task.volunteers.join(', '),
+        ]);
+      }
+    }
+
+    autoTable(doc, {
+      startY: 26,
+      head: [['Rubrik', 'Aufgabe', 'Uhrzeit', 'Helfer']],
+      body: rows,
+      styles: { fontSize: 10 },
+      headStyles: { fillColor: [107, 191, 212] },
+    });
+
+    const safeName = planningName.replace(/[^a-zA-Z0-9_\-äöüÄÖÜß ]/g, '').trim().replace(/ /g, '-');
+    doc.save(`${safeName}-aufgaben.pdf`);
   };
 
   return (
@@ -367,6 +403,13 @@ export default function RubrikenView({
           </div>
         ) : filter !== 'mine' ? (
           <div className="flex gap-2">
+            <button
+              onClick={() => void downloadPDF()}
+              className="rounded-2xl border border-dashed border-gray-300 dark:border-gray-600 bg-transparent px-4 py-3 text-muted-foreground hover:border-[#6bbfd4] hover:text-[#6bbfd4] transition-colors"
+              aria-label="Aufgabenliste als PDF herunterladen"
+            >
+              <Download className="h-4 w-4" />
+            </button>
             <button
               onClick={() => { setIsReordering(false); setShowAddSectionForm(true); }}
               className="flex-1 rounded-2xl border border-dashed border-gray-300 dark:border-gray-600 bg-transparent py-3 text-sm text-muted-foreground hover:border-[#6bbfd4] hover:text-[#6bbfd4] transition-colors"
