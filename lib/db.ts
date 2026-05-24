@@ -60,6 +60,7 @@ export function rowToStation(row: any): Station {
     isFilled: row.is_filled,
     colorVariant: row.color_variant,
     helpersRequired: row.helpers_required ?? 1,
+    time: row.time ?? undefined,
   };
 }
 
@@ -83,6 +84,7 @@ export function stationToRow(station: Station, planningId: string, sortOrder: nu
     color_variant: station.colorVariant ?? 0,
     sort_order: sortOrder,
     helpers_required: station.helpersRequired ?? 1,
+    time: station.time ?? null,
   };
 }
 

@@ -15,6 +15,7 @@ export interface Station {
   isFilled?: boolean;
   colorVariant?: number; // 0-3 for specific color override
   helpersRequired?: number;
+  time?: string;
 }
 
 export type TaskSection = string;

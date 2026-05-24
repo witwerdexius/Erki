@@ -155,7 +155,7 @@ export default function RubrikenView({
           const name = `${s.number ? s.number + ' – ' : ''}${s.name}`;
           const assigned = [s.conductedBy, s.setupBy].filter(v => v && v.trim());
           const helfer = assigned.length > 0 ? assigned.join(', ') : String(s.helpersRequired ?? 2);
-          rows.push(['Stationen', name, '', helfer]);
+          rows.push(['Stationen', name, s.time ?? '', helfer]);
         }
       } else {
         const sectionLabel = sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
