@@ -501,6 +501,14 @@ export async function updateProfileNameAndTeam(userId: string, name: string, tea
   if (error) throw error;
 }
 
+export async function updateProfileName(userId: string, name: string): Promise<void> {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ name })
+    .eq('id', userId);
+  if (error) throw error;
+}
+
 export async function updateUserRole(userId: string, role: UserRole): Promise<void> {
   const { error } = await supabase
     .from('profiles')

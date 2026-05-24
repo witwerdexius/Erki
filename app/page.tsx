@@ -363,6 +363,7 @@ export default function Home() {
           profile={profile}
           community={community}
           onOpenPlan={handleOpenPlan}
+          onProfileUpdate={(updatedName) => setProfile(p => p ? { ...p, name: updatedName } : p)}
         />
         {needsOnboarding && (
           <OnboardingModal

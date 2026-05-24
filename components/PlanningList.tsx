@@ -10,6 +10,7 @@ import { importPlanFromUrl } from '@/lib/actions';
 import AdminPanel from '@/components/AdminPanel';
 import PlanningHistory from '@/components/PlanningHistory';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import UserProfileModal from '@/components/UserProfileModal';
 
 const STATUS_LABELS: Record<PlanStatus, string> = {
   draft: 'Entwurf',
@@ -28,9 +29,10 @@ interface Props {
   profile: Profile | null;
   community: Community | null;
   onOpenPlan: (planId: string) => void;
+  onProfileUpdate: (updatedName: string) => void;
 }
 
-export default function PlanningList({ user, profile, community, onOpenPlan }: Props) {
+export default function PlanningList({ user, profile, community, onOpenPlan, onProfileUpdate }: Props) {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -39,6 +41,7 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
   const [urlImportDialog, setUrlImportDialog] = useState<{ planId: string } | null>(null);
   const [dialogUrl, setDialogUrl] = useState('');
   const [dialogImporting, setDialogImporting] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   const isAdmin = profile?.role === 'admin';
 
@@ -188,7 +191,13 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-500 dark:text-gray-400 max-w-[140px] sm:max-w-none truncate">{profile?.name || profile?.displayName || user.email}</span>
+          <button
+            onClick={() => setShowProfileModal(true)}
+            className="text-sm text-gray-500 dark:text-gray-400 max-w-[140px] sm:max-w-none truncate hover:text-[#6bbfd4] dark:hover:text-[#6bbfd4] transition-colors p-1.5 -m-1.5 rounded-lg"
+            title="Profil bearbeiten"
+          >
+            {profile?.name || profile?.displayName || user.email}
+          </button>
           <ThemeToggle />
           {isAdmin && (
             <button
@@ -378,6 +387,17 @@ export default function PlanningList({ user, profile, community, onOpenPlan }: P
             </div>
           </div>
         </div>
+      )}
+      {showProfileModal && (
+        <UserProfileModal
+          user={user}
+          profile={profile}
+          onClose={() => setShowProfileModal(false)}
+          onSaved={(updatedName) => {
+            onProfileUpdate(updatedName);
+            setShowProfileModal(false);
+          }}
+        />
       )}
     </div>
   );
