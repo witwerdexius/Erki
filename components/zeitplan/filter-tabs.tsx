@@ -13,7 +13,7 @@ type FilterTabsProps = {
 export function FilterTabs({ filter, onFilterChange, openCount, myCount }: FilterTabsProps) {
   return (
     <Tabs value={filter} onValueChange={(v) => onFilterChange(v as "all" | "open" | "mine")} className="mb-4">
-      <TabsList className="w-full h-12 p-1 rounded-full bg-secondary dark:bg-gray-600">
+      <TabsList className="w-full h-12 p-1 rounded-full bg-gray-200 dark:bg-gray-600">
         <TabsTrigger value="all" className="flex-1 h-10 text-sm gap-2 rounded-full dark:text-gray-300 data-[state=active]:bg-card data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-300 dark:data-[state=active]:text-gray-900">
           Alle
         </TabsTrigger>
