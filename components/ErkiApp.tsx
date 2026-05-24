@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef, MutableRefObject } from 'react';
 import { ChevronLeft, Plus, Trash2, List, Download, Upload, Loader2, BookOpen, FileText, Map as MapIcon, CalendarDays } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 import { Plan, Station, StationTemplate, PlanningTask, TaskSection, DEFAULT_TASK_SECTIONS } from '@/lib/types';
 import type { Phase, Task } from '@/components/zeitplan/types';
 import { loadTemplates, createTemplate, updateTemplate, deleteTemplate, loadPlanningFull, loadPlanningTasks, createPlanningTask, deletePlanningTask, updatePlanningTask, updatePlanningTaskVolunteers } from '@/lib/db';
@@ -544,6 +545,33 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
         updateActivePlan({ taskSections: sections });
     };
 
+    const handleDeleteStation = (station: Station) => {
+        const currentStations = (latestPlanRef.current ?? activePlan).stations;
+        const idx = currentStations.findIndex(s => s.id === station.id);
+        updateActivePlan({ stations: currentStations.filter(s => s.id !== station.id) });
+        showUndo({
+            message: `Station „${station.name || `Station ${station.number}`}" gelöscht.`,
+            commit: async () => {
+                // Snapshot anlegen (fire-and-forget)
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session?.access_token) {
+                    fetch('/api/admin/snapshots', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+                        body: JSON.stringify({ planningId: activePlan.id, triggerAction: 'before_station_delete' }),
+                    }).catch(() => {});
+                }
+            },
+            restore: () => {
+                const latest = (latestPlanRef.current ?? activePlan).stations;
+                const restored = [...latest];
+                if (idx >= 0) restored.splice(idx, 0, station);
+                else restored.push(station);
+                updateActivePlan({ stations: restored });
+            },
+        });
+    };
+
     return (
         <div className="flex h-[100dvh] w-full flex-col bg-[#fdfdfd] dark:bg-gray-900 text-[#1a1a1a] dark:text-gray-100 font-sans selection:bg-[#e8f7fb]">
             {/* Header */}
@@ -656,6 +684,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                             latestPlanRef={latestPlanRef}
                             onlineUsers={online}
                             currentUser={presenceUser}
+                            onDeleteStation={handleDeleteStation}
                         />
                     ) : activeTab === 'zeitplan' ? (
                         <RubrikenView

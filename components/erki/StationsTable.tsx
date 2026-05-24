@@ -36,6 +36,8 @@ interface StationsTableProps {
     latestPlanRef: MutableRefObject<Plan | null>;
     onlineUsers?: PresenceUserLike[];
     currentUser?: PresenceUserLike;
+    /** Wenn gesetzt, wird das Löschen über diesen Callback delegiert (z.B. für Undo-Toast). */
+    onDeleteStation?: (station: Station) => void;
 }
 
 export default function StationsTable({
@@ -48,6 +50,7 @@ export default function StationsTable({
     latestPlanRef,
     onlineUsers,
     currentUser,
+    onDeleteStation,
 }: StationsTableProps) {
     const [draggedRowId, setDraggedRowId] = useState<string | null>(null);
     const [dragOverRowId, setDragOverRowId] = useState<string | null>(null);
@@ -113,9 +116,14 @@ export default function StationsTable({
     };
 
     const deleteStation = (id: string) => {
+        const station = activePlan.stations.find(s => s.id === id);
+        if (!station) return;
+        if (onDeleteStation) {
+            onDeleteStation(station);
+            return;
+        }
+        // Fallback ohne Undo: Snapshot + direktes Update
         const planId = activePlan.id;
-        // Snapshot vor dem Löschen anlegen (fire-and-forget, blockiert die UI nicht).
-        // Logik 1:1 aus ErkiApp übernommen.
         supabase.auth.getSession().then(({ data: { session } }) => {
             if (session?.access_token) {
                 fetch('/api/admin/snapshots', {
