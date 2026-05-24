@@ -480,6 +480,10 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
         updateActivePlan({ taskSections: current.filter(s => s !== id) });
     };
 
+    const handleReorderSections = (sections: string[]) => {
+        updateActivePlan({ taskSections: sections });
+    };
+
     return (
         <div className="flex h-[100dvh] w-full flex-col bg-[#fdfdfd] dark:bg-gray-900 text-[#1a1a1a] dark:text-gray-100 font-sans selection:bg-[#e8f7fb]">
             {/* Header */}
@@ -599,6 +603,7 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                             taskSections={taskSections}
                             onAddSection={handleAddSection}
                             onDeleteSection={handleDeleteSection}
+                            onReorderSections={handleReorderSections}
                             stationenContent={
                                 <ZeitplanView
                                     embedded

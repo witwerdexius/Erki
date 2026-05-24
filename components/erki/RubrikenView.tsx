@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Clock, Plus, Trash2, Users } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock, GripVertical, Plus, Trash2, Users } from 'lucide-react';
 import type { PlanningTask, TaskSection } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { FilterTabs } from '@/components/zeitplan/filter-tabs';
@@ -19,6 +19,7 @@ type RubrikenViewProps = {
   onDeleteTask: (id: string) => Promise<void>;
   onAddSection: (name: string) => void;
   onDeleteSection: (id: string) => void;
+  onReorderSections: (sections: string[]) => void;
   onSignUpTask: (taskId: string, name: string) => void;
   onRemoveFromTask: (taskId: string, name: string) => void;
   onEditTask: (id: string, updates: { name: string; helpersRequired: number; time?: string }) => Promise<void>;
@@ -43,6 +44,7 @@ export default function RubrikenView({
   onDeleteTask,
   onAddSection,
   onDeleteSection,
+  onReorderSections,
   onSignUpTask,
   onRemoveFromTask,
   onEditTask,
@@ -77,9 +79,23 @@ export default function RubrikenView({
 
   const [showAddSectionForm, setShowAddSectionForm] = useState(false);
   const [newSectionName, setNewSectionName] = useState('');
+  const [isReordering, setIsReordering] = useState(false);
 
   const toggleSection = (id: string) => {
+    if (isReordering) return;
     setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const moveSection = (id: string, direction: 'up' | 'down') => {
+    const idx = taskSections.indexOf(id);
+    if (idx === -1) return;
+    const next = [...taskSections];
+    if (direction === 'up' && idx > 0) {
+      [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+    } else if (direction === 'down' && idx < next.length - 1) {
+      [next[idx + 1], next[idx]] = [next[idx], next[idx + 1]];
+    }
+    onReorderSections(next);
   };
 
   const openAddForm = (section: TaskSection) => {
@@ -128,7 +144,8 @@ export default function RubrikenView({
           const sectionTasks = isStationen ? [] : filteredTasks.filter(t => t.section === id);
           const allSectionTasks = isStationen ? [] : tasks.filter(t => t.section === id);
           const itemCount = isStationen ? stationCount : sectionTasks.length;
-          const canDelete = !isStationen && allSectionTasks.length === 0;
+          const canDelete = !isStationen && !isReordering && allSectionTasks.length === 0;
+          const sectionIdx = taskSections.indexOf(id);
 
           // Bei aktivem Filter: Rubrik ausblenden wenn keine Aufgaben übrig
           if (filter !== 'all') {
@@ -148,22 +165,25 @@ export default function RubrikenView({
             <section key={id} className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 overflow-hidden">
               {/* Section Header */}
               <div
-                className="w-full flex items-center justify-between px-4 h-14 hover:bg-muted/50 transition-colors cursor-pointer select-none"
+                className={cn(
+                  "w-full flex items-center justify-between px-4 h-14 transition-colors select-none",
+                  isReordering ? "cursor-default" : "hover:bg-muted/50 cursor-pointer",
+                )}
                 onClick={() => toggleSection(id)}
                 role="button"
                 tabIndex={0}
                 aria-expanded={isOpen}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') toggleSection(id); }}
+                onKeyDown={e => { if (!isReordering && (e.key === 'Enter' || e.key === ' ')) toggleSection(id); }}
               >
-                <div className="flex items-center gap-2 flex-1">
-                  <span className="font-semibold text-base">{label}</span>
-                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <span className="font-semibold text-base truncate">{label}</span>
+                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full shrink-0">
                     {itemCount}
                   </span>
-                  {!isStationen && (
+                  {!isReordering && !isStationen && (
                     <button
                       onClick={e => { e.stopPropagation(); openAddForm(id as TaskSection); }}
-                      className="h-11 w-11 flex items-center justify-center rounded-full hover:bg-[#6bbfd4]/20 text-[#6bbfd4] transition-colors"
+                      className="h-11 w-11 flex items-center justify-center rounded-full hover:bg-[#6bbfd4]/20 text-[#6bbfd4] transition-colors shrink-0"
                       aria-label={`Aufgabe zu ${label} hinzufügen`}
                     >
                       <Plus className="h-4 w-4" />
@@ -172,21 +192,45 @@ export default function RubrikenView({
                   {canDelete && (
                     <button
                       onClick={e => { e.stopPropagation(); onDeleteSection(id); }}
-                      className="h-11 w-11 flex items-center justify-center rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 text-muted-foreground hover:text-red-500 transition-colors"
+                      className="h-11 w-11 flex items-center justify-center rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 text-muted-foreground hover:text-red-500 transition-colors shrink-0"
                       aria-label={`Rubrik ${label} löschen`}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   )}
                 </div>
-                {isOpen
-                  ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                  : <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                }
+
+                {/* Reorder controls or expand chevron */}
+                {isReordering && !isStationen ? (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={e => { e.stopPropagation(); moveSection(id, 'up'); }}
+                      disabled={sectionIdx <= 0}
+                      className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-muted disabled:opacity-25 transition-colors"
+                      aria-label={`${label} nach oben`}
+                    >
+                      <ChevronUp className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={e => { e.stopPropagation(); moveSection(id, 'down'); }}
+                      disabled={sectionIdx >= taskSections.length - 1}
+                      className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-muted disabled:opacity-25 transition-colors"
+                      aria-label={`${label} nach unten`}
+                    >
+                      <ChevronDown className="h-5 w-5" />
+                    </button>
+                  </div>
+                ) : isReordering && isStationen ? (
+                  <span className="text-xs text-muted-foreground shrink-0 pr-1">fest</span>
+                ) : (
+                  isOpen
+                    ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                )}
               </div>
 
               {/* Section Content */}
-              {isOpen && (isStationen || sectionTasks.length > 0 || addingIn === id) && (
+              {!isReordering && isOpen && (isStationen || sectionTasks.length > 0 || addingIn === id) && (
                 <div className="border-t border-border">
                   {isStationen ? (
                     stationenContent
@@ -284,7 +328,7 @@ export default function RubrikenView({
           );
         })}
 
-        {/* Rubrik hinzufügen */}
+        {/* Rubrik hinzufügen + Reihenfolge */}
         {showAddSectionForm ? (
           <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 px-4 py-3 flex items-center gap-2">
             <input
@@ -316,12 +360,28 @@ export default function RubrikenView({
             </button>
           </div>
         ) : (
-          <button
-            onClick={() => setShowAddSectionForm(true)}
-            className="w-full rounded-2xl border border-dashed border-gray-300 dark:border-gray-600 bg-transparent py-3 text-sm text-muted-foreground hover:border-[#6bbfd4] hover:text-[#6bbfd4] transition-colors"
-          >
-            ＋ Rubrik hinzufügen
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => { setIsReordering(false); setShowAddSectionForm(true); }}
+              className="flex-1 rounded-2xl border border-dashed border-gray-300 dark:border-gray-600 bg-transparent py-3 text-sm text-muted-foreground hover:border-[#6bbfd4] hover:text-[#6bbfd4] transition-colors"
+            >
+              ＋ Rubrik hinzufügen
+            </button>
+            {taskSections.length > 1 && (
+              <button
+                onClick={() => setIsReordering(r => !r)}
+                className={cn(
+                  'rounded-2xl border px-4 text-sm font-medium transition-colors',
+                  isReordering
+                    ? 'border-[#6bbfd4] bg-[#6bbfd4]/10 text-[#6bbfd4]'
+                    : 'border-dashed border-gray-300 dark:border-gray-600 text-muted-foreground hover:border-[#6bbfd4] hover:text-[#6bbfd4]',
+                )}
+                aria-label="Reihenfolge der Rubriken ändern"
+              >
+                {isReordering ? 'Fertig' : <GripVertical className="h-4 w-4" />}
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>
