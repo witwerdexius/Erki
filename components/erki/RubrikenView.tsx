@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronDown, ChevronUp, Clock, Download, GripVertical, Plus, Trash2, Users } from 'lucide-react';
-import type { PlanningTask, TaskSection } from '@/lib/types';
+import type { PlanningTask, Station, TaskSection } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { FilterTabs } from '@/components/zeitplan/filter-tabs';
 import { TaskCard } from '@/components/zeitplan/task-card';
@@ -27,6 +27,7 @@ type RubrikenViewProps = {
   filter: 'all' | 'open' | 'mine';
   onFilterChange: (filter: 'all' | 'open' | 'mine') => void;
   phases: Phase[];
+  stations: Station[];
   currentUser: string;
   planningName: string;
 };
@@ -53,6 +54,7 @@ export default function RubrikenView({
   filter,
   onFilterChange,
   phases,
+  stations,
   currentUser,
   planningName,
 }: RubrikenViewProps) {
@@ -149,10 +151,11 @@ export default function RubrikenView({
     const rows: string[][] = [];
     for (const sectionId of fullSectionIds) {
       if (sectionId === 'stationen') {
-        for (const phase of phases) {
-          for (const task of phase.tasks) {
-            rows.push(['Stationen', task.name, task.time ?? '', task.volunteers.join(', ')]);
-          }
+        for (const s of stations) {
+          const name = `${s.number ? s.number + ' – ' : ''}${s.name}`;
+          const assigned = [s.conductedBy, s.setupBy].filter(v => v && v.trim());
+          const helfer = assigned.length > 0 ? assigned.join(', ') : String(s.helpersRequired ?? 2);
+          rows.push(['Stationen', name, '', helfer]);
         }
       } else {
         const sectionLabel = sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
