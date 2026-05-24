@@ -335,16 +335,26 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                                         {['Station', 'Überschrift', 'Teil 1', 'Bibelzitat', 'Teil 2'].map(h => (
                                             <th key={h} className="p-3 text-left text-xs font-bold uppercase text-gray-600 dark:text-gray-400 tracking-wider">{h}</th>
                                         ))}
+                                        <th className="w-8" />
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y dark:divide-gray-700">
                                     {rows.map((r, i) => (
-                                        <tr key={i} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/50">
+                                        <tr key={i} className="group hover:bg-gray-50/50 dark:hover:bg-gray-700/50">
                                             <td className="p-3 font-medium text-[#6bbfd4] whitespace-nowrap">{r.station}</td>
                                             <td className="p-3 font-semibold dark:text-gray-100 max-w-[160px] truncate">{r.ueberschrift}</td>
                                             <td className="p-3 text-gray-600 dark:text-gray-400 max-w-[160px] truncate">{r.teil1}</td>
                                             <td className="p-3 text-gray-500 dark:text-gray-400 italic max-w-[160px] truncate">{r.bibelzitat}</td>
                                             <td className="p-3 text-gray-600 dark:text-gray-400 max-w-[160px] truncate">{r.teil2}</td>
+                                            <td className="p-3 w-8">
+                                                <button
+                                                    onClick={() => setRows(prev => prev.filter((_, idx) => idx !== i))}
+                                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400"
+                                                    title="Zeile löschen"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
