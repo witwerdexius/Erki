@@ -147,16 +147,19 @@ export default function RubrikenView({
     doc.text(planningName, 14, 18);
 
     const rows: string[][] = [];
-    for (const sectionId of taskSections) {
-      const sectionLabel = sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
-      const sectionTasks = tasks.filter(t => t.section === sectionId);
-      for (const task of sectionTasks) {
-        rows.push([
-          sectionLabel,
-          task.name,
-          task.time ?? '',
-          task.volunteers.join(', '),
-        ]);
+    for (const sectionId of fullSectionIds) {
+      if (sectionId === 'stationen') {
+        for (const phase of phases) {
+          for (const task of phase.tasks) {
+            rows.push(['Stationen', task.name, task.time ?? '', task.volunteers.join(', ')]);
+          }
+        }
+      } else {
+        const sectionLabel = sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
+        const sectionTasks = tasks.filter(t => t.section === sectionId);
+        for (const task of sectionTasks) {
+          rows.push([sectionLabel, task.name, task.time ?? '', task.volunteers.join(', ')]);
+        }
       }
     }
 
