@@ -16,6 +16,7 @@ export interface Station {
   colorVariant?: number; // 0-3 for specific color override
   helpersRequired?: number;
   time?: string;
+  symbol?: string;
 }
 
 export type TaskSection = string;

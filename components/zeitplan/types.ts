@@ -6,6 +6,7 @@ export type Task = {
   volunteers: string[]
   isAuto?: boolean
   time?: string
+  symbol?: string
 }
 
 export type Phase = {

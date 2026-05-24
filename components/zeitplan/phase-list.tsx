@@ -12,9 +12,11 @@ type PhaseListProps = {
   onRemove: (phaseId: string, taskId: string, volunteerName: string) => void
   currentUser: string
   hidePhaseTitles?: boolean
+  onEditTask?: (taskId: string, updates: { name: string; slots: number; time?: string; symbol?: string }) => void
+  readonlyTaskName?: boolean
 }
 
-export function PhaseList({ phases, onSignUp, onRemove, currentUser, hidePhaseTitles = false }: PhaseListProps) {
+export function PhaseList({ phases, onSignUp, onRemove, currentUser, hidePhaseTitles = false, onEditTask, readonlyTaskName }: PhaseListProps) {
   return (
     <div className="space-y-6">
       {phases.map((phase) => {
@@ -73,6 +75,8 @@ export function PhaseList({ phases, onSignUp, onRemove, currentUser, hidePhaseTi
                   onSignUp={onSignUp}
                   onRemove={onRemove}
                   currentUser={currentUser}
+                  onEdit={onEditTask ? (updates) => { onEditTask(task.id, updates); return Promise.resolve(); } : undefined}
+                  readonlyName={readonlyTaskName}
                 />
               ))}
             </div>

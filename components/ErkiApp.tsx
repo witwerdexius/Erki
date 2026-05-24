@@ -46,9 +46,11 @@ function stationsToPhases(stations: Station[]): Phase[] {
         return {
             id: s.id,
             name: `${s.number ? s.number + ' – ' : ''}${s.name}`,
-            slots: 2,
+            slots: s.helpersRequired ?? 2,
             filled: volunteers.length,
             volunteers,
+            time: s.time,
+            symbol: s.symbol,
         };
     });
     if (tasks.length === 0) return [];
@@ -297,6 +299,24 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
             commit: async () => {},
             restore: () => setZeitplanPhases(snapshot),
         });
+    };
+
+    const handleEditStationFromZeitplan = (taskId: string, updates: { name: string; slots: number; time?: string; symbol?: string }) => {
+        updateActivePlan({
+            stations: (latestPlanRef.current ?? plan).stations.map(s =>
+                s.id === taskId
+                    ? { ...s, helpersRequired: updates.slots, time: updates.time, symbol: updates.symbol }
+                    : s
+            ),
+        });
+        setZeitplanPhases(prev => prev.map(phase => ({
+            ...phase,
+            tasks: phase.tasks.map(task =>
+                task.id === taskId
+                    ? { ...task, slots: updates.slots, time: updates.time, symbol: updates.symbol }
+                    : task
+            ),
+        })));
     };
 
     // Aufgaben-Rubriken: Tasks beim ersten Öffnen des Zeitplan-Tabs laden
@@ -703,6 +723,8 @@ export default function ErkiApp({ plan, user, onPlanUpdate, onExternalPlanUpdate
                                     onSignUp={handleZeitplanSignUp}
                                     onRemove={handleZeitplanRemove}
                                     currentUser={presenceUser.displayName}
+                                    onEditTask={handleEditStationFromZeitplan}
+                                    readonlyTaskName
                                 />
                             }
                             tasks={planningTasks}

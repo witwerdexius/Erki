@@ -28,10 +28,12 @@ type TaskCardProps = {
   /** Wenn gesetzt: Zahnrad-Button erscheint, Löschen im Edit-Formular möglich. */
   onDelete?: () => void
   /** Wenn gesetzt: Parameter der Aufgabe bearbeitbar. */
-  onEdit?: (updates: { name: string; slots: number; time?: string }) => Promise<void>
+  onEdit?: (updates: { name: string; slots: number; time?: string; symbol?: string }) => Promise<void>
+  /** Wenn true: Namensfeld im Edit-Formular ausgeblendet (z.B. bei Stationskarten). */
+  readonlyName?: boolean
 }
 
-export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDelete, onEdit }: TaskCardProps) {
+export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDelete, onEdit, readonlyName }: TaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isSigningUp, setIsSigningUp] = useState(false)
   const [name, setName] = useState("")
@@ -40,6 +42,7 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
   const [editName, setEditName] = useState(task.name)
   const [editSlots, setEditSlots] = useState(task.slots)
   const [editTime, setEditTime] = useState(task.time ?? '')
+  const [editSymbol, setEditSymbol] = useState(task.symbol ?? '')
   const [editSaving, setEditSaving] = useState(false)
 
   const isFull = task.filled >= task.slots
@@ -65,15 +68,22 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
     setEditName(task.name)
     setEditSlots(task.slots)
     setEditTime(task.time ?? '')
+    setEditSymbol(task.symbol ?? '')
     setIsSigningUp(false)
     setIsEditing(true)
   }
 
   const handleSaveEdit = async () => {
-    if (!editName.trim() || !onEdit) return
+    if (!readonlyName && !editName.trim()) return
+    if (!onEdit) return
     setEditSaving(true)
     try {
-      await onEdit({ name: editName.trim(), slots: editSlots, time: editTime || undefined })
+      await onEdit({
+        name: readonlyName ? task.name : editName.trim(),
+        slots: editSlots,
+        time: editTime || undefined,
+        symbol: editSymbol || undefined,
+      })
       setIsEditing(false)
     } finally {
       setEditSaving(false)
@@ -141,6 +151,7 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
               style={{ hyphens: 'auto', wordBreak: 'break-word' }}
               lang="de"
             >
+              {task.symbol && <span className="mr-1.5">{task.symbol}</span>}
               {task.name}
               {task.time && (
                 <span className="ml-1.5 font-normal text-muted-foreground text-sm">· {task.time}</span>
@@ -270,18 +281,34 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
             ) : isEditing ? (
               /* ── Edit Form ── */
               <div className="flex flex-col gap-2">
-                {/* Name */}
-                <input
-                  className="w-full h-10 rounded-xl border border-border bg-muted/50 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
-                  placeholder="Aufgabe benennen…"
-                  value={editName}
-                  autoFocus
-                  onChange={e => setEditName(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') void handleSaveEdit()
-                    if (e.key === 'Escape') setIsEditing(false)
-                  }}
-                />
+                {/* Symbol (Emoji) */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm text-muted-foreground shrink-0">Symbol</span>
+                  <input
+                    className="flex-1 h-10 rounded-xl border border-border bg-muted/50 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
+                    placeholder="Emoji oder Kürzel…"
+                    value={editSymbol}
+                    autoFocus={readonlyName}
+                    onChange={e => setEditSymbol(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Escape') setIsEditing(false)
+                    }}
+                  />
+                </div>
+                {/* Name — nur wenn editierbar */}
+                {!readonlyName && (
+                  <input
+                    className="w-full h-10 rounded-xl border border-border bg-muted/50 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
+                    placeholder="Aufgabe benennen…"
+                    value={editName}
+                    autoFocus={!readonlyName}
+                    onChange={e => setEditName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') void handleSaveEdit()
+                      if (e.key === 'Escape') setIsEditing(false)
+                    }}
+                  />
+                )}
                 {/* Helfer + Uhrzeit — gleichbreite Spalten */}
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex items-center gap-1.5">
@@ -323,11 +350,11 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
                     </button>
                   )}
                   <button
-                    disabled={editSaving || !editName.trim()}
+                    disabled={editSaving || (!readonlyName && !editName.trim())}
                     onClick={() => void handleSaveEdit()}
                     className={cn(
                       'flex-1 h-10 rounded-full text-sm font-medium bg-[#6bbfd4] text-white hover:bg-[#5aaec3] transition-colors',
-                      (editSaving || !editName.trim()) && 'opacity-50 cursor-not-allowed',
+                      (editSaving || (!readonlyName && !editName.trim())) && 'opacity-50 cursor-not-allowed',
                     )}
                   >
                     Speichern

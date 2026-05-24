@@ -17,6 +17,10 @@ type ZeitplanViewProps = {
     embedded?: boolean;
     /** Wenn true: Timeline + FilterTabs nicht rendern (nur Phasen-/Task-Liste). */
     hideFilterBar?: boolean;
+    /** Optionaler Edit-Callback für Tasks (z.B. Stationskarten in RubrikenView). */
+    onEditTask?: (taskId: string, updates: { name: string; slots: number; time?: string; symbol?: string }) => void;
+    /** Wenn true: Name ist im Edit-Formular nicht editierbar (für Stationskarten). */
+    readonlyTaskName?: boolean;
 };
 
 export default function ZeitplanView({
@@ -28,6 +32,8 @@ export default function ZeitplanView({
     currentUser,
     embedded = false,
     hideFilterBar = false,
+    onEditTask,
+    readonlyTaskName,
 }: ZeitplanViewProps) {
     const openTasks = phases.reduce((acc, p) => acc + p.tasks.filter(t => t.filled < t.slots).length, 0);
     const myTasks = phases.reduce((acc, p) => acc + p.tasks.filter(t => t.volunteers.includes(currentUser)).length, 0);
@@ -63,6 +69,8 @@ export default function ZeitplanView({
                     onRemove={onRemove}
                     currentUser={currentUser}
                     hidePhaseTitles={embedded}
+                    onEditTask={onEditTask}
+                    readonlyTaskName={readonlyTaskName}
                 />
             ) : (
                 <EmptyState filter={filter} />
