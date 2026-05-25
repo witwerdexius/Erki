@@ -241,7 +241,7 @@ export default function RubrikenView({
           myCount={myTasks}
         />
       </div>
-      <div className="px-4 py-3 max-w-lg mx-auto space-y-3 md:max-w-none md:mx-0 md:px-6 md:space-y-0 md:columns-2 lg:columns-3">
+      <div className="px-4 py-3 max-w-lg mx-auto space-y-3 md:max-w-none md:mx-0 md:px-6 md:space-y-0 md:columns-2 lg:columns-3 xl:columns-4">
         {allSections.map(({ id, label, isStationen }) => {
           const isOpen = !(collapsed[id] ?? false);
           const sectionTasks = isStationen ? [] : filteredTasks.filter(t => t.section === id);
