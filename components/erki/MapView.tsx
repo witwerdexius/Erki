@@ -8,7 +8,7 @@ import {
 import type { Plan, Station, LogoOverlay, LabelOverlay } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { exportLageplanPDF } from '@/lib/pdfExport';
-import { computeBubbleSlots, type BlockedZone } from '@/lib/bubbleLayoutMath';
+import { computeRadialSlots, type BlockedZone, type MaskPolygon } from '@/lib/bubbleLayoutMath';
 import {
     clientToPercent,
     deriveContainerHeight,
@@ -29,6 +29,8 @@ function computeAutoLayout(
     containerHeight: number,
     logoOverlay?: LogoOverlay,
     labelOverlay?: LabelOverlay,
+    masks?: { points: { x: number; y: number }[] }[],
+    bgZoom?: number,
 ): Station[] {
     if (stations.length === 0 || containerWidth === 0 || containerHeight === 0) return stations;
 
@@ -63,11 +65,17 @@ function computeAutoLayout(
         x: (s.targetX / 100) * containerWidth,
         y: (s.targetY / 100) * containerHeight,
     }));
-    const slots = computeBubbleSlots({
+
+    const maskPolygons: MaskPolygon[] | undefined = masks?.map(m => ({ points: m.points }));
+
+    const slots = computeRadialSlots({
         markers,
         containerWidth,
         containerHeight,
+        masks: maskPolygons,
+        bgZoom,
         blockedZones,
+        bubbleRadius,
     });
 
     return stations.map(s => {
@@ -220,6 +228,8 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
             containerHeight,
             activePlan.logoOverlay,
             activePlan.labelOverlay,
+            activePlan.masks,
+            activePlan.bgZoom,
         );
         updateActivePlan({ stations: updated });
     };

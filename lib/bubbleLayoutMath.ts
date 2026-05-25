@@ -332,3 +332,215 @@ export function computeBubbleSlots(input: ComputeBubbleSlotsInput): LayoutResult
 
     return result;
 }
+
+// ── Radial Segment Layout ────────────────────────────────────────────────────
+// Neuer Algorithmus: Teilt den Raum in radiale Segmente vom Container-Mittelpunkt.
+// Für jedes Segment wird ein Strahl nach außen geschossen bis zum ersten gültigen
+// Punkt (außerhalb des Masken-Polygons, außerhalb Logo/Titel, innerhalb Container).
+// Blasen werden den Segmenten nach Winkel-Ähnlichkeit zugeordnet (minimiert Kreuzungen).
+
+/** Masken-Polygon — Punkte in % des Containers (0..100), vor Zoom gespeichert. */
+export interface MaskPolygon {
+    points: { x: number; y: number }[];
+}
+
+export interface ComputeRadialSlotsInput {
+    markers: Marker[];
+    containerWidth: number;
+    containerHeight: number;
+    /** Masken-Polygone aus activePlan.masks (Punkte in %, vor Zoom). */
+    masks?: MaskPolygon[];
+    /** CSS-Scale-Faktor des Hintergrundbildes (activePlan.bgZoom, default 1). */
+    bgZoom?: number;
+    /** Sperrzonen für Logo/Titel in % (wie bei computeBubbleSlots). */
+    blockedZones?: BlockedZone[];
+    bubbleRadius?: number;
+}
+
+/**
+ * Ray-Casting Point-in-Polygon Test.
+ * poly: Array von {x, y} in Pixeln.
+ */
+export function pointInPolygon(
+    px: number, py: number,
+    poly: { x: number; y: number }[],
+): boolean {
+    const n = poly.length;
+    if (n < 3) return false;
+    let inside = false;
+    for (let i = 0, j = n - 1; i < n; j = i++) {
+        const xi = poly[i].x, yi = poly[i].y;
+        const xj = poly[j].x, yj = poly[j].y;
+        if ((yi > py) !== (yj > py) &&
+            px < (xj - xi) * (py - yi) / (yj - yi) + xi) {
+            inside = !inside;
+        }
+    }
+    return inside;
+}
+
+/**
+ * Berechnet Slot-Positionen über radiale Segmente.
+ *
+ * Funktionsweise:
+ *  1. Masken-Polygone werden mit bgZoom auf visuelle % transformiert und in Pixel umgerechnet.
+ *  2. Vom Container-Mittelpunkt werden M Strahlen (360°/M Schritt) nach außen abgetastet.
+ *  3. Jeder Strahl liefert den ersten Punkt der: außerhalb ALLER Masken-Polygone,
+ *     außerhalb aller Sperrzonen und innerhalb des Container-Randes liegt.
+ *  4. M wird erhöht bis ≥ N gültige Segmente vorliegen.
+ *  5. N gleichmäßig verteilte Segmente werden ausgewählt und nach Winkel sortiert.
+ *  6. Marker werden nach Winkel (relativ zum Mittelpunkt) sortiert und 1:1 zugeordnet.
+ *  7. Bubble-Überlapp wird durch Verschieben entlang des Strahls aufgelöst.
+ *
+ * Fallback: Wenn keine Masken vorhanden sind, wird computeBubbleSlots verwendet.
+ */
+export function computeRadialSlots(input: ComputeRadialSlotsInput): LayoutResult {
+    const { markers, containerWidth, containerHeight, blockedZones } = input;
+    const N = markers.length;
+    const result: LayoutResult = {};
+    if (N === 0 || containerWidth <= 0 || containerHeight <= 0) return result;
+
+    // Wenn keine Masken: Fallback auf Perimeter-Algorithmus
+    if (!input.masks || input.masks.length === 0) {
+        return computeBubbleSlots({ markers, containerWidth, containerHeight, blockedZones });
+    }
+
+    const bgZoom = input.bgZoom ?? 1;
+    const mapScale = containerWidth / 800;
+    const bubbleRadius = input.bubbleRadius ?? 48 * mapScale;
+
+    // Masken-Polygone: stored % -> visual % (mit Zoom) -> Pixel
+    // visual_x_pct = 50 + (stored_x - 50) * bgZoom
+    const maskPolysPx: { x: number; y: number }[][] = input.masks.map(mask =>
+        mask.points.map(p => ({
+            x: (50 + (p.x - 50) * bgZoom) / 100 * containerWidth,
+            y: (50 + (p.y - 50) * bgZoom) / 100 * containerHeight,
+        }))
+    );
+
+    const isInMask = (px: number, py: number): boolean =>
+        maskPolysPx.some(poly => pointInPolygon(px, py, poly));
+
+    const isInBlockedZone = (px: number, py: number): boolean => {
+        if (!blockedZones || blockedZones.length === 0) return false;
+        for (const zone of blockedZones) {
+            const lx = (zone.x / 100) * containerWidth;
+            const ly = (zone.y / 100) * containerHeight;
+            const lw = (zone.width / 100) * containerWidth;
+            const lh = (zone.height / 100) * containerWidth;
+            if (px >= lx - bubbleRadius && px <= lx + lw + bubbleRadius &&
+                py >= ly - bubbleRadius && py <= ly + lh + bubbleRadius) return true;
+        }
+        return false;
+    };
+
+    const isForbidden = (px: number, py: number): boolean =>
+        isInMask(px, py) || isInBlockedZone(px, py);
+
+    const isInBounds = (px: number, py: number): boolean =>
+        px >= bubbleRadius && px <= containerWidth - bubbleRadius &&
+        py >= bubbleRadius && py <= containerHeight - bubbleRadius;
+
+    // Container-Mittelpunkt
+    const cx = containerWidth / 2;
+    const cy = containerHeight / 2;
+
+    // Strahl von Mittelpunkt in Richtung angle: ersten gültigen Punkt finden.
+    const scanRay = (angle: number): Slot | null => {
+        const cosA = Math.cos(angle);
+        const sinA = Math.sin(angle);
+        const maxDist = Math.sqrt(
+            containerWidth * containerWidth + containerHeight * containerHeight
+        );
+        const stepPx = Math.max(3, bubbleRadius * 0.25);
+
+        for (let dist = 1; dist <= maxDist; dist += stepPx) {
+            const px = cx + cosA * dist;
+            const py = cy + sinA * dist;
+            if (!isInBounds(px, py)) continue;
+            if (!isForbidden(px, py)) {
+                return { x: px, y: py };
+            }
+        }
+        return null;
+    };
+
+    // M erhöhen bis ≥ N gültige Segmente
+    let M = N;
+    let validSegs: { angle: number; slot: Slot }[] = [];
+    while (M <= N * 16) {
+        validSegs = [];
+        for (let i = 0; i < M; i++) {
+            const angle = (2 * Math.PI * i) / M;
+            const slot = scanRay(angle);
+            if (slot) validSegs.push({ angle, slot });
+        }
+        if (validSegs.length >= N) break;
+        M = Math.ceil(M * 1.3);
+    }
+
+    if (validSegs.length === 0) {
+        for (const m of markers) result[m.id] = { x: cx, y: cy };
+        return result;
+    }
+
+    // N gleichmäßig verteilte Segmente aus validSegs wählen
+    const chosen: { angle: number; slot: Slot }[] = [];
+    const stride = validSegs.length / N;
+    for (let i = 0; i < N; i++) {
+        chosen.push(validSegs[Math.floor(i * stride)]);
+    }
+    chosen.sort((a, b) => a.angle - b.angle);
+
+    // Marker nach Winkel (vom Mittelpunkt) sortieren
+    const sortedMarkers = markers
+        .map(m => ({ ...m, angle: Math.atan2(m.y - cy, m.x - cx) }))
+        .sort((a, b) => a.angle - b.angle);
+
+    // 1:1 Zuordnung nach Winkel-Reihenfolge → minimiert Kreuzungen
+    const assignments: {
+        id: string; slot: Slot; segAngle: number;
+    }[] = sortedMarkers.map((m, i) => ({
+        id: m.id,
+        slot: { ...chosen[i].slot },
+        segAngle: chosen[i].angle,
+    }));
+
+    // Überlapp entlang Strahl auflösen (outward push)
+    const minDist2 = 2 * bubbleRadius + 4;
+    for (let round = 0; round < 25; round++) {
+        let anyChange = false;
+        for (let i = 0; i < assignments.length; i++) {
+            for (let j = i + 1; j < assignments.length; j++) {
+                const a = assignments[i];
+                const b = assignments[j];
+                const dx = a.slot.x - b.slot.x;
+                const dy = a.slot.y - b.slot.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist >= minDist2 || dist < 0.1) continue;
+                const push = (minDist2 - dist) / 2 + 1;
+                const newAx = a.slot.x + Math.cos(a.segAngle) * push;
+                const newAy = a.slot.y + Math.sin(a.segAngle) * push;
+                if (isInBounds(newAx, newAy) && !isForbidden(newAx, newAy)) {
+                    assignments[i].slot = { x: newAx, y: newAy };
+                    anyChange = true;
+                }
+                const newBx = b.slot.x + Math.cos(b.segAngle) * push;
+                const newBy = b.slot.y + Math.sin(b.segAngle) * push;
+                if (isInBounds(newBx, newBy) && !isForbidden(newBx, newBy)) {
+                    assignments[j].slot = { x: newBx, y: newBy };
+                    anyChange = true;
+                }
+            }
+        }
+        if (!anyChange) break;
+    }
+
+    for (const a of assignments) {
+        result[a.id] = {
+            x: Math.max(bubbleRadius, Math.min(containerWidth - bubbleRadius, a.slot.x)),
+            y: Math.max(bubbleRadius, Math.min(containerHeight - bubbleRadius, a.slot.y)),
+        };
+    }
+    return result;
+}
