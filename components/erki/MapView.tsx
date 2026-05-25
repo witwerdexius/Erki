@@ -713,7 +713,7 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                     </div>}
 
                     {/* Logo Overlay */}
-                    {activePlan.logoOverlay && (() => {
+                    {!maskDrawing && activePlan.logoOverlay && (() => {
                         const lo = activePlan.logoOverlay;
                         return (
                             <div
@@ -755,7 +755,7 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                     })()}
 
                     {/* Label Overlay */}
-                    {activePlan.labelOverlay && (() => {
+                    {!maskDrawing && activePlan.labelOverlay && (() => {
                         const lb = activePlan.labelOverlay;
                         return (
                             <div
