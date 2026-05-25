@@ -254,7 +254,7 @@ export default function RubrikenView({
   });
 
   // Rolling-average column distribution — original order preserved
-  const BASE_H = 80;
+  const BASE_H = 56;
   const ITEM_H = 60;
   const heights = visibleSections.map(({ id, isStationen }) => {
     const count = isStationen ? stationCount : filteredTasks.filter(t => t.section === id).length;
