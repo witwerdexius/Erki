@@ -48,15 +48,13 @@ function computeAutoLayout(
     }
     if (labelOverlay) {
         const renderedFontSize = labelOverlay.fontSize * mapScale;
-        const approxWPx = labelOverlay.text.length * renderedFontSize * 1.8;
-        const approxHPx = renderedFontSize * 1.6;
-        const extra = bubbleRadius * 1.5;
-        const yPx = (labelOverlay.y / 100) * containerHeight - extra;
+        const approxWPx = labelOverlay.text.length * renderedFontSize * 0.7;
+        const approxHPx = renderedFontSize * 1.4;
         blockedZones.push({
             x: labelOverlay.x,
-            y: (yPx / containerHeight) * 100,
-            width: ((approxWPx + extra) / containerWidth) * 100,
-            height: ((approxHPx + 2 * extra) / containerWidth) * 100,
+            y: labelOverlay.y,
+            width: (approxWPx / containerWidth) * 100,
+            height: (approxHPx / containerWidth) * 100,
         });
     }
 
