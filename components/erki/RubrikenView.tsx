@@ -241,7 +241,7 @@ export default function RubrikenView({
           myCount={myTasks}
         />
       </div>
-      <div className="px-4 py-3 max-w-lg mx-auto space-y-3 md:max-w-none md:mx-0 md:px-6 md:space-y-0 md:grid md:grid-cols-[repeat(auto-fill,minmax(320px,1fr))] md:gap-3">
+      <div className="px-4 py-3 max-w-lg mx-auto space-y-3 md:max-w-none md:mx-0 md:px-6 md:space-y-0 md:columns-2 lg:columns-3">
         {allSections.map(({ id, label, isStationen }) => {
           const isOpen = !(collapsed[id] ?? false);
           const sectionTasks = isStationen ? [] : filteredTasks.filter(t => t.section === id);
@@ -265,7 +265,7 @@ export default function RubrikenView({
           }
 
           return (
-            <motion.section layout key={id} transition={{ type: 'spring', stiffness: 400, damping: 35 }} className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 overflow-hidden">
+            <motion.section layout key={id} transition={{ type: 'spring', stiffness: 400, damping: 35 }} className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 overflow-hidden md:break-inside-avoid md:mb-3">
               {/* Section Header */}
               <div
                 className={cn(
