@@ -293,6 +293,22 @@ export function computeBubbleSlots(input: ComputeBubbleSlotsInput): LayoutResult
         if (!swapped) break;
     }
 
+    // ── Schritt 7b: Sperrzonen nach Kreuzungsauflösung nochmal prüfen ────────
+    if (blockedZones && blockedZones.length > 0) {
+        for (let pass = 0; pass < 3; pass++) {
+            let anyMoved = false;
+            for (const item of items) {
+                let pt = sToPoint(item.s, rect);
+                for (let attempt = 0; attempt < 120 && isBlocked(pt.x, pt.y); attempt++) {
+                    item.s = wrap(item.s + minDist * 0.5, perimLen);
+                    pt = sToPoint(item.s, rect);
+                    anyMoved = true;
+                }
+            }
+            if (!anyMoved) break;
+        }
+    }
+
     // ── Schritt 8: Hard-Clamp + Zuordnung ───────────────────────────────────
     for (const item of items) {
         const pt = sToPoint(item.s, rect);
