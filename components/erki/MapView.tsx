@@ -615,7 +615,7 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                         </div>
                     )}
 
-                    <div className="absolute inset-0 select-none">
+                    {!maskDrawing && <div className="absolute inset-0 select-none">
                         <svg className="absolute inset-0 w-full h-full overflow-visible pointer-events-none z-20">
                             {activePlan.stations.map(s => (
                                 <line
@@ -710,7 +710,7 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                                 </React.Fragment>
                             );
                         })}
-                    </div>
+                    </div>}
 
                     {/* Logo Overlay */}
                     {activePlan.logoOverlay && (() => {
