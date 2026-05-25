@@ -506,9 +506,9 @@ export function computeRadialSlots(input: ComputeRadialSlotsInput): LayoutResult
         segAngle: chosen[i].angle,
     }));
 
-    // Überlapp entlang Strahl auflösen (outward push)
+    // Überlapp-Auflösung: allgemeine 2D-Abstoßung (nicht nur entlang des Strahls)
     const minDist2 = 2 * bubbleRadius + 4;
-    for (let round = 0; round < 25; round++) {
+    for (let round = 0; round < 40; round++) {
         let anyChange = false;
         for (let i = 0; i < assignments.length; i++) {
             for (let j = i + 1; j < assignments.length; j++) {
@@ -519,14 +519,19 @@ export function computeRadialSlots(input: ComputeRadialSlotsInput): LayoutResult
                 const dist = Math.sqrt(dx * dx + dy * dy);
                 if (dist >= minDist2 || dist < 0.1) continue;
                 const push = (minDist2 - dist) / 2 + 1;
-                const newAx = a.slot.x + Math.cos(a.segAngle) * push;
-                const newAy = a.slot.y + Math.sin(a.segAngle) * push;
+                // Abstoßungsrichtung: von b nach a (und umgekehrt)
+                const nx = dx / dist;
+                const ny = dy / dist;
+                // a nach außen schieben
+                const newAx = a.slot.x + nx * push;
+                const newAy = a.slot.y + ny * push;
                 if (isInBounds(newAx, newAy) && !isForbidden(newAx, newAy)) {
                     assignments[i].slot = { x: newAx, y: newAy };
                     anyChange = true;
                 }
-                const newBx = b.slot.x + Math.cos(b.segAngle) * push;
-                const newBy = b.slot.y + Math.sin(b.segAngle) * push;
+                // b in Gegenrichtung schieben
+                const newBx = b.slot.x - nx * push;
+                const newBy = b.slot.y - ny * push;
                 if (isInBounds(newBx, newBy) && !isForbidden(newBx, newBy)) {
                     assignments[j].slot = { x: newBx, y: newBy };
                     anyChange = true;
