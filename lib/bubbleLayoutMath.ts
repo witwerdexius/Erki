@@ -251,14 +251,41 @@ export function computeBubbleSlots(input: ComputeBubbleSlotsInput): LayoutResult
     for (let round = 0; round < 15; round++) {
         let anyChange = false;
 
-        // Schritt 5: Sperrzonen
+        // Schritt 5: Sperrzonen — bidirektionale Suche
         for (const item of items) {
-            let pt = sToPoint(item.s, rect);
-            for (let attempt = 0; attempt < 120 && isBlocked(pt.x, pt.y); attempt++) {
-                item.s = wrap(item.s + minDist * 0.5, perimLen);
-                pt = sToPoint(item.s, rect);
-                anyChange = true;
+            const startPt = sToPoint(item.s, rect);
+            if (!isBlocked(startPt.x, startPt.y)) continue;
+
+            let fwdS = item.s;
+            let bwdS = item.s;
+            let fwdFree = false;
+            let bwdFree = false;
+            const step = minDist * 0.5;
+
+            for (let attempt = 0; attempt < 120; attempt++) {
+                if (!fwdFree) {
+                    fwdS = wrap(fwdS + step, perimLen);
+                    const pt = sToPoint(fwdS, rect);
+                    if (!isBlocked(pt.x, pt.y)) fwdFree = true;
+                }
+                if (!bwdFree) {
+                    bwdS = wrap(bwdS - step, perimLen);
+                    const pt = sToPoint(bwdS, rect);
+                    if (!isBlocked(pt.x, pt.y)) bwdFree = true;
+                }
+                if (fwdFree && bwdFree) break;
             }
+
+            if (fwdFree && bwdFree) {
+                const fwdDist = wrap(fwdS - item.s, perimLen);
+                const bwdDist = wrap(item.s - bwdS, perimLen);
+                item.s = fwdDist <= bwdDist ? fwdS : bwdS;
+            } else if (fwdFree) {
+                item.s = fwdS;
+            } else if (bwdFree) {
+                item.s = bwdS;
+            }
+            anyChange = true;
         }
 
         // Schritt 6: 2D-Overlap
