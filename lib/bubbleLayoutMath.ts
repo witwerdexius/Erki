@@ -243,18 +243,25 @@ export function computeBubbleSlots(input: ComputeBubbleSlotsInput): LayoutResult
         }
         return false;
     };
-    for (const item of items) {
-        let pt = sToPoint(item.s, rect);
-        for (let attempt = 0; attempt < 120 && isBlocked(pt.x, pt.y); attempt++) {
-            item.s = wrap(item.s + minDist * 0.5, perimLen);
-            pt = sToPoint(item.s, rect);
-        }
-    }
-
-    // ── Schritt 6: 2D-Overlap-Pruefschleife ─────────────────────────────────
+    // ── Schritte 5–7: Iterative Schleife bis Konvergenz ─────────────────────
     const minDist2D = 2 * bubbleRadius + 5;
-    for (let iter = 0; iter < 20; iter++) {
-        let anyMoved = false;
+    const markerById: Record<string, { x: number; y: number }> = {};
+    for (const m of markers) markerById[m.id] = { x: m.x, y: m.y };
+
+    for (let round = 0; round < 15; round++) {
+        let anyChange = false;
+
+        // Schritt 5: Sperrzonen
+        for (const item of items) {
+            let pt = sToPoint(item.s, rect);
+            for (let attempt = 0; attempt < 120 && isBlocked(pt.x, pt.y); attempt++) {
+                item.s = wrap(item.s + minDist * 0.5, perimLen);
+                pt = sToPoint(item.s, rect);
+                anyChange = true;
+            }
+        }
+
+        // Schritt 6: 2D-Overlap
         for (let i = 0; i < N; i++) {
             const ptI = sToPoint(items[i].s, rect);
             for (let j = i + 1; j < N; j++) {
@@ -262,24 +269,13 @@ export function computeBubbleSlots(input: ComputeBubbleSlotsInput): LayoutResult
                 const dx = ptI.x - ptJ.x, dy = ptI.y - ptJ.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
                 if (dist < minDist2D) {
-                    const candidate = wrap(items[j].s + (minDist2D - dist), perimLen);
-                    const candidatePt = sToPoint(candidate, rect);
-                    if (!isBlocked(candidatePt.x, candidatePt.y)) {
-                        items[j].s = candidate;
-                        anyMoved = true;
-                    }
+                    items[j].s = wrap(items[j].s + (minDist2D - dist), perimLen);
+                    anyChange = true;
                 }
             }
         }
-        if (!anyMoved) break;
-    }
 
-    // ── Schritt 7: Kreuzungs-Pruefschleife ──────────────────────────────────
-    const markerById: Record<string, { x: number; y: number }> = {};
-    for (const m of markers) markerById[m.id] = { x: m.x, y: m.y };
-
-    for (let iter = 0; iter < 50; iter++) {
-        let swapped = false;
+        // Schritt 7: Kreuzungen
         for (let i = 0; i < N; i++) {
             const mi = markerById[items[i].id];
             const si = sToPoint(items[i].s, rect);
@@ -287,18 +283,15 @@ export function computeBubbleSlots(input: ComputeBubbleSlotsInput): LayoutResult
                 const mj = markerById[items[j].id];
                 const sj = sToPoint(items[j].s, rect);
                 if (segmentsCross(mi.x, mi.y, si.x, si.y, mj.x, mj.y, sj.x, sj.y)) {
-                    const newSi = sToPoint(items[j].s, rect);
-                    const newSj = sToPoint(items[i].s, rect);
-                    if (!isBlocked(newSi.x, newSi.y) && !isBlocked(newSj.x, newSj.y)) {
-                        const tmp = items[i].s;
-                        items[i].s = items[j].s;
-                        items[j].s = tmp;
-                        swapped = true;
-                    }
+                    const tmp = items[i].s;
+                    items[i].s = items[j].s;
+                    items[j].s = tmp;
+                    anyChange = true;
                 }
             }
         }
-        if (!swapped) break;
+
+        if (!anyChange) break;
     }
 
     // ── Schritt 8: Hard-Clamp + Zuordnung ───────────────────────────────────
