@@ -631,20 +631,19 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
             const ex = p1.x - p0.x, ey = p1.y - p0.y;
             const edgeLen = Math.sqrt(ex * ex + ey * ey);
             if (edgeLen < 0.1) continue;
-            // Kanten-Außennormale: welche Seite ist vom Schwerpunkt weg?
-            const cross = ex * (centroid.y - p0.y) - ey * (centroid.x - p0.x);
-            // cross > 0: Schwerpunkt links → Außen ist rechts: normal = (ey, -ex)
-            // cross < 0: Schwerpunkt rechts → Außen ist links: normal = (-ey, ex)
-            const sign = cross > 0 ? 1 : -1;
-            const nx = sign * ey / edgeLen;
-            const ny = sign * -ex / edgeLen;
             let d = remaining;
             while (d <= edgeLen) {
                 const t = d / edgeLen;
+                const wx = p0.x + ex * t;
+                const wy = p0.y + ey * t;
+                // Außenrichtung: vom Schwerpunkt zum Punkt (funktioniert für stern-förmige Polygone)
+                const dxO = wx - centroid.x;
+                const dyO = wy - centroid.y;
+                const dLen = Math.sqrt(dxO * dxO + dyO * dyO);
                 points.push({
-                    x: p0.x + ex * t,
-                    y: p0.y + ey * t,
-                    nx, ny,
+                    x: wx, y: wy,
+                    nx: dLen > 0.01 ? dxO / dLen : 0,
+                    ny: dLen > 0.01 ? dyO / dLen : 0,
                 });
                 d += stepLen;
             }
@@ -690,15 +689,23 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
         return result;
     }
 
-    // N gleichmäßig verteilte Kandidaten nach Winkel (vom Schwerpunkt) auswählen
-    candidates.sort((a, b) =>
-        Math.atan2(a.y - centroid.y, a.x - centroid.x) -
-        Math.atan2(b.y - centroid.y, b.x - centroid.x)
-    );
-    const stride = candidates.length / N;
+    // N Kandidaten gleichmäßig nach Winkel: für jeden Zielwinkel (360°/N) den nächsten freien wählen
     const chosen: Slot[] = [];
+    const usedIdx = new Set<number>();
+    const angleStep = (2 * Math.PI) / N;
+
     for (let i = 0; i < N; i++) {
-        chosen.push(candidates[Math.floor(i * stride)]);
+        const targetAngle = -Math.PI + i * angleStep;
+        let bestIdx = -1;
+        let bestDiff = Infinity;
+        for (let j = 0; j < candidates.length; j++) {
+            if (usedIdx.has(j)) continue;
+            const cAngle = Math.atan2(candidates[j].y - centroid.y, candidates[j].x - centroid.x);
+            let diff = Math.abs(cAngle - targetAngle);
+            if (diff > Math.PI) diff = 2 * Math.PI - diff;
+            if (diff < bestDiff) { bestDiff = diff; bestIdx = j; }
+        }
+        if (bestIdx >= 0) { chosen.push(candidates[bestIdx]); usedIdx.add(bestIdx); }
     }
     chosen.sort((a, b) =>
         Math.atan2(a.y - centroid.y, a.x - centroid.x) -
