@@ -549,3 +549,208 @@ export function computeRadialSlots(input: ComputeRadialSlotsInput): LayoutResult
     }
     return result;
 }
+
+// ── Polygon-Perimeter Layout ─────────────────────────────────────────────────
+// Platziert Blasen entlang des Masken-Polygon-Randes, knapp außerhalb.
+// Geht einmal rund herum, platziert Kandidaten im Abstand 2*bubbleRadius+gap.
+// Wenn zu wenig Plätze: Abstand reduzieren (Platz-Analyse), dann zweite Runde
+// weiter außen. Logo/Titel-Sperrzonen werden ausgespart.
+
+/**
+ * Berechnet Slots entlang des Masken-Polygon-Randes.
+ * Benötigt mindestens eine Maske — sonst Fallback auf computeBubbleSlots.
+ */
+export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): LayoutResult {
+    const { markers, containerWidth, containerHeight, blockedZones } = input;
+    const N = markers.length;
+    const result: LayoutResult = {};
+    if (N === 0 || containerWidth <= 0 || containerHeight <= 0) return result;
+
+    if (!input.masks || input.masks.length === 0) {
+        return computeBubbleSlots({ markers, containerWidth, containerHeight, blockedZones });
+    }
+
+    const bgZoom = input.bgZoom ?? 1;
+    const mapScale = containerWidth / 800;
+    const bubbleRadius = input.bubbleRadius ?? 48 * mapScale;
+
+    // Masken-Polygon -> Pixel (mit Zoom-Transformation)
+    const maskPolysPx: { x: number; y: number }[][] = input.masks.map(mask =>
+        mask.points.map(p => ({
+            x: (50 + (p.x - 50) * bgZoom) / 100 * containerWidth,
+            y: (50 + (p.y - 50) * bgZoom) / 100 * containerHeight,
+        }))
+    );
+
+    const isInMask = (px: number, py: number): boolean =>
+        maskPolysPx.some(poly => pointInPolygon(px, py, poly));
+
+    const isInBlockedZone = (px: number, py: number): boolean => {
+        if (!blockedZones || blockedZones.length === 0) return false;
+        for (const zone of blockedZones) {
+            const lx = (zone.x / 100) * containerWidth;
+            const ly = (zone.y / 100) * containerHeight;
+            const lw = (zone.width / 100) * containerWidth;
+            const lh = (zone.height / 100) * containerWidth;
+            if (px >= lx - bubbleRadius && px <= lx + lw + bubbleRadius &&
+                py >= ly - bubbleRadius && py <= ly + lh + bubbleRadius) return true;
+        }
+        return false;
+    };
+
+    const isInBounds = (px: number, py: number): boolean =>
+        px >= bubbleRadius && px <= containerWidth - bubbleRadius &&
+        py >= bubbleRadius && py <= containerHeight - bubbleRadius;
+
+    // Erstes Polygon als Hauptreferenz
+    const poly = maskPolysPx[0];
+    const polyN = poly.length;
+
+    // Polygon-Schwerpunkt (für Außenrichtung)
+    const centroid = {
+        x: poly.reduce((s, p) => s + p.x, 0) / polyN,
+        y: poly.reduce((s, p) => s + p.y, 0) / polyN,
+    };
+
+    // Perimeter-Länge berechnen
+    let perimeterLength = 0;
+    for (let i = 0; i < polyN; i++) {
+        const p0 = poly[i];
+        const p1 = poly[(i + 1) % polyN];
+        perimeterLength += Math.sqrt((p1.x - p0.x) ** 2 + (p1.y - p0.y) ** 2);
+    }
+
+    // Gleichmäßig entlang des Polygon-Randes wandern (konstante Bogenlänge)
+    const walkPerimeter = (numSteps: number): { x: number; y: number; nx: number; ny: number }[] => {
+        const stepLen = perimeterLength / numSteps;
+        const points: { x: number; y: number; nx: number; ny: number }[] = [];
+        let remaining = 0;
+        for (let i = 0; i < polyN; i++) {
+            const p0 = poly[i];
+            const p1 = poly[(i + 1) % polyN];
+            const ex = p1.x - p0.x, ey = p1.y - p0.y;
+            const edgeLen = Math.sqrt(ex * ex + ey * ey);
+            if (edgeLen < 0.1) continue;
+            // Kanten-Außennormale: welche Seite ist vom Schwerpunkt weg?
+            const cross = ex * (centroid.y - p0.y) - ey * (centroid.x - p0.x);
+            // cross > 0: Schwerpunkt links → Außen ist rechts: normal = (ey, -ex)
+            // cross < 0: Schwerpunkt rechts → Außen ist links: normal = (-ey, ex)
+            const sign = cross > 0 ? 1 : -1;
+            const nx = sign * ey / edgeLen;
+            const ny = sign * -ex / edgeLen;
+            let d = remaining;
+            while (d <= edgeLen) {
+                const t = d / edgeLen;
+                points.push({
+                    x: p0.x + ex * t,
+                    y: p0.y + ey * t,
+                    nx, ny,
+                });
+                d += stepLen;
+            }
+            remaining = d - edgeLen;
+        }
+        return points;
+    };
+
+    // Kandidaten-Slots: Polygon-Rand + Offset nach außen
+    const generateCandidates = (offset: number, numSteps: number): Slot[] => {
+        const walkedPoints = walkPerimeter(numSteps);
+        const candidates: Slot[] = [];
+        for (const wp of walkedPoints) {
+            const cx = wp.x + wp.nx * offset;
+            const cy = wp.y + wp.ny * offset;
+            if (isInBounds(cx, cy) && !isInMask(cx, cy) && !isInBlockedZone(cx, cy)) {
+                candidates.push({ x: cx, y: cy });
+            }
+        }
+        return candidates;
+    };
+
+    // Platz-Analyse: Schrittweite erhöhen bis >= N Kandidaten
+    const gap = 6;
+    const baseOffset = bubbleRadius + gap;
+    let numSteps = Math.max(N, Math.ceil(perimeterLength / (2 * bubbleRadius + gap)));
+    let candidates: Slot[] = [];
+
+    for (let attempt = 0; attempt < 6; attempt++) {
+        candidates = generateCandidates(baseOffset, numSteps);
+        if (candidates.length >= N) break;
+        numSteps = Math.ceil(numSteps * 1.4);
+    }
+
+    // Zweite Runde weiter außen, wenn immer noch zu wenig
+    if (candidates.length < N) {
+        const ring2 = generateCandidates(baseOffset * 2.5, numSteps);
+        candidates = [...candidates, ...ring2];
+    }
+
+    if (candidates.length === 0) {
+        for (const m of markers) result[m.id] = { x: containerWidth / 2, y: containerHeight / 2 };
+        return result;
+    }
+
+    // N gleichmäßig verteilte Kandidaten nach Winkel (vom Schwerpunkt) auswählen
+    candidates.sort((a, b) =>
+        Math.atan2(a.y - centroid.y, a.x - centroid.x) -
+        Math.atan2(b.y - centroid.y, b.x - centroid.x)
+    );
+    const stride = candidates.length / N;
+    const chosen: Slot[] = [];
+    for (let i = 0; i < N; i++) {
+        chosen.push(candidates[Math.floor(i * stride)]);
+    }
+    chosen.sort((a, b) =>
+        Math.atan2(a.y - centroid.y, a.x - centroid.x) -
+        Math.atan2(b.y - centroid.y, b.x - centroid.x)
+    );
+
+    // Marker nach Winkel sortieren → 1:1 Zuordnung minimiert Kreuzungen
+    const sortedMarkers = markers
+        .map(m => ({ ...m, angle: Math.atan2(m.y - centroid.y, m.x - centroid.x) }))
+        .sort((a, b) => a.angle - b.angle);
+
+    const assignments: { id: string; slot: Slot }[] = sortedMarkers.map((m, i) => ({
+        id: m.id,
+        slot: { ...chosen[i] },
+    }));
+
+    // 2D-Abstoßung: Blasen schieben sich gegenseitig weg
+    const minDist2 = 2 * bubbleRadius + 4;
+    for (let round = 0; round < 40; round++) {
+        let anyChange = false;
+        for (let i = 0; i < assignments.length; i++) {
+            for (let j = i + 1; j < assignments.length; j++) {
+                const a = assignments[i];
+                const b = assignments[j];
+                const dx = a.slot.x - b.slot.x;
+                const dy = a.slot.y - b.slot.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist >= minDist2 || dist < 0.1) continue;
+                const push = (minDist2 - dist) / 2 + 1;
+                const nx2 = dx / dist, ny2 = dy / dist;
+                const newAx = a.slot.x + nx2 * push;
+                const newAy = a.slot.y + ny2 * push;
+                if (isInBounds(newAx, newAy) && !isInMask(newAx, newAy) && !isInBlockedZone(newAx, newAy)) {
+                    assignments[i].slot = { x: newAx, y: newAy };
+                    anyChange = true;
+                }
+                const newBx = b.slot.x - nx2 * push;
+                const newBy = b.slot.y - ny2 * push;
+                if (isInBounds(newBx, newBy) && !isInMask(newBx, newBy) && !isInBlockedZone(newBx, newBy)) {
+                    assignments[j].slot = { x: newBx, y: newBy };
+                    anyChange = true;
+                }
+            }
+        }
+        if (!anyChange) break;
+    }
+
+    for (const a of assignments) {
+        result[a.id] = {
+            x: Math.max(bubbleRadius, Math.min(containerWidth - bubbleRadius, a.slot.x)),
+            y: Math.max(bubbleRadius, Math.min(containerHeight - bubbleRadius, a.slot.y)),
+        };
+    }
+    return result;
+}

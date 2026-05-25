@@ -8,7 +8,7 @@ import {
 import type { Plan, Station, LogoOverlay, LabelOverlay } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { exportLageplanPDF } from '@/lib/pdfExport';
-import { computeRadialSlots, type BlockedZone, type MaskPolygon } from '@/lib/bubbleLayoutMath';
+import { computePolygonPerimeterSlots, type BlockedZone, type MaskPolygon } from '@/lib/bubbleLayoutMath';
 import {
     clientToPercent,
     deriveContainerHeight,
@@ -66,7 +66,7 @@ function computeAutoLayout(
 
     const maskPolygons: MaskPolygon[] | undefined = masks?.map(m => ({ points: m.points }));
 
-    const slots = computeRadialSlots({
+    const slots = computePolygonPerimeterSlots({
         markers,
         containerWidth,
         containerHeight,
