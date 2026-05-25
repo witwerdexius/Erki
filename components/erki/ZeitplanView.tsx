@@ -79,7 +79,7 @@ export default function ZeitplanView({
     );
 
     if (embedded) {
-        return <div className="px-4 py-3 space-y-3">{content}</div>;
+        return <div className="px-3 pt-1 pb-3 space-y-2">{content}</div>;
     }
 
     return (
