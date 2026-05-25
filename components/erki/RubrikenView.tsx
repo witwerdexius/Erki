@@ -232,8 +232,8 @@ export default function RubrikenView({
   };
 
   return (
-    <div className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-800">
-      <div className="px-4 pt-6 max-w-lg mx-auto space-y-3">
+    <div className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-800 md:flex md:flex-col md:overflow-hidden">
+      <div className="px-4 pt-6 max-w-lg mx-auto space-y-3 md:max-w-none md:px-6 md:flex-none">
         <FilterTabs
           filter={filter}
           onFilterChange={onFilterChange}
@@ -241,7 +241,8 @@ export default function RubrikenView({
           myCount={myTasks}
         />
       </div>
-      <div className="px-4 py-3 pb-24 max-w-lg mx-auto space-y-3">
+      <div className="px-4 py-3 max-w-lg mx-auto space-y-3 md:flex-1 md:overflow-x-auto md:overflow-y-hidden md:max-w-none md:mx-0 md:px-6 md:space-y-0">
+        <div className="md:flex md:flex-row md:items-start md:gap-3 md:h-full md:pb-3">
         {allSections.map(({ id, label, isStationen }) => {
           const isOpen = !(collapsed[id] ?? false);
           const sectionTasks = isStationen ? [] : filteredTasks.filter(t => t.section === id);
@@ -265,11 +266,11 @@ export default function RubrikenView({
           }
 
           return (
-            <motion.section layout key={id} transition={{ type: 'spring', stiffness: 400, damping: 35 }} className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 overflow-hidden">
+            <motion.section layout key={id} transition={{ type: 'spring', stiffness: 400, damping: 35 }} className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 overflow-hidden md:min-w-[300px] md:w-[300px] md:flex-shrink-0 md:max-h-[calc(100vh-160px)] md:overflow-y-auto md:flex md:flex-col">
               {/* Section Header */}
               <div
                 className={cn(
-                  "w-full flex items-center justify-between px-4 h-14 transition-colors select-none",
+                  "w-full flex items-center justify-between px-4 h-14 transition-colors select-none md:sticky md:top-0 md:z-10 md:bg-white dark:md:bg-gray-700 md:flex-none",
                   isReordering ? "cursor-default" : "hover:bg-muted/50 cursor-pointer",
                 )}
                 onClick={() => toggleSection(id)}
@@ -434,7 +435,11 @@ export default function RubrikenView({
             </motion.section>
           );
         })}
+        </div>
+      </div>
 
+      {/* Bottom bar — mobile: end of page with pb-24 for nav clearance; desktop: pinned below kanban */}
+      <div className="px-4 pb-24 max-w-lg mx-auto md:flex-none md:pb-4 md:pt-2 md:px-6 md:max-w-none">
         {/* Rubrik hinzufügen + Reihenfolge — nur sichtbar bei Filter "Alle" */}
         {filter === 'all' && showAddSectionForm ? (
           <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 px-4 py-3 flex items-center gap-2">
