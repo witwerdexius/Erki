@@ -36,24 +36,19 @@ function computeAutoLayout(
     const bubbleRadius = 48 * mapScale;
     const blockedZones: BlockedZone[] = [];
     if (logoOverlay) {
-        // Logo: Rendering ist quadratisch (size in % der Breite, Hoehe ~ 0.4 * Breite).
-        // Originale Sperrzonen-Polsterung: bubbleRadius rundherum (passt zu Modul-Default).
+        const logoPad = 1.5;
         blockedZones.push({
-            x: logoOverlay.x,
-            y: logoOverlay.y,
-            width: logoOverlay.size,
-            height: logoOverlay.size * 0.4,
+            x: logoOverlay.x - logoPad,
+            y: logoOverlay.y - logoPad,
+            width: logoOverlay.size + 2 * logoPad,
+            height: logoOverlay.size * 0.8 + 2 * logoPad,
         });
     }
     if (labelOverlay) {
-        // Label-Bounding-Box approximieren (font-bold uppercase tracking-widest).
-        // Original-Polsterung war asymmetrisch (rechts/oben/unten = 1.5 * bubbleRadius,
-        // links = bubbleRadius). Modul polstert uniform mit bubbleRadius -> Rechteck
-        // pre-erweitern, damit das Endergebnis identisch zum alten Verhalten ist.
         const renderedFontSize = labelOverlay.fontSize * mapScale;
-        const approxWPx = labelOverlay.text.length * renderedFontSize * 1.0;
+        const approxWPx = labelOverlay.text.length * renderedFontSize * 1.8;
         const approxHPx = renderedFontSize * 1.6;
-        const extra = bubbleRadius * 0.5; // 1.5*r minus 1*r
+        const extra = bubbleRadius * 1.5;
         const yPx = (labelOverlay.y / 100) * containerHeight - extra;
         blockedZones.push({
             x: labelOverlay.x,
