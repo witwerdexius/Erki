@@ -17,6 +17,7 @@ import {
 } from '@/lib/mapInteractions';
 import type { PresenceUserLike } from '@/lib/realtime/presenceUtils';
 import PresenceStack from '@/components/erki/PresenceStack';
+import { supabase } from '@/lib/supabase';
 
 // Duenner Adapter um die reine Mathematik in lib/bubbleLayoutMath.ts:
 // rechnet Stations-Prozentkoordinaten in Pixel um, baut Sperrzonen-Rechtecke
@@ -142,11 +143,7 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
             if (!item) return;
             const file = item.getAsFile();
             if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                updateActivePlan({ backgroundImage: ev.target?.result as string });
-            };
-            reader.readAsDataURL(file);
+            void uploadLageplan(file, activePlan.id);
         };
         window.addEventListener('paste', handlePaste);
         return () => window.removeEventListener('paste', handlePaste);
@@ -176,6 +173,21 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
     }, []);
 
     // ── Handler ───────────────────────────────────────────────────────────────
+    const uploadLageplan = async (file: File, planId: string) => {
+        const ext = file.name.split('.').pop() ?? 'jpg';
+        const path = `${planId}/${Date.now()}.${ext}`;
+        const { error } = await supabase.storage
+            .from('lageplan')
+            .upload(path, file, { upsert: true, contentType: file.type });
+        if (error) {
+            console.error('[Lageplan] Upload fehlgeschlagen:', error);
+            alert('Bild konnte nicht hochgeladen werden: ' + error.message);
+            return;
+        }
+        const { data } = supabase.storage.from('lageplan').getPublicUrl(path);
+        updateActivePlan({ backgroundImage: data.publicUrl });
+    };
+
     const updateStation = (id: string, updates: Partial<Station>) => {
         updateActivePlan({
             stations: activePlan.stations.map(s => s.id === id ? { ...s, ...updates } : s),
@@ -185,31 +197,23 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            const stations = [...activePlan.stations];
-            // Wenn viele Stationen am Default 50/50 hängen: gleichmäßig verteilen
-            const needsDistribution = stations.filter(s => s.targetX === 50 && s.targetY === 50).length > 2;
-
-            if (needsDistribution) {
-                stations.forEach((s, i) => {
-                    const side = i % 4;
-                    const step = (Math.floor(i / 4) * 15) % 80;
-                    if (side === 0) { s.x = 10 + step; s.y = 5; }
-                    else if (side === 1) { s.x = 95; s.y = 10 + step; }
-                    else if (side === 2) { s.x = 90 - step; s.y = 95; }
-                    else if (side === 3) { s.x = 5; s.y = 90 - step; }
-                    s.targetX = 40 + (i % 3) * 10;
-                    s.targetY = 40 + (Math.floor(i / 3) * 10) % 20;
-                });
-            }
-
-            updateActivePlan({
-                backgroundImage: ev.target?.result as string,
-                stations,
+        const stations = [...activePlan.stations];
+        // Wenn viele Stationen am Default 50/50 hängen: gleichmäßig verteilen
+        const needsDistribution = stations.filter(s => s.targetX === 50 && s.targetY === 50).length > 2;
+        if (needsDistribution) {
+            stations.forEach((s, i) => {
+                const side = i % 4;
+                const step = (Math.floor(i / 4) * 15) % 80;
+                if (side === 0) { s.x = 10 + step; s.y = 5; }
+                else if (side === 1) { s.x = 95; s.y = 10 + step; }
+                else if (side === 2) { s.x = 90 - step; s.y = 95; }
+                else if (side === 3) { s.x = 5; s.y = 90 - step; }
+                s.targetX = 40 + (i % 3) * 10;
+                s.targetY = 40 + (Math.floor(i / 3) * 10) % 20;
             });
-        };
-        reader.readAsDataURL(file);
+            updateActivePlan({ stations });
+        }
+        void uploadLageplan(file, activePlan.id);
     };
 
     const handleAutoLayout = () => {
