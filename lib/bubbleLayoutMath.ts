@@ -262,8 +262,12 @@ export function computeBubbleSlots(input: ComputeBubbleSlotsInput): LayoutResult
                 const dx = ptI.x - ptJ.x, dy = ptI.y - ptJ.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
                 if (dist < minDist2D) {
-                    items[j].s = wrap(items[j].s + (minDist2D - dist), perimLen);
-                    anyMoved = true;
+                    const candidate = wrap(items[j].s + (minDist2D - dist), perimLen);
+                    const candidatePt = sToPoint(candidate, rect);
+                    if (!isBlocked(candidatePt.x, candidatePt.y)) {
+                        items[j].s = candidate;
+                        anyMoved = true;
+                    }
                 }
             }
         }
@@ -283,30 +287,18 @@ export function computeBubbleSlots(input: ComputeBubbleSlotsInput): LayoutResult
                 const mj = markerById[items[j].id];
                 const sj = sToPoint(items[j].s, rect);
                 if (segmentsCross(mi.x, mi.y, si.x, si.y, mj.x, mj.y, sj.x, sj.y)) {
-                    const tmp = items[i].s;
-                    items[i].s = items[j].s;
-                    items[j].s = tmp;
-                    swapped = true;
+                    const newSi = sToPoint(items[j].s, rect);
+                    const newSj = sToPoint(items[i].s, rect);
+                    if (!isBlocked(newSi.x, newSi.y) && !isBlocked(newSj.x, newSj.y)) {
+                        const tmp = items[i].s;
+                        items[i].s = items[j].s;
+                        items[j].s = tmp;
+                        swapped = true;
+                    }
                 }
             }
         }
         if (!swapped) break;
-    }
-
-    // ── Schritt 7b: Sperrzonen nach Kreuzungsauflösung nochmal prüfen ────────
-    if (blockedZones && blockedZones.length > 0) {
-        for (let pass = 0; pass < 3; pass++) {
-            let anyMoved = false;
-            for (const item of items) {
-                let pt = sToPoint(item.s, rect);
-                for (let attempt = 0; attempt < 120 && isBlocked(pt.x, pt.y); attempt++) {
-                    item.s = wrap(item.s + minDist * 0.5, perimLen);
-                    pt = sToPoint(item.s, rect);
-                    anyMoved = true;
-                }
-            }
-            if (!anyMoved) break;
-        }
     }
 
     // ── Schritt 8: Hard-Clamp + Zuordnung ───────────────────────────────────
