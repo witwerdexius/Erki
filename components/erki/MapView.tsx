@@ -14,6 +14,7 @@ import {
     deriveContainerHeight,
     distributeColors,
     resolveColorConflicts,
+    spreadPiledStations,
 } from '@/lib/mapInteractions';
 import type { PresenceUserLike } from '@/lib/realtime/presenceUtils';
 import PresenceStack from '@/components/erki/PresenceStack';
@@ -172,6 +173,21 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
         }, 50);
         return () => { ro.disconnect(); clearTimeout(t); };
     }, []);
+
+    // Einmalige Verteilung gestapelter Marker beim ersten Laden des Plans.
+    // Läuft erneut wenn sich die Masken nachladen (Mask-Anzahl ändert sich).
+    const spreadDoneRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (containerWidth === 0) return;
+        const planKey = `${activePlan.id}:${(activePlan.masks ?? []).length}`;
+        if (spreadDoneRef.current === planKey) return;
+        spreadDoneRef.current = planKey;
+        const spread = spreadPiledStations(activePlan.stations, activePlan.masks);
+        if (spread !== activePlan.stations) {
+            updateActivePlan({ stations: spread });
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activePlan.id, activePlan.masks, containerWidth]);
 
     // ── Handler ───────────────────────────────────────────────────────────────
     const uploadLageplan = async (file: File, planId: string) => {

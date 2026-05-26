@@ -1,7 +1,96 @@
 // Reine Map-Hilfsfunktionen, herausgelöst aus ErkiApp / MapView (Welle 4 — 3/4).
 // Keine React- oder DOM-Abhängigkeiten — getestet in lib/mapInteractions.test.ts.
 
-import type { Station } from '@/lib/types';
+import type { Station, MaskPolygon } from '@/lib/types';
+
+function pointInPolygon(px: number, py: number, poly: { x: number; y: number }[]): boolean {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i].x, yi = poly[i].y;
+        const xj = poly[j].x, yj = poly[j].y;
+        if (((yi > py) !== (yj > py)) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) {
+            inside = !inside;
+        }
+    }
+    return inside;
+}
+
+function gridInRect(minX: number, maxX: number, minY: number, maxY: number, count: number): { x: number; y: number }[] {
+    const aspect = (maxX - minX) / Math.max(maxY - minY, 0.001);
+    const cols = Math.max(1, Math.ceil(Math.sqrt(count * aspect)));
+    const rows = Math.max(1, Math.ceil(count / cols));
+    const pts: { x: number; y: number }[] = [];
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols && pts.length < count + 10; c++) {
+            pts.push({
+                x: cols > 1 ? minX + c * (maxX - minX) / (cols - 1) : (minX + maxX) / 2,
+                y: rows > 1 ? minY + r * (maxY - minY) / (rows - 1) : (minY + maxY) / 2,
+            });
+        }
+    }
+    return pts;
+}
+
+function gridInsidePolygon(poly: { x: number; y: number }[], count: number): { x: number; y: number }[] {
+    const xs = poly.map(p => p.x);
+    const ys = poly.map(p => p.y);
+    const minX = Math.min(...xs) + 3, maxX = Math.max(...xs) - 3;
+    const minY = Math.min(...ys) + 3, maxY = Math.max(...ys) - 3;
+    if (maxX <= minX || maxY <= minY) return gridInRect(20, 80, 20, 80, count);
+    const bw = maxX - minX, bh = maxY - minY;
+    for (let n = Math.ceil(Math.sqrt(count * 2)); n <= 30; n++) {
+        const cols = n;
+        const rows = Math.max(1, Math.round(n * bh / Math.max(bw, 0.001)));
+        const pts: { x: number; y: number }[] = [];
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const x = cols > 1 ? minX + (c + 0.5) * bw / cols : (minX + maxX) / 2;
+                const y = rows > 1 ? minY + (r + 0.5) * bh / rows : (minY + maxY) / 2;
+                if (pointInPolygon(x, y, poly)) pts.push({ x, y });
+            }
+        }
+        if (pts.length >= count) return pts;
+    }
+    return gridInRect(20, 80, 20, 80, count);
+}
+
+/**
+ * Verteilt Stationen, die sich am selben (targetX, targetY) stapeln, auf ein
+ * gleichmäßiges Grid. Stations mit eindeutiger Position werden nicht verändert.
+ * Gibt dasselbe Array-Objekt zurück, wenn keine Stapel gefunden wurden.
+ */
+export function spreadPiledStations(stations: Station[], masks?: MaskPolygon[]): Station[] {
+    if (stations.length === 0) return stations;
+
+    const posCount = new Map<string, number>();
+    for (const s of stations) {
+        const key = `${s.targetX},${s.targetY}`;
+        posCount.set(key, (posCount.get(key) ?? 0) + 1);
+    }
+    const piledKeys = new Set(
+        [...posCount.entries()].filter(([, c]) => c >= 2).map(([k]) => k),
+    );
+    if (piledKeys.size === 0) return stations;
+
+    const piledIndices = stations
+        .map((s, i) => ({ s, i }))
+        .filter(({ s }) => piledKeys.has(`${s.targetX},${s.targetY}`))
+        .sort((a, b) => (parseInt(a.s.number) || 0) - (parseInt(b.s.number) || 0))
+        .map(({ i }) => i);
+
+    const poly = masks?.[0]?.points;
+    const gridPts = poly && poly.length >= 3
+        ? gridInsidePolygon(poly, piledIndices.length)
+        : gridInRect(20, 80, 20, 80, piledIndices.length);
+
+    const out = stations.map(s => ({ ...s }));
+    for (let n = 0; n < piledIndices.length; n++) {
+        const pt = gridPts[n % gridPts.length];
+        out[piledIndices[n]].targetX = Math.round(pt.x * 10) / 10;
+        out[piledIndices[n]].targetY = Math.round(pt.y * 10) / 10;
+    }
+    return out;
+}
 
 /**
  * Konvertiert Mauskoordinaten (clientX, clientY) in Prozent-Koordinaten relativ
