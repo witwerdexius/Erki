@@ -689,23 +689,16 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
         return result;
     }
 
-    // N Kandidaten gleichmäßig nach Winkel: für jeden Zielwinkel (360°/N) den nächsten freien wählen
+    // N gleichmäßig verteilte Kandidaten nach Perimeter-Position (stride)
+    // → Bereiche mit mehr Platz (mehr valide Kandidaten) bekommen proportional mehr Blasen
+    candidates.sort((a, b) =>
+        Math.atan2(a.y - centroid.y, a.x - centroid.x) -
+        Math.atan2(b.y - centroid.y, b.x - centroid.x)
+    );
+    const stride = candidates.length / N;
     const chosen: Slot[] = [];
-    const usedIdx = new Set<number>();
-    const angleStep = (2 * Math.PI) / N;
-
     for (let i = 0; i < N; i++) {
-        const targetAngle = -Math.PI + i * angleStep;
-        let bestIdx = -1;
-        let bestDiff = Infinity;
-        for (let j = 0; j < candidates.length; j++) {
-            if (usedIdx.has(j)) continue;
-            const cAngle = Math.atan2(candidates[j].y - centroid.y, candidates[j].x - centroid.x);
-            let diff = Math.abs(cAngle - targetAngle);
-            if (diff > Math.PI) diff = 2 * Math.PI - diff;
-            if (diff < bestDiff) { bestDiff = diff; bestIdx = j; }
-        }
-        if (bestIdx >= 0) { chosen.push(candidates[bestIdx]); usedIdx.add(bestIdx); }
+        chosen.push(candidates[Math.floor(i * stride)]);
     }
     chosen.sort((a, b) =>
         Math.atan2(a.y - centroid.y, a.x - centroid.x) -
