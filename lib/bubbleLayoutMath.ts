@@ -672,7 +672,7 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
     };
 
     // Kandidaten-Pool: dichte Abtastung des Polygon-Randes
-    const gap = 8;
+    const gap = 16;
     const baseOffset = bubbleRadius + gap;
     const densePts = Math.max(N * 8, Math.ceil(perimeterLength / (bubbleRadius * 0.5)));
     let allCandidates: Slot[] = generateCandidates(baseOffset, densePts);
@@ -758,6 +758,59 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
         Math.atan2(b.y - centroid.y, b.x - centroid.x)
     );
 
+    // Pre-separation: replace angularly-too-close slots with more spread candidates from the pool
+    {
+        const avgRadius = chosen.reduce((s, c) =>
+            s + Math.sqrt((c.x - centroid.x) ** 2 + (c.y - centroid.y) ** 2), 0
+        ) / chosen.length;
+        const minAngSep = 2 * bubbleRadius / Math.max(avgRadius, 1);
+        const poolByAngle = [...allCandidates].sort((a, b) =>
+            Math.atan2(a.y - centroid.y, a.x - centroid.x) -
+            Math.atan2(b.y - centroid.y, b.x - centroid.x)
+        );
+        const usedKeys = new Set(chosen.map(s => `${Math.round(s.x)},${Math.round(s.y)}`));
+        for (let pass = 0; pass < 3; pass++) {
+            let anySwap = false;
+            for (let i = 0; i < chosen.length; i++) {
+                const angleI = Math.atan2(chosen[i].y - centroid.y, chosen[i].x - centroid.x);
+                for (let j = i + 1; j < chosen.length; j++) {
+                    const angleJ = Math.atan2(chosen[j].y - centroid.y, chosen[j].x - centroid.x);
+                    let angDiff = Math.abs(angleI - angleJ);
+                    if (angDiff > Math.PI) angDiff = 2 * Math.PI - angDiff;
+                    if (angDiff >= minAngSep) continue;
+                    for (const c of poolByAngle) {
+                        const key = `${Math.round(c.x)},${Math.round(c.y)}`;
+                        if (usedKeys.has(key)) continue;
+                        const angleC = Math.atan2(c.y - centroid.y, c.x - centroid.x);
+                        let diffI = Math.abs(angleC - angleI);
+                        if (diffI > Math.PI) diffI = 2 * Math.PI - diffI;
+                        if (diffI < minAngSep) continue;
+                        let ok = true;
+                        for (let k = 0; k < chosen.length; k++) {
+                            if (k === j) continue;
+                            const angleK = Math.atan2(chosen[k].y - centroid.y, chosen[k].x - centroid.x);
+                            let diffK = Math.abs(angleC - angleK);
+                            if (diffK > Math.PI) diffK = 2 * Math.PI - diffK;
+                            if (diffK < minAngSep) { ok = false; break; }
+                        }
+                        if (ok) {
+                            usedKeys.delete(`${Math.round(chosen[j].x)},${Math.round(chosen[j].y)}`);
+                            chosen[j] = c;
+                            usedKeys.add(key);
+                            anySwap = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!anySwap) break;
+        }
+        chosen.sort((a, b) =>
+            Math.atan2(a.y - centroid.y, a.x - centroid.x) -
+            Math.atan2(b.y - centroid.y, b.x - centroid.x)
+        );
+    }
+
     // Marker nach Winkel sortieren → 1:1 Zuordnung minimiert Kreuzungen
     const sortedMarkers = markers
         .map(m => ({ ...m, angle: Math.atan2(m.y - centroid.y, m.x - centroid.x) }))
@@ -811,7 +864,7 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
 
     // 2D-Abstoßung: Blasen schieben sich gegenseitig weg
     const minDist2 = 2 * bubbleRadius + 16;
-    for (let round = 0; round < 200; round++) {
+    for (let round = 0; round < 300; round++) {
         let anyChange = false;
         for (let i = 0; i < assignments.length; i++) {
             for (let j = i + 1; j < assignments.length; j++) {
@@ -856,7 +909,7 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
                 let angDiff = angleI - angleJ;
                 while (angDiff > Math.PI) angDiff -= 2 * Math.PI;
                 while (angDiff < -Math.PI) angDiff += 2 * Math.PI;
-                const tangPush = (minDist2 - dist) / 2 * 0.6;
+                const tangPush = (minDist2 - dist) / 2 * 1.2;
                 const sign = angDiff >= 0 ? 1 : -1;
                 // CCW tangent at I: (-sin, cos); push I further in its angular direction
                 const tiX = -Math.sin(angleI), tiY = Math.cos(angleI);
