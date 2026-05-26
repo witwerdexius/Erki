@@ -55,6 +55,7 @@ function computeAutoLayout(
             y: labelOverlay.y,
             width: (approxWPx / containerWidth) * 100,
             height: (approxHPx / containerWidth) * 100,
+            padding: 8,
         });
     }
 

@@ -46,6 +46,8 @@ export interface BlockedZone {
     width: number;
     /** Hoehe in % der Container-Breite (wie im UI fuer Logo/Label berechnet) */
     height: number;
+    /** Clearance in px added on each side (default: bubbleRadius). Use smaller value for text labels. */
+    padding?: number;
 }
 
 export interface ComputeBubbleSlotsInput {
@@ -238,8 +240,9 @@ export function computeBubbleSlots(input: ComputeBubbleSlotsInput): LayoutResult
             const ly = (zone.y / 100) * containerHeight;
             const lw = (zone.width / 100) * containerWidth;
             const lh = (zone.height / 100) * containerWidth; // bewusst containerWidth (analog UI)
-            if (px >= lx - bubbleRadius && px <= lx + lw + bubbleRadius &&
-                py >= ly - bubbleRadius && py <= ly + lh + bubbleRadius) return true;
+            const pad = zone.padding ?? bubbleRadius;
+            if (px >= lx - pad && px <= lx + lw + pad &&
+                py >= ly - pad && py <= ly + lh + pad) return true;
         }
         return false;
     };
@@ -428,8 +431,9 @@ export function computeRadialSlots(input: ComputeRadialSlotsInput): LayoutResult
             const ly = (zone.y / 100) * containerHeight;
             const lw = (zone.width / 100) * containerWidth;
             const lh = (zone.height / 100) * containerWidth;
-            if (px >= lx - bubbleRadius && px <= lx + lw + bubbleRadius &&
-                py >= ly - bubbleRadius && py <= ly + lh + bubbleRadius) return true;
+            const pad = zone.padding ?? bubbleRadius;
+            if (px >= lx - pad && px <= lx + lw + pad &&
+                py >= ly - pad && py <= ly + lh + pad) return true;
         }
         return false;
     };
@@ -592,8 +596,9 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
             const ly = (zone.y / 100) * containerHeight;
             const lw = (zone.width / 100) * containerWidth;
             const lh = (zone.height / 100) * containerWidth;
-            if (px >= lx - bubbleRadius && px <= lx + lw + bubbleRadius &&
-                py >= ly - bubbleRadius && py <= ly + lh + bubbleRadius) return true;
+            const pad = zone.padding ?? bubbleRadius;
+            if (px >= lx - pad && px <= lx + lw + pad &&
+                py >= ly - pad && py <= ly + lh + pad) return true;
         }
         return false;
     };
@@ -666,40 +671,68 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
         return candidates;
     };
 
-    // Platz-Analyse: Schrittweite erhöhen bis >= N Kandidaten
-    const gap = 6;
+    // Kandidaten-Pool: dichte Abtastung des Polygon-Randes
+    const gap = 8;
     const baseOffset = bubbleRadius + gap;
-    let numSteps = Math.max(N, Math.ceil(perimeterLength / (2 * bubbleRadius + gap)));
-    let candidates: Slot[] = [];
-
-    for (let attempt = 0; attempt < 6; attempt++) {
-        candidates = generateCandidates(baseOffset, numSteps);
-        if (candidates.length >= N) break;
-        numSteps = Math.ceil(numSteps * 1.4);
+    const densePts = Math.max(N * 8, Math.ceil(perimeterLength / (bubbleRadius * 0.5)));
+    let allCandidates: Slot[] = generateCandidates(baseOffset, densePts);
+    if (allCandidates.length < N) {
+        allCandidates = generateCandidates(baseOffset, densePts * 3);
     }
 
-    // Zweite Runde weiter außen, wenn immer noch zu wenig
-    if (candidates.length < N) {
-        const ring2 = generateCandidates(baseOffset * 2.5, numSteps);
-        candidates = [...candidates, ...ring2];
+    // Ray-Fallback: Strahl vom Schwerpunkt → Polygon-Schnittpunkt + Offset nach außen
+    const rayFallback = (angle: number): Slot => {
+        const cosA = Math.cos(angle), sinA = Math.sin(angle);
+        let bestT = Infinity;
+        let hitX = centroid.x + cosA * baseOffset;
+        let hitY = centroid.y + sinA * baseOffset;
+        for (let i = 0; i < polyN; i++) {
+            const p0 = poly[i], p1 = poly[(i + 1) % polyN];
+            const ex = p1.x - p0.x, ey = p1.y - p0.y;
+            const denom = cosA * ey - sinA * ex;
+            if (Math.abs(denom) < 1e-9) continue;
+            const t = ((p0.x - centroid.x) * ey - (p0.y - centroid.y) * ex) / denom;
+            const u = ((p0.x - centroid.x) * sinA - (p0.y - centroid.y) * cosA) / denom;
+            if (t > 1 && u >= 0 && u <= 1 && t < bestT) {
+                bestT = t;
+                hitX = centroid.x + cosA * t;
+                hitY = centroid.y + sinA * t;
+            }
+        }
+        return {
+            x: Math.max(bubbleRadius, Math.min(containerWidth - bubbleRadius, hitX + cosA * baseOffset)),
+            y: Math.max(bubbleRadius, Math.min(containerHeight - bubbleRadius, hitY + sinA * baseOffset)),
+        };
+    };
+
+    // Sektor-basierte Auswahl: N gleichmäßige Winkelsektoren um den Schwerpunkt.
+    // Garantiert einen Slot pro Sektor, unabhängig von der Perimeter-Längenverteilung.
+    const sectorAngle = (2 * Math.PI) / N;
+    const sectorBuckets: Slot[][] = Array.from({ length: N }, () => []);
+    for (const c of allCandidates) {
+        let a = Math.atan2(c.y - centroid.y, c.x - centroid.x);
+        if (a < 0) a += 2 * Math.PI;
+        sectorBuckets[Math.floor(a / sectorAngle) % N].push(c);
     }
 
-    if (candidates.length === 0) {
-        for (const m of markers) result[m.id] = { x: containerWidth / 2, y: containerHeight / 2 };
-        return result;
-    }
+    const chosen: Slot[] = Array.from({ length: N }, (_, i) => {
+        const bisector = (i + 0.5) * sectorAngle;
+        const bucket = sectorBuckets[i];
+        if (bucket.length === 0) return rayFallback(bisector);
+        // Kandidat closest to sector bisector angle
+        return bucket.reduce((best, c) => {
+            let ca = Math.atan2(c.y - centroid.y, c.x - centroid.x);
+            if (ca < 0) ca += 2 * Math.PI;
+            let diff = Math.abs(ca - bisector);
+            if (diff > Math.PI) diff = 2 * Math.PI - diff;
+            let ba = Math.atan2(best.y - centroid.y, best.x - centroid.x);
+            if (ba < 0) ba += 2 * Math.PI;
+            let bdiff = Math.abs(ba - bisector);
+            if (bdiff > Math.PI) bdiff = 2 * Math.PI - bdiff;
+            return diff < bdiff ? c : best;
+        });
+    });
 
-    // N gleichmäßig verteilte Kandidaten nach Perimeter-Position (stride)
-    // → Bereiche mit mehr Platz (mehr valide Kandidaten) bekommen proportional mehr Blasen
-    candidates.sort((a, b) =>
-        Math.atan2(a.y - centroid.y, a.x - centroid.x) -
-        Math.atan2(b.y - centroid.y, b.x - centroid.x)
-    );
-    const stride = candidates.length / N;
-    const chosen: Slot[] = [];
-    for (let i = 0; i < N; i++) {
-        chosen.push(candidates[Math.floor(i * stride)]);
-    }
     chosen.sort((a, b) =>
         Math.atan2(a.y - centroid.y, a.x - centroid.x) -
         Math.atan2(b.y - centroid.y, b.x - centroid.x)
