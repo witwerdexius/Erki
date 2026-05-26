@@ -789,9 +789,29 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
         if (!swapped) break;
     }
 
+    // Adaptive offset: in spacious areas move the bubble outward to create breathing room
+    for (let i = 0; i < assignments.length; i++) {
+        const a = assignments[i].slot;
+        let minNeighborDist = Infinity;
+        for (let j = 0; j < assignments.length; j++) {
+            if (i === j) continue;
+            const b = assignments[j].slot;
+            minNeighborDist = Math.min(minNeighborDist, Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2));
+        }
+        if (minNeighborDist <= 3 * bubbleRadius) continue;
+        const odx = a.x - centroid.x, ody = a.y - centroid.y;
+        const od = Math.sqrt(odx * odx + ody * ody);
+        if (od < 0.1) continue;
+        const newX = a.x + (odx / od) * bubbleRadius;
+        const newY = a.y + (ody / od) * bubbleRadius;
+        if (isInBounds(newX, newY) && !isInMask(newX, newY) && !isInBlockedZone(newX, newY)) {
+            assignments[i].slot = { x: newX, y: newY };
+        }
+    }
+
     // 2D-Abstoßung: Blasen schieben sich gegenseitig weg
-    const minDist2 = 2 * bubbleRadius + 12;
-    for (let round = 0; round < 80; round++) {
+    const minDist2 = 2 * bubbleRadius + 16;
+    for (let round = 0; round < 200; round++) {
         let anyChange = false;
         for (let i = 0; i < assignments.length; i++) {
             for (let j = i + 1; j < assignments.length; j++) {
@@ -818,6 +838,44 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
             }
         }
         if (!anyChange) break;
+    }
+
+    // Tangential spread: push pairs that are still too close apart along the perimeter tangent
+    for (let round = 0; round < 40; round++) {
+        let anySpread = false;
+        for (let i = 0; i < assignments.length; i++) {
+            for (let j = i + 1; j < assignments.length; j++) {
+                const ai = assignments[i].slot;
+                const aj = assignments[j].slot;
+                const dx = ai.x - aj.x;
+                const dy = ai.y - aj.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist >= minDist2 || dist < 0.1) continue;
+                const angleI = Math.atan2(ai.y - centroid.y, ai.x - centroid.x);
+                const angleJ = Math.atan2(aj.y - centroid.y, aj.x - centroid.x);
+                let angDiff = angleI - angleJ;
+                while (angDiff > Math.PI) angDiff -= 2 * Math.PI;
+                while (angDiff < -Math.PI) angDiff += 2 * Math.PI;
+                const tangPush = (minDist2 - dist) / 2 * 0.6;
+                const sign = angDiff >= 0 ? 1 : -1;
+                // CCW tangent at I: (-sin, cos); push I further in its angular direction
+                const tiX = -Math.sin(angleI), tiY = Math.cos(angleI);
+                const newIx = ai.x + sign * tiX * tangPush;
+                const newIy = ai.y + sign * tiY * tangPush;
+                if (isInBounds(newIx, newIy) && !isInMask(newIx, newIy) && !isInBlockedZone(newIx, newIy)) {
+                    assignments[i].slot = { x: newIx, y: newIy };
+                    anySpread = true;
+                }
+                const tjX = -Math.sin(angleJ), tjY = Math.cos(angleJ);
+                const newJx = aj.x - sign * tjX * tangPush;
+                const newJy = aj.y - sign * tjY * tangPush;
+                if (isInBounds(newJx, newJy) && !isInMask(newJx, newJy) && !isInBlockedZone(newJx, newJy)) {
+                    assignments[j].slot = { x: newJx, y: newJy };
+                    anySpread = true;
+                }
+            }
+        }
+        if (!anySpread) break;
     }
 
     // Clamp to safe margin after repulsion
