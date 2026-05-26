@@ -657,28 +657,55 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
         return points;
     };
 
-    // Kandidaten-Slots: Polygon-Rand + Offset nach außen
-    const generateCandidates = (offset: number, numSteps: number): Slot[] => {
-        const walkedPoints = walkPerimeter(numSteps);
-        const candidates: Slot[] = [];
-        for (const wp of walkedPoints) {
-            const cx = wp.x + wp.nx * offset;
-            const cy = wp.y + wp.ny * offset;
-            if (isInBounds(cx, cy) && !isInMask(cx, cy) && !isInBlockedZone(cx, cy)) {
-                candidates.push({ x: cx, y: cy });
-            }
-        }
-        return candidates;
-    };
+    // ── Phase 1: Row-1 candidates (fixed arc-length step, uniform perimeter spacing) ──
+    const step1 = 2 * bubbleRadius + 6;
+    const offset1 = bubbleRadius + 10;
+    const margin = bubbleRadius + 4;
+    const numRow1 = Math.max(N * 2, Math.floor(perimeterLength / step1));
+    const walkPts = walkPerimeter(numRow1);
 
-    // Kandidaten-Pool: dichte Abtastung des Polygon-Randes
-    const gap = 16;
-    const baseOffset = bubbleRadius + gap;
-    const densePts = Math.max(N * 8, Math.ceil(perimeterLength / (bubbleRadius * 0.5)));
-    let allCandidates: Slot[] = generateCandidates(baseOffset, densePts);
-    if (allCandidates.length < N) {
-        allCandidates = generateCandidates(baseOffset, densePts * 3);
+    const row1: Slot[] = [];
+    for (const wp of walkPts) {
+        const cx = wp.x + wp.nx * offset1;
+        const cy = wp.y + wp.ny * offset1;
+        if (cx >= margin && cx <= containerWidth - margin &&
+            cy >= margin && cy <= containerHeight - margin &&
+            !isInMask(cx, cy) && !isInBlockedZone(cx, cy)) {
+            row1.push({ x: cx, y: cy });
+        }
     }
+
+    // ── Phase 2: Row-2 candidates (hexagonal stagger between consecutive row-1 pairs) ──
+    const offset2 = bubbleRadius * Math.sqrt(3);
+    const minRow2Gap = 2 * bubbleRadius + 4;
+    const row2: Slot[] = [];
+    const row2Keys = new Set<string>();
+
+    for (let i = 0; i < row1.length; i++) {
+        const A = row1[i];
+        const B = row1[(i + 1) % row1.length];
+        const mx = (A.x + B.x) / 2;
+        const my = (A.y + B.y) / 2;
+        const dxO = mx - centroid.x, dyO = my - centroid.y;
+        const dLen = Math.sqrt(dxO * dxO + dyO * dyO);
+        if (dLen < 0.01) continue;
+        const r2x = mx + (dxO / dLen) * offset2;
+        const r2y = my + (dyO / dLen) * offset2;
+        if (r2x < margin || r2x > containerWidth - margin ||
+            r2y < margin || r2y > containerHeight - margin) continue;
+        if (isInMask(r2x, r2y) || isInBlockedZone(r2x, r2y)) continue;
+        if (Math.hypot(r2x - A.x, r2y - A.y) < minRow2Gap ||
+            Math.hypot(r2x - B.x, r2y - B.y) < minRow2Gap) continue;
+        const key = `${Math.round(r2x)},${Math.round(r2y)}`;
+        if (!row2Keys.has(key)) {
+            row2.push({ x: r2x, y: r2y });
+            row2Keys.add(key);
+        }
+    }
+
+    // ── Phase 3: Sector-based selection from combined candidate pool ──────────────
+    const allCandidates: Slot[] = [...row1, ...row2];
+    const baseOffset = offset1;
 
     // Ray-Fallback: Strahl vom Schwerpunkt → Polygon-Schnittpunkt + Offset nach außen.
     // Gibt null zurück wenn das Ergebnis in einer Sperrzone oder Maske liegt.
@@ -706,8 +733,7 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
         return { x: rx, y: ry };
     };
 
-    // Sektor-basierte Auswahl: N gleichmäßige Winkelsektoren um den Schwerpunkt.
-    // Garantiert einen Slot pro Sektor, unabhängig von der Perimeter-Längenverteilung.
+    // N equal sectors around centroid → one slot per sector
     const sectorAngle = (2 * Math.PI) / N;
     const sectorBuckets: Slot[][] = Array.from({ length: N }, () => []);
     for (const c of allCandidates) {
@@ -720,7 +746,6 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
         const bisector = (i + 0.5) * sectorAngle;
         const bucket = sectorBuckets[i];
         if (bucket.length === 0) return rayFallback(bisector);
-        // Kandidat closest to sector bisector angle (bucket already excludes blocked positions)
         return bucket.reduce((best, c) => {
             let ca = Math.atan2(c.y - centroid.y, c.x - centroid.x);
             if (ca < 0) ca += 2 * Math.PI;
@@ -734,7 +759,6 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
         });
     });
 
-    // Blocked sectors yield null — filter them out, then supplement from remaining candidates
     const chosen: Slot[] = sectorChosen.filter((s): s is Slot => s !== null);
     if (chosen.length === 0) {
         for (const m of markers) result[m.id] = { x: containerWidth / 2, y: containerHeight / 2 };
@@ -758,59 +782,6 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
         Math.atan2(b.y - centroid.y, b.x - centroid.x)
     );
 
-    // Pre-separation: replace angularly-too-close slots with more spread candidates from the pool
-    {
-        const avgRadius = chosen.reduce((s, c) =>
-            s + Math.sqrt((c.x - centroid.x) ** 2 + (c.y - centroid.y) ** 2), 0
-        ) / chosen.length;
-        const minAngSep = 2 * bubbleRadius / Math.max(avgRadius, 1);
-        const poolByAngle = [...allCandidates].sort((a, b) =>
-            Math.atan2(a.y - centroid.y, a.x - centroid.x) -
-            Math.atan2(b.y - centroid.y, b.x - centroid.x)
-        );
-        const usedKeys = new Set(chosen.map(s => `${Math.round(s.x)},${Math.round(s.y)}`));
-        for (let pass = 0; pass < 3; pass++) {
-            let anySwap = false;
-            for (let i = 0; i < chosen.length; i++) {
-                const angleI = Math.atan2(chosen[i].y - centroid.y, chosen[i].x - centroid.x);
-                for (let j = i + 1; j < chosen.length; j++) {
-                    const angleJ = Math.atan2(chosen[j].y - centroid.y, chosen[j].x - centroid.x);
-                    let angDiff = Math.abs(angleI - angleJ);
-                    if (angDiff > Math.PI) angDiff = 2 * Math.PI - angDiff;
-                    if (angDiff >= minAngSep) continue;
-                    for (const c of poolByAngle) {
-                        const key = `${Math.round(c.x)},${Math.round(c.y)}`;
-                        if (usedKeys.has(key)) continue;
-                        const angleC = Math.atan2(c.y - centroid.y, c.x - centroid.x);
-                        let diffI = Math.abs(angleC - angleI);
-                        if (diffI > Math.PI) diffI = 2 * Math.PI - diffI;
-                        if (diffI < minAngSep) continue;
-                        let ok = true;
-                        for (let k = 0; k < chosen.length; k++) {
-                            if (k === j) continue;
-                            const angleK = Math.atan2(chosen[k].y - centroid.y, chosen[k].x - centroid.x);
-                            let diffK = Math.abs(angleC - angleK);
-                            if (diffK > Math.PI) diffK = 2 * Math.PI - diffK;
-                            if (diffK < minAngSep) { ok = false; break; }
-                        }
-                        if (ok) {
-                            usedKeys.delete(`${Math.round(chosen[j].x)},${Math.round(chosen[j].y)}`);
-                            chosen[j] = c;
-                            usedKeys.add(key);
-                            anySwap = true;
-                            break;
-                        }
-                    }
-                }
-            }
-            if (!anySwap) break;
-        }
-        chosen.sort((a, b) =>
-            Math.atan2(a.y - centroid.y, a.x - centroid.x) -
-            Math.atan2(b.y - centroid.y, b.x - centroid.x)
-        );
-    }
-
     // Marker nach Winkel sortieren → 1:1 Zuordnung minimiert Kreuzungen
     const sortedMarkers = markers
         .map(m => ({ ...m, angle: Math.atan2(m.y - centroid.y, m.x - centroid.x) }))
@@ -821,7 +792,12 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
         slot: { ...chosen[i] },
     }));
 
-    // Crossing reduction: bubble-sort swap until no crossing pair remains (max 20 passes)
+    // Track row-2 slots before repulsion moves them
+    const isRow2Slot: boolean[] = assignments.map(a =>
+        row2Keys.has(`${Math.round(a.slot.x)},${Math.round(a.slot.y)}`)
+    );
+
+    // Crossing reduction: bubble-sort swap until stable (max 20 passes)
     for (let pass = 0; pass < 20; pass++) {
         let swapped = false;
         for (let i = 0; i < N; i++) {
@@ -835,6 +811,9 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
                     const tmp = assignments[i].slot;
                     assignments[i].slot = assignments[j].slot;
                     assignments[j].slot = tmp;
+                    const tmpR2 = isRow2Slot[i];
+                    isRow2Slot[i] = isRow2Slot[j];
+                    isRow2Slot[j] = tmpR2;
                     swapped = true;
                 }
             }
@@ -842,29 +821,9 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
         if (!swapped) break;
     }
 
-    // Adaptive offset: in spacious areas move the bubble outward to create breathing room
-    for (let i = 0; i < assignments.length; i++) {
-        const a = assignments[i].slot;
-        let minNeighborDist = Infinity;
-        for (let j = 0; j < assignments.length; j++) {
-            if (i === j) continue;
-            const b = assignments[j].slot;
-            minNeighborDist = Math.min(minNeighborDist, Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2));
-        }
-        if (minNeighborDist <= 3 * bubbleRadius) continue;
-        const odx = a.x - centroid.x, ody = a.y - centroid.y;
-        const od = Math.sqrt(odx * odx + ody * ody);
-        if (od < 0.1) continue;
-        const newX = a.x + (odx / od) * bubbleRadius;
-        const newY = a.y + (ody / od) * bubbleRadius;
-        if (isInBounds(newX, newY) && !isInMask(newX, newY) && !isInBlockedZone(newX, newY)) {
-            assignments[i].slot = { x: newX, y: newY };
-        }
-    }
-
-    // 2D-Abstoßung: Blasen schieben sich gegenseitig weg
-    const minDist2 = 2 * bubbleRadius + 16;
-    for (let round = 0; round < 300; round++) {
+    // 2D repulsion (150 rounds, minDist = 2r + 8)
+    const minDist2 = 2 * bubbleRadius + 8;
+    for (let round = 0; round < 150; round++) {
         let anyChange = false;
         for (let i = 0; i < assignments.length; i++) {
             for (let j = i + 1; j < assignments.length; j++) {
@@ -893,8 +852,8 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
         if (!anyChange) break;
     }
 
-    // Tangential spread: push pairs that are still too close apart along the perimeter tangent
-    for (let round = 0; round < 40; round++) {
+    // Tangential spread (30 passes, multiplier 0.8)
+    for (let round = 0; round < 30; round++) {
         let anySpread = false;
         for (let i = 0; i < assignments.length; i++) {
             for (let j = i + 1; j < assignments.length; j++) {
@@ -909,9 +868,8 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
                 let angDiff = angleI - angleJ;
                 while (angDiff > Math.PI) angDiff -= 2 * Math.PI;
                 while (angDiff < -Math.PI) angDiff += 2 * Math.PI;
-                const tangPush = (minDist2 - dist) / 2 * 1.2;
+                const tangPush = (minDist2 - dist) / 2 * 0.8;
                 const sign = angDiff >= 0 ? 1 : -1;
-                // CCW tangent at I: (-sin, cos); push I further in its angular direction
                 const tiX = -Math.sin(angleI), tiY = Math.cos(angleI);
                 const newIx = ai.x + sign * tiX * tangPush;
                 const newIy = ai.y + sign * tiY * tangPush;
@@ -931,8 +889,39 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
         if (!anySpread) break;
     }
 
-    // Clamp to safe margin after repulsion
-    const margin = bubbleRadius + 4;
+    // ── Phase 4: Row-2 line-gap nudge ────────────────────────────────────────────
+    // For each row-2 chosen slot, nudge its two nearest row-1 chosen neighbors
+    // 4px apart tangentially so connector lines can pass between them.
+    const nudgeGap = 4;
+    for (let i = 0; i < assignments.length; i++) {
+        if (!isRow2Slot[i]) continue;
+        const r2Angle = Math.atan2(assignments[i].slot.y - centroid.y, assignments[i].slot.x - centroid.x);
+        const neighbors: { nbrIdx: number; angDist: number }[] = [];
+        for (let ni = 0; ni < assignments.length; ni++) {
+            if (ni === i || isRow2Slot[ni]) continue;
+            const ab = Math.atan2(assignments[ni].slot.y - centroid.y, assignments[ni].slot.x - centroid.x);
+            let d = Math.abs(ab - r2Angle);
+            if (d > Math.PI) d = 2 * Math.PI - d;
+            neighbors.push({ nbrIdx: ni, angDist: d });
+        }
+        neighbors.sort((a, b) => a.angDist - b.angDist);
+        for (const { nbrIdx } of neighbors.slice(0, 2)) {
+            const nbr = assignments[nbrIdx].slot;
+            const bAngle = Math.atan2(nbr.y - centroid.y, nbr.x - centroid.x);
+            let angDiff = bAngle - r2Angle;
+            while (angDiff > Math.PI) angDiff -= 2 * Math.PI;
+            while (angDiff < -Math.PI) angDiff += 2 * Math.PI;
+            const sign = angDiff >= 0 ? 1 : -1;
+            const tbX = -Math.sin(bAngle), tbY = Math.cos(bAngle);
+            const newBx = nbr.x + sign * tbX * nudgeGap;
+            const newBy = nbr.y + sign * tbY * nudgeGap;
+            if (isInBounds(newBx, newBy) && !isInMask(newBx, newBy) && !isInBlockedZone(newBx, newBy)) {
+                assignments[nbrIdx].slot = { x: newBx, y: newBy };
+            }
+        }
+    }
+
+    // Clamp to safe margin
     for (const a of assignments) {
         a.slot.x = Math.max(margin, Math.min(containerWidth - margin, a.slot.x));
         a.slot.y = Math.max(margin, Math.min(containerHeight - margin, a.slot.y));
