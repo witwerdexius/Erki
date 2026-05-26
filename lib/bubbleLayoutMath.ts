@@ -680,8 +680,9 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
         allCandidates = generateCandidates(baseOffset, densePts * 3);
     }
 
-    // Ray-Fallback: Strahl vom Schwerpunkt → Polygon-Schnittpunkt + Offset nach außen
-    const rayFallback = (angle: number): Slot => {
+    // Ray-Fallback: Strahl vom Schwerpunkt → Polygon-Schnittpunkt + Offset nach außen.
+    // Gibt null zurück wenn das Ergebnis in einer Sperrzone oder Maske liegt.
+    const rayFallback = (angle: number): Slot | null => {
         const cosA = Math.cos(angle), sinA = Math.sin(angle);
         let bestT = Infinity;
         let hitX = centroid.x + cosA * baseOffset;
@@ -699,10 +700,10 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
                 hitY = centroid.y + sinA * t;
             }
         }
-        return {
-            x: Math.max(bubbleRadius, Math.min(containerWidth - bubbleRadius, hitX + cosA * baseOffset)),
-            y: Math.max(bubbleRadius, Math.min(containerHeight - bubbleRadius, hitY + sinA * baseOffset)),
-        };
+        const rx = Math.max(bubbleRadius, Math.min(containerWidth - bubbleRadius, hitX + cosA * baseOffset));
+        const ry = Math.max(bubbleRadius, Math.min(containerHeight - bubbleRadius, hitY + sinA * baseOffset));
+        if (isInBlockedZone(rx, ry) || isInMask(rx, ry)) return null;
+        return { x: rx, y: ry };
     };
 
     // Sektor-basierte Auswahl: N gleichmäßige Winkelsektoren um den Schwerpunkt.
@@ -715,11 +716,11 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
         sectorBuckets[Math.floor(a / sectorAngle) % N].push(c);
     }
 
-    const chosen: Slot[] = Array.from({ length: N }, (_, i) => {
+    const sectorChosen: (Slot | null)[] = Array.from({ length: N }, (_, i) => {
         const bisector = (i + 0.5) * sectorAngle;
         const bucket = sectorBuckets[i];
         if (bucket.length === 0) return rayFallback(bisector);
-        // Kandidat closest to sector bisector angle
+        // Kandidat closest to sector bisector angle (bucket already excludes blocked positions)
         return bucket.reduce((best, c) => {
             let ca = Math.atan2(c.y - centroid.y, c.x - centroid.x);
             if (ca < 0) ca += 2 * Math.PI;
@@ -732,6 +733,25 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
             return diff < bdiff ? c : best;
         });
     });
+
+    // Blocked sectors yield null — filter them out, then supplement from remaining candidates
+    const chosen: Slot[] = sectorChosen.filter((s): s is Slot => s !== null);
+    if (chosen.length === 0) {
+        for (const m of markers) result[m.id] = { x: containerWidth / 2, y: containerHeight / 2 };
+        return result;
+    }
+    if (chosen.length < N) {
+        const usedKeys = new Set(chosen.map(s => `${Math.round(s.x)},${Math.round(s.y)}`));
+        const extras = allCandidates
+            .filter(c => !usedKeys.has(`${Math.round(c.x)},${Math.round(c.y)}`))
+            .sort((a, b) =>
+                Math.atan2(a.y - centroid.y, a.x - centroid.x) -
+                Math.atan2(b.y - centroid.y, b.x - centroid.x)
+            );
+        let ei = 0;
+        while (chosen.length < N && ei < extras.length) chosen.push(extras[ei++]);
+        while (chosen.length < N) chosen.push(chosen[chosen.length - 1]);
+    }
 
     chosen.sort((a, b) =>
         Math.atan2(a.y - centroid.y, a.x - centroid.x) -
