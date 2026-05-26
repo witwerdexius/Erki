@@ -715,9 +715,30 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
         slot: { ...chosen[i] },
     }));
 
+    // Crossing reduction: bubble-sort swap until no crossing pair remains (max 20 passes)
+    for (let pass = 0; pass < 20; pass++) {
+        let swapped = false;
+        for (let i = 0; i < N; i++) {
+            const mi = sortedMarkers[i];
+            for (let j = i + 1; j < N; j++) {
+                const mj = sortedMarkers[j];
+                if (segmentsCross(
+                    mi.x, mi.y, assignments[i].slot.x, assignments[i].slot.y,
+                    mj.x, mj.y, assignments[j].slot.x, assignments[j].slot.y,
+                )) {
+                    const tmp = assignments[i].slot;
+                    assignments[i].slot = assignments[j].slot;
+                    assignments[j].slot = tmp;
+                    swapped = true;
+                }
+            }
+        }
+        if (!swapped) break;
+    }
+
     // 2D-Abstoßung: Blasen schieben sich gegenseitig weg
-    const minDist2 = 2 * bubbleRadius + 4;
-    for (let round = 0; round < 40; round++) {
+    const minDist2 = 2 * bubbleRadius + 12;
+    for (let round = 0; round < 80; round++) {
         let anyChange = false;
         for (let i = 0; i < assignments.length; i++) {
             for (let j = i + 1; j < assignments.length; j++) {
@@ -746,10 +767,17 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
         if (!anyChange) break;
     }
 
+    // Clamp to safe margin after repulsion
+    const margin = bubbleRadius + 4;
+    for (const a of assignments) {
+        a.slot.x = Math.max(margin, Math.min(containerWidth - margin, a.slot.x));
+        a.slot.y = Math.max(margin, Math.min(containerHeight - margin, a.slot.y));
+    }
+
     for (const a of assignments) {
         result[a.id] = {
-            x: Math.max(bubbleRadius, Math.min(containerWidth - bubbleRadius, a.slot.x)),
-            y: Math.max(bubbleRadius, Math.min(containerHeight - bubbleRadius, a.slot.y)),
+            x: Math.max(margin, Math.min(containerWidth - margin, a.slot.x)),
+            y: Math.max(margin, Math.min(containerHeight - margin, a.slot.y)),
         };
     }
     return result;
