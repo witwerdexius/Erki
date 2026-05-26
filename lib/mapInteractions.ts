@@ -34,9 +34,18 @@ function gridInRect(minX: number, maxX: number, minY: number, maxY: number, coun
 function gridInsidePolygon(poly: { x: number; y: number }[], count: number): { x: number; y: number }[] {
     const xs = poly.map(p => p.x);
     const ys = poly.map(p => p.y);
-    const minX = Math.min(...xs) + 3, maxX = Math.max(...xs) - 3;
-    const minY = Math.min(...ys) + 3, maxY = Math.max(...ys) - 3;
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
     if (maxX <= minX || maxY <= minY) return gridInRect(20, 80, 20, 80, count);
+
+    // Shrink polygon toward its centroid by 4% so grid cells land well inside.
+    const cx = xs.reduce((a, b) => a + b, 0) / xs.length;
+    const cy = ys.reduce((a, b) => a + b, 0) / ys.length;
+    const shrunk = poly.map(p => ({
+        x: p.x + 0.04 * (cx - p.x),
+        y: p.y + 0.04 * (cy - p.y),
+    }));
+
     const bw = maxX - minX, bh = maxY - minY;
     for (let n = Math.ceil(Math.sqrt(count * 2)); n <= 30; n++) {
         const cols = n;
@@ -46,7 +55,7 @@ function gridInsidePolygon(poly: { x: number; y: number }[], count: number): { x
             for (let c = 0; c < cols; c++) {
                 const x = cols > 1 ? minX + (c + 0.5) * bw / cols : (minX + maxX) / 2;
                 const y = rows > 1 ? minY + (r + 0.5) * bh / rows : (minY + maxY) / 2;
-                if (pointInPolygon(x, y, poly)) pts.push({ x, y });
+                if (pointInPolygon(x, y, shrunk)) pts.push({ x, y });
             }
         }
         if (pts.length >= count) return pts;
