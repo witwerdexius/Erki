@@ -191,36 +191,36 @@ export default function ErkiApp({ plan, user, displayName, onPlanUpdate, onExter
         }
     };
 
-    const handleApplyTemplate = (t: StationTemplate) => {
-        // Neue Station anlegen mit Template-Werten
+    const handleApplyTemplate = (selectedTemplates: StationTemplate[]) => {
         if (!activePlan) return;
-        const i = activePlan.stations.length;
-        const maxNum = Math.max(0, ...activePlan.stations.map(s => parseInt(s.number) || 0));
-        const side = i % 4, step = (Math.floor(i / 4) * 15) % 80;
-        let x = 5, y = 5;
-        if (side === 0) { x = 10 + step; y = 5; }
-        else if (side === 1) { x = 95; y = 10 + step; }
-        else if (side === 2) { x = 90 - step; y = 95; }
-        else if (side === 3) { x = 5; y = 90 - step; }
-        const newStation: Station = {
-            id: crypto.randomUUID(),
-            number: (maxNum + 1).toString(),
-            name: t.name,
-            description: t.description,
-            material: t.material,
-            instructions: t.instructions,
-            impulses: t.impulses,
-            setupBy: t.setupBy,
-            conductedBy: t.conductedBy,
-            x, y,
-            targetX: 40 + (i % 3) * 10,
-            targetY: 40 + (Math.floor(i / 3) * 10) % 20,
-            isFilled: false,
-            colorVariant: i % 4,
-        };
-        updateActivePlan({ stations: [...activePlan.stations, newStation] });
-        // Belt-and-suspenders: Station-Add sofort persistieren, ohne auf den
-        // 1.5s Auto-Save-Timer zu warten. Sequenzialisiert im Parent.
+        const baseCount = activePlan.stations.length;
+        const baseMaxNum = Math.max(0, ...activePlan.stations.map(s => parseInt(s.number) || 0));
+        const newStations: Station[] = selectedTemplates.map((t, offset) => {
+            const i = baseCount + offset;
+            const side = i % 4, step = (Math.floor(i / 4) * 15) % 80;
+            let x = 5, y = 5;
+            if (side === 0) { x = 10 + step; y = 5; }
+            else if (side === 1) { x = 95; y = 10 + step; }
+            else if (side === 2) { x = 90 - step; y = 95; }
+            else if (side === 3) { x = 5; y = 90 - step; }
+            return {
+                id: crypto.randomUUID(),
+                number: (baseMaxNum + offset + 1).toString(),
+                name: t.name,
+                description: t.description,
+                material: t.material,
+                instructions: t.instructions,
+                impulses: t.impulses,
+                setupBy: t.setupBy,
+                conductedBy: t.conductedBy,
+                x, y,
+                targetX: 40 + (i % 3) * 10,
+                targetY: 40 + (Math.floor(i / 3) * 10) % 20,
+                isFilled: false,
+                colorVariant: i % 4,
+            };
+        });
+        updateActivePlan({ stations: [...activePlan.stations, ...newStations] });
         onImmediateSave?.();
         setActiveTab('table');
     };
