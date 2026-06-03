@@ -305,7 +305,7 @@ export default function RubrikenView({
       <motion.section layout="position" key={id} transition={{ type: 'spring', stiffness: 400, damping: 35 }} className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 overflow-hidden">
         <div
           className={cn(
-            "w-full flex items-center gap-2 px-4 h-14 transition-colors select-none",
+            "w-full flex items-center gap-4 px-4 h-14 transition-colors select-none",
             isReordering ? "cursor-default" : "hover:bg-muted/50 cursor-pointer",
           )}
           onClick={() => toggleSection(id)}
