@@ -4,13 +4,14 @@ import React, { useState, useEffect, useMemo, useRef, MutableRefObject } from 'r
 import { ChevronLeft, Plus, Trash2, List, Download, Upload, Loader2, BookOpen, FileText, Map as MapIcon, CalendarDays } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import { Plan, Station, StationTemplate, PlanningTask, TaskSection, DEFAULT_TASK_SECTIONS } from '@/lib/types';
+import { Plan, Station, StationTemplate, TaskTemplate, PlanningTask, TaskSection, DEFAULT_TASK_SECTIONS } from '@/lib/types';
 import type { Phase, Task } from '@/components/zeitplan/types';
-import { loadTemplates, createTemplate, updateTemplate, deleteTemplate, loadPlanningFull, loadPlanningTasks, createPlanningTask, deletePlanningTask, updatePlanningTask, updatePlanningTaskVolunteers } from '@/lib/db';
+import { loadTemplates, createTemplate, updateTemplate, deleteTemplate, loadTaskTemplates, createTaskTemplate, updateTaskTemplate, deleteTaskTemplate, loadPlanningFull, loadPlanningTasks, createPlanningTask, deletePlanningTask, updatePlanningTask, updatePlanningTaskVolunteers } from '@/lib/db';
 import ShareButton from './ShareButton';
 import { ThemeToggle } from './ThemeToggle';
 import { cn } from '@/lib/utils';
 import TemplatePickerDialog from './TemplatePickerDialog';
+import TaskTemplatePickerDialog from './TaskTemplatePickerDialog';
 import NachdenktexteTab from '@/components/NachdenktexteTab';
 import ExplanationPage from '@/components/ExplanationPage';
 import MapView from '@/components/erki/MapView';
@@ -112,6 +113,10 @@ export default function ErkiApp({ plan, user, displayName, onPlanUpdate, onExter
     const [templatesLoaded, setTemplatesLoaded] = useState(false);
     const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
+    const [taskTemplates, setTaskTemplates] = useState<TaskTemplate[]>([]);
+    const [taskTemplatesLoaded, setTaskTemplatesLoaded] = useState(false);
+    const [taskTemplatePickerTarget, setTaskTemplatePickerTarget] = useState<{ section: TaskSection; sectionLabel: string } | null>(null);
+
     // Immer die aktuellste Version des Plans verwenden. latestPlanRef.current
     // wird in updateActivePlan synchron gesetzt, bevor React re-rendert — ist
     // also aktueller als das prop `plan`, wenn mehrere Updates im selben Tick
@@ -170,6 +175,52 @@ export default function ErkiApp({ plan, user, displayName, onPlanUpdate, onExter
             console.error('Fehler beim Laden der Vorlagen:', e);
         }
         setTemplatesLoaded(true);
+    };
+
+    const ensureTaskTemplatesLoaded = async () => {
+        if (taskTemplatesLoaded) return;
+        try {
+            const data = await loadTaskTemplates();
+            setTaskTemplates(data);
+        } catch (e) {
+            console.error('Fehler beim Laden der Aufgaben-Vorlagen:', e);
+        }
+        setTaskTemplatesLoaded(true);
+    };
+
+    const handleOpenTaskTemplatePicker = (section: TaskSection, sectionLabel: string) => {
+        void ensureTaskTemplatesLoaded();
+        setTaskTemplatePickerTarget({ section, sectionLabel });
+    };
+
+    const handleApplyTaskTemplates = async (selected: TaskTemplate[]) => {
+        if (!taskTemplatePickerTarget) return;
+        const { section } = taskTemplatePickerTarget;
+        for (const t of selected) {
+            await handleAddTask(section, t.name, t.helpersRequired, t.time);
+        }
+    };
+
+    const handleCreateBlankTaskTemplate = async (): Promise<TaskTemplate | null> => {
+        try {
+            const t = await createTaskTemplate({ name: 'Neue Vorlage', helpersRequired: 1 }, user.id);
+            setTaskTemplates(prev => [...prev, t].sort((a, b) => a.name.localeCompare(b.name)));
+            return t;
+        } catch (e) {
+            console.error(e);
+            return null;
+        }
+    };
+
+    const handleSaveTaskTemplateEdit = async (id: string, data: Partial<TaskTemplate>) => {
+        await updateTaskTemplate(id, data);
+        setTaskTemplates(prev => prev.map(t => t.id === id ? { ...t, ...data } : t).sort((a, b) => a.name.localeCompare(b.name)));
+    };
+
+    const handleDeleteTaskTemplate = async (id: string, name: string) => {
+        if (!confirm(`Aufgaben-Vorlage „${name}" wirklich löschen?`)) return;
+        await deleteTaskTemplate(id);
+        setTaskTemplates(prev => prev.filter(t => t.id !== id));
     };
 
     const handleSaveAsTemplate = async (station: Station) => {
@@ -743,6 +794,7 @@ export default function ErkiApp({ plan, user, displayName, onPlanUpdate, onExter
                             planningName={activePlan.title}
                             planId={activePlan.id}
                             currentUserPresence={presenceUser}
+                            onOpenTaskTemplatePicker={handleOpenTaskTemplatePicker}
                         />
                     ) : null}
 
@@ -782,6 +834,19 @@ export default function ErkiApp({ plan, user, displayName, onPlanUpdate, onExter
                     onCreateTemplate={handleCreateBlankTemplate}
                     onSaveTemplate={handleSaveTemplateEdit}
                     onDeleteTemplate={handleDeleteTemplate}
+                />
+            )}
+
+            {taskTemplatePickerTarget && (
+                <TaskTemplatePickerDialog
+                    section={taskTemplatePickerTarget.section}
+                    sectionLabel={taskTemplatePickerTarget.sectionLabel}
+                    templates={taskTemplates}
+                    onSelect={(selected) => void handleApplyTaskTemplates(selected)}
+                    onClose={() => setTaskTemplatePickerTarget(null)}
+                    onCreateTemplate={handleCreateBlankTaskTemplate}
+                    onSaveTemplate={handleSaveTaskTemplateEdit}
+                    onDeleteTemplate={handleDeleteTaskTemplate}
                 />
             )}
 

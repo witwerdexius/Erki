@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronDown, ChevronUp, Clock, Download, GripVertical, Plus, Trash2, Users } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock, Download, GripVertical, LayoutTemplate, Plus, Trash2, Users } from 'lucide-react';
 import type { PlanningTask, Station, TaskSection } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { FilterTabs } from '@/components/zeitplan/filter-tabs';
@@ -43,6 +43,8 @@ type RubrikenViewProps = {
   planId?: string;
   /** Voller Presence-User des aktuellen Nutzers (für Broadcast). */
   currentUserPresence?: PresenceUserLike;
+  /** Öffnet das Aufgaben-Vorlagen-Menü für eine bestimmte Rubrik. */
+  onOpenTaskTemplatePicker?: (section: TaskSection, sectionLabel: string) => void;
 };
 
 type AddFormState = {
@@ -72,6 +74,7 @@ export default function RubrikenView({
   planningName,
   planId,
   currentUserPresence,
+  onOpenTaskTemplatePicker,
 }: RubrikenViewProps) {
   const openStationTasks = phases.reduce((acc, p) => acc + p.tasks.filter(t => t.filled < t.slots).length, 0);
   const myStationTasks = phases.reduce((acc, p) => acc + p.tasks.filter(t => t.volunteers.includes(currentUser)).length, 0);
@@ -307,13 +310,25 @@ export default function RubrikenView({
             <span className="font-semibold text-base truncate">{label}</span>
             <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full shrink-0">{itemCount}</span>
             {!isReordering && !isStationen && (
-              <button
-                onClick={e => { e.stopPropagation(); openAddForm(id as TaskSection); }}
-                className="h-11 w-11 flex items-center justify-center rounded-full hover:bg-[#6bbfd4]/20 text-[#6bbfd4] transition-colors shrink-0"
-                aria-label={`Aufgabe zu ${label} hinzufügen`}
-              >
-                <Plus className="h-4 w-4" />
-              </button>
+              <>
+                <button
+                  onClick={e => { e.stopPropagation(); openAddForm(id as TaskSection); }}
+                  className="h-11 w-11 flex items-center justify-center rounded-full hover:bg-[#6bbfd4]/20 text-[#6bbfd4] transition-colors shrink-0"
+                  aria-label={`Aufgabe zu ${label} hinzufügen`}
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+                {onOpenTaskTemplatePicker && (
+                  <button
+                    onClick={e => { e.stopPropagation(); onOpenTaskTemplatePicker(id as TaskSection, label); }}
+                    className="h-11 w-11 flex items-center justify-center rounded-full hover:bg-[#6bbfd4]/20 text-[#6bbfd4] transition-colors shrink-0"
+                    aria-label={`Vorlage zu ${label} hinzufügen`}
+                    title="Aus Vorlage hinzufügen"
+                  >
+                    <LayoutTemplate className="h-4 w-4" />
+                  </button>
+                )}
+              </>
             )}
             {canDelete && (
               <button

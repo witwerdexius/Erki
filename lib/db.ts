@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Plan, PlanStatus, Station, LogoOverlay, LabelOverlay, StationTemplate, Profile, Community, UserRole, PlanningTask, TaskSection } from './types';
+import { Plan, PlanStatus, Station, LogoOverlay, LabelOverlay, StationTemplate, TaskTemplate, Profile, Community, UserRole, PlanningTask, TaskSection } from './types';
 
 // ── Errors ──────────────────────────────────────────────────────
 
@@ -425,6 +425,63 @@ export async function updateTemplate(
 
 export async function deleteTemplate(id: string): Promise<void> {
   const { error } = await supabase.from('templates').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ── Task Templates ───────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToTaskTemplate(row: any): TaskTemplate {
+  return {
+    id: row.id,
+    name: row.name,
+    helpersRequired: row.helpers_required,
+    time: row.time ?? undefined,
+    createdAt: row.created_at,
+  };
+}
+
+export async function loadTaskTemplates(): Promise<TaskTemplate[]> {
+  const { data, error } = await supabase
+    .from('task_templates')
+    .select('*')
+    .order('name');
+  if (error) throw error;
+  return (data ?? []).map(rowToTaskTemplate);
+}
+
+export async function createTaskTemplate(
+  t: Omit<TaskTemplate, 'id' | 'createdAt'>,
+  userId: string,
+): Promise<TaskTemplate> {
+  const { data, error } = await supabase
+    .from('task_templates')
+    .insert({
+      user_id: userId,
+      name: t.name,
+      helpers_required: t.helpersRequired,
+      time: t.time ?? null,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToTaskTemplate(data);
+}
+
+export async function updateTaskTemplate(
+  id: string,
+  updates: Partial<Omit<TaskTemplate, 'id' | 'createdAt'>>,
+): Promise<void> {
+  const row: Record<string, unknown> = {};
+  if (updates.name             !== undefined) row.name             = updates.name;
+  if (updates.helpersRequired  !== undefined) row.helpers_required = updates.helpersRequired;
+  if (updates.time             !== undefined) row.time             = updates.time ?? null;
+  const { error } = await supabase.from('task_templates').update(row).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteTaskTemplate(id: string): Promise<void> {
+  const { error } = await supabase.from('task_templates').delete().eq('id', id);
   if (error) throw error;
 }
 

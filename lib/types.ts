@@ -53,6 +53,14 @@ export interface StationTemplate {
   createdAt?: string;
 }
 
+export interface TaskTemplate {
+  id: string;
+  name: string;
+  helpersRequired: number;
+  time?: string;
+  createdAt?: string;
+}
+
 export interface LogoOverlay {
   x: number;      // % from left
   y: number;      // % from top
