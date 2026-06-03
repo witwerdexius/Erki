@@ -322,16 +322,6 @@ export default function RubrikenView({
               >
                 <Plus className="h-4 w-4" />
               </button>
-              {onOpenTaskTemplatePicker && (
-                <button
-                  onClick={e => { e.stopPropagation(); onOpenTaskTemplatePicker(id as TaskSection, label); }}
-                  className="h-11 w-11 flex items-center justify-center rounded-full hover:bg-[#6bbfd4]/20 text-[#6bbfd4] transition-colors"
-                  aria-label={`Vorlage zu ${label} hinzufügen`}
-                  title="Aus Vorlage hinzufügen"
-                >
-                  <LayoutTemplate className="h-4 w-4" />
-                </button>
-              )}
               {canDelete && (
                 <button
                   onClick={e => { e.stopPropagation(); onDeleteSection(id); }}
@@ -445,6 +435,15 @@ export default function RubrikenView({
                           />
                           <div className="flex-1" />
                           <div className="flex gap-2 ml-auto">
+                            {onOpenTaskTemplatePicker && (
+                              <button
+                                onClick={() => { cancelAdd(); onOpenTaskTemplatePicker(id as TaskSection, label); }}
+                                className="h-10 px-3 rounded-full text-sm text-muted-foreground hover:bg-muted transition-colors flex items-center gap-1.5"
+                              >
+                                <LayoutTemplate className="h-3.5 w-3.5" />
+                                Aus Vorlage
+                              </button>
+                            )}
                             <button
                               disabled={saving || !addForm.name.trim()}
                               onClick={() => void submitAdd(id as TaskSection)}
