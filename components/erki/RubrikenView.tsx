@@ -297,7 +297,7 @@ export default function RubrikenView({
       <motion.section layout="position" key={id} transition={{ type: 'spring', stiffness: 400, damping: 35 }} className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 overflow-hidden">
         <div
           className={cn(
-            "w-full flex items-center justify-between px-4 h-14 transition-colors select-none",
+            "w-full flex items-center gap-2 px-4 h-14 transition-colors select-none",
             isReordering ? "cursor-default" : "hover:bg-muted/50 cursor-pointer",
           )}
           onClick={() => toggleSection(id)}
@@ -306,40 +306,45 @@ export default function RubrikenView({
           aria-expanded={isOpen}
           onKeyDown={e => { if (!isReordering && (e.key === 'Enter' || e.key === ' ')) toggleSection(id); }}
         >
+          {/* Name + Badge — nimmt restlichen Platz, Name kürzt ab */}
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <span className="font-semibold text-base truncate">{label}</span>
             <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full shrink-0">{itemCount}</span>
-            {!isReordering && !isStationen && (
-              <>
-                <button
-                  onClick={e => { e.stopPropagation(); openAddForm(id as TaskSection); }}
-                  className="h-11 w-11 flex items-center justify-center rounded-full hover:bg-[#6bbfd4]/20 text-[#6bbfd4] transition-colors shrink-0"
-                  aria-label={`Aufgabe zu ${label} hinzufügen`}
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-                {onOpenTaskTemplatePicker && (
-                  <button
-                    onClick={e => { e.stopPropagation(); onOpenTaskTemplatePicker(id as TaskSection, label); }}
-                    className="h-11 w-11 flex items-center justify-center rounded-full hover:bg-[#6bbfd4]/20 text-[#6bbfd4] transition-colors shrink-0"
-                    aria-label={`Vorlage zu ${label} hinzufügen`}
-                    title="Aus Vorlage hinzufügen"
-                  >
-                    <LayoutTemplate className="h-4 w-4" />
-                  </button>
-                )}
-              </>
-            )}
-            {canDelete && (
-              <button
-                onClick={e => { e.stopPropagation(); onDeleteSection(id); }}
-                className="h-11 w-11 flex items-center justify-center rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 text-muted-foreground hover:text-red-500 transition-colors shrink-0"
-                aria-label={`Rubrik ${label} löschen`}
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            )}
           </div>
+
+          {/* Aktions-Buttons — eigener shrink-0-Block, immer rechtsbündig */}
+          {!isReordering && !isStationen && (
+            <div className="flex items-center shrink-0">
+              <button
+                onClick={e => { e.stopPropagation(); openAddForm(id as TaskSection); }}
+                className="h-11 w-11 flex items-center justify-center rounded-full hover:bg-[#6bbfd4]/20 text-[#6bbfd4] transition-colors"
+                aria-label={`Aufgabe zu ${label} hinzufügen`}
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+              {onOpenTaskTemplatePicker && (
+                <button
+                  onClick={e => { e.stopPropagation(); onOpenTaskTemplatePicker(id as TaskSection, label); }}
+                  className="h-11 w-11 flex items-center justify-center rounded-full hover:bg-[#6bbfd4]/20 text-[#6bbfd4] transition-colors"
+                  aria-label={`Vorlage zu ${label} hinzufügen`}
+                  title="Aus Vorlage hinzufügen"
+                >
+                  <LayoutTemplate className="h-4 w-4" />
+                </button>
+              )}
+              {canDelete && (
+                <button
+                  onClick={e => { e.stopPropagation(); onDeleteSection(id); }}
+                  className="h-11 w-11 flex items-center justify-center rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 text-muted-foreground hover:text-red-500 transition-colors"
+                  aria-label={`Rubrik ${label} löschen`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Umsortier-Controls oder Expand/Collapse-Chevron */}
           {isReordering ? (
             <div className="flex items-center gap-1 shrink-0">
               <button
@@ -361,8 +366,8 @@ export default function RubrikenView({
             </div>
           ) : (
             isOpen
-              ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
-              : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+              : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
           )}
         </div>
         <AnimatePresence initial={false}>
