@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, ChevronUp, Clock, Download, GripVertical, Plus, Trash2, Users } from 'lucide-react';
 import type { PlanningTask, Station, TaskSection } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -289,8 +289,9 @@ export default function RubrikenView({
     const itemCount = isStationen ? stationCount : sectionTasks.length;
     const canDelete = !isStationen && !isReordering && allSectionTasks.length === 0;
     const sectionIdx = fullSectionIds.indexOf(id);
+    const showContent = !isReordering && isOpen && (isStationen || sectionTasks.length > 0 || addingIn === id);
     return (
-      <motion.section layout key={id} transition={{ type: 'spring', stiffness: 400, damping: 35 }} className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 overflow-hidden">
+      <motion.section layout="position" key={id} transition={{ type: 'spring', stiffness: 400, damping: 35 }} className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 overflow-hidden">
         <div
           className={cn(
             "w-full flex items-center justify-between px-4 h-14 transition-colors select-none",
@@ -349,93 +350,104 @@ export default function RubrikenView({
               : <ChevronDown className="h-4 w-4 text-muted-foreground" />
           )}
         </div>
-        {!isReordering && isOpen && (isStationen || sectionTasks.length > 0 || addingIn === id) && (
-          <div className="border-t border-border">
-            {isStationen ? stationenContent : (
-              <>
-                {sectionTasks.length > 0 && (
-                  <div className="space-y-2 px-3 pt-1 pb-3">
-                    {sectionTasks.map(task => {
-                      const asTask: Task = {
-                        id: task.id, name: task.name, slots: task.helpersRequired,
-                        filled: task.volunteers.length, volunteers: task.volunteers, time: task.time,
-                      };
-                      const entry = editingMap[task.id];
-                      const editingEntry = entry && currentUserPresence && entry.userId !== currentUserPresence.userId ? entry : undefined;
-                      return (
-                        <TaskCard
-                          key={task.id}
-                          task={asTask}
-                          phaseId={id as string}
-                          onSignUp={(_phaseId, taskId, name) => onSignUpTask(taskId, name)}
-                          onRemove={(_phaseId, taskId, name) => onRemoveFromTask(taskId, name)}
-                          currentUser={currentUser}
-                          onDelete={() => onDeleteTask(task.id)}
-                          onEdit={(updates) => onEditTask(task.id, { name: updates.name, helpersRequired: updates.slots, time: updates.time })}
-                          editingEntry={editingEntry}
-                          onEditOpen={() => handleTaskEditOpen(task.id)}
-                          onEditClose={() => handleTaskEditClose(task.id)}
-                        />
-                      );
-                    })}
-                  </div>
-                )}
-                {addingIn === id && (
-                  <div className={cn('px-4 py-3 flex flex-col gap-2', sectionTasks.length > 0 && 'border-t border-border')}>
-                    <input
-                      className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
-                      placeholder="Aufgabe benennen…"
-                      value={addForm.name}
-                      autoFocus
-                      onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') void submitAdd(id as TaskSection);
-                        if (e.key === 'Escape') cancelAdd();
-                      }}
-                    />
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <label className="text-xs text-muted-foreground flex items-center gap-1 shrink-0">
-                        <Users className="h-3.5 w-3.5" /> Helfer
-                      </label>
-                      <input
-                        type="number" min={1} max={99}
-                        className="w-16 h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
-                        value={addForm.helpersRequired}
-                        onChange={e => setAddForm(f => ({ ...f, helpersRequired: Math.max(1, parseInt(e.target.value) || 1) }))}
-                        onFocus={e => e.target.select()}
-                      />
-                      <label className="text-xs text-muted-foreground flex items-center gap-1 shrink-0">
-                        <Clock className="h-3.5 w-3.5" /> Uhrzeit
-                      </label>
-                      <input
-                        type="time"
-                        className="w-32 h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
-                        value={addForm.time}
-                        onChange={e => setAddForm(f => ({ ...f, time: e.target.value }))}
-                      />
-                      <div className="flex-1" />
-                      <div className="flex gap-2 ml-auto">
-                        <button
-                          disabled={saving || !addForm.name.trim()}
-                          onClick={() => void submitAdd(id as TaskSection)}
-                          className={cn(
-                            'h-10 px-4 rounded-full text-sm font-medium bg-[#6bbfd4] text-white hover:bg-[#5aaec3] transition-colors',
-                            (saving || !addForm.name.trim()) && 'opacity-50 cursor-not-allowed',
-                          )}
-                        >
-                          Hinzufügen
-                        </button>
-                        <button onClick={cancelAdd} className="h-10 px-3 rounded-full text-sm text-muted-foreground hover:bg-muted transition-colors">
-                          Abbrechen
-                        </button>
+        <AnimatePresence initial={false}>
+          {showContent && (
+            <motion.div
+              key="content"
+              initial={{ height: 0 }}
+              animate={{ height: 'auto' }}
+              exit={{ height: 0 }}
+              transition={{ duration: 0.2, ease: 'easeInOut' }}
+              className="overflow-hidden"
+            >
+              <div className="border-t border-border">
+                {isStationen ? stationenContent : (
+                  <>
+                    {sectionTasks.length > 0 && (
+                      <div className="space-y-2 px-3 pt-1 pb-3">
+                        {sectionTasks.map(task => {
+                          const asTask: Task = {
+                            id: task.id, name: task.name, slots: task.helpersRequired,
+                            filled: task.volunteers.length, volunteers: task.volunteers, time: task.time,
+                          };
+                          const entry = editingMap[task.id];
+                          const editingEntry = entry && currentUserPresence && entry.userId !== currentUserPresence.userId ? entry : undefined;
+                          return (
+                            <TaskCard
+                              key={task.id}
+                              task={asTask}
+                              phaseId={id as string}
+                              onSignUp={(_phaseId, taskId, name) => onSignUpTask(taskId, name)}
+                              onRemove={(_phaseId, taskId, name) => onRemoveFromTask(taskId, name)}
+                              currentUser={currentUser}
+                              onDelete={() => onDeleteTask(task.id)}
+                              onEdit={(updates) => onEditTask(task.id, { name: updates.name, helpersRequired: updates.slots, time: updates.time })}
+                              editingEntry={editingEntry}
+                              onEditOpen={() => handleTaskEditOpen(task.id)}
+                              onEditClose={() => handleTaskEditClose(task.id)}
+                            />
+                          );
+                        })}
                       </div>
-                    </div>
-                  </div>
+                    )}
+                    {addingIn === id && (
+                      <div className={cn('px-4 py-3 flex flex-col gap-2', sectionTasks.length > 0 && 'border-t border-border')}>
+                        <input
+                          className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
+                          placeholder="Aufgabe benennen…"
+                          value={addForm.name}
+                          autoFocus
+                          onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') void submitAdd(id as TaskSection);
+                            if (e.key === 'Escape') cancelAdd();
+                          }}
+                        />
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <label className="text-xs text-muted-foreground flex items-center gap-1 shrink-0">
+                            <Users className="h-3.5 w-3.5" /> Helfer
+                          </label>
+                          <input
+                            type="number" min={1} max={99}
+                            className="w-16 h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
+                            value={addForm.helpersRequired}
+                            onChange={e => setAddForm(f => ({ ...f, helpersRequired: Math.max(1, parseInt(e.target.value) || 1) }))}
+                            onFocus={e => e.target.select()}
+                          />
+                          <label className="text-xs text-muted-foreground flex items-center gap-1 shrink-0">
+                            <Clock className="h-3.5 w-3.5" /> Uhrzeit
+                          </label>
+                          <input
+                            type="time"
+                            className="w-32 h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
+                            value={addForm.time}
+                            onChange={e => setAddForm(f => ({ ...f, time: e.target.value }))}
+                          />
+                          <div className="flex-1" />
+                          <div className="flex gap-2 ml-auto">
+                            <button
+                              disabled={saving || !addForm.name.trim()}
+                              onClick={() => void submitAdd(id as TaskSection)}
+                              className={cn(
+                                'h-10 px-4 rounded-full text-sm font-medium bg-[#6bbfd4] text-white hover:bg-[#5aaec3] transition-colors',
+                                (saving || !addForm.name.trim()) && 'opacity-50 cursor-not-allowed',
+                              )}
+                            >
+                              Hinzufügen
+                            </button>
+                            <button onClick={cancelAdd} className="h-10 px-3 rounded-full text-sm text-muted-foreground hover:bg-muted transition-colors">
+                              Abbrechen
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
-              </>
-            )}
-          </div>
-        )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.section>
     );
   };
