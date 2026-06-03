@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, ChevronUp, Clock, Download, GripVertical, LayoutTemplate, Plus, Trash2, Users } from 'lucide-react';
 import type { PlanningTask, Station, TaskSection } from '@/lib/types';
@@ -143,6 +143,7 @@ export default function RubrikenView({
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [addingIn, setAddingIn] = useState<TaskSection | null>(null);
   const [addForm, setAddForm] = useState<AddFormState>({ name: '', helpersRequired: 1 });
+  const addFormRef = useRef<HTMLDivElement | null>(null);
   const [saving, setSaving] = useState(false);
 
   const [showAddSectionForm, setShowAddSectionForm] = useState(false);
@@ -178,9 +179,16 @@ export default function RubrikenView({
   };
 
   const openAddForm = (section: TaskSection) => {
+    const wasCollapsed = collapsed[section] ?? false;
     setCollapsed(prev => ({ ...prev, [section]: false }));
     setAddingIn(section);
     setAddForm({ name: '', helpersRequired: 1, time: '' });
+    if (wasCollapsed) {
+      // Warten bis die 200ms-Expand-Animation fertig ist, dann zum Formular scrollen
+      setTimeout(() => {
+        addFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 220);
+    }
   };
 
   const cancelAdd = () => {
@@ -401,7 +409,7 @@ export default function RubrikenView({
                       </div>
                     )}
                     {addingIn === id && (
-                      <div className={cn('px-4 py-3 flex flex-col gap-2', sectionTasks.length > 0 && 'border-t border-border')}>
+                      <div ref={addFormRef} className={cn('px-4 py-3 flex flex-col gap-2', sectionTasks.length > 0 && 'border-t border-border')}>
                         <input
                           className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
                           placeholder="Aufgabe benennen…"
