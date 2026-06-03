@@ -30,7 +30,7 @@ type TaskCardProps = {
   /** Wenn gesetzt: Zahnrad-Button erscheint, Löschen im Edit-Formular möglich. */
   onDelete?: () => void
   /** Wenn gesetzt: Parameter der Aufgabe bearbeitbar. */
-  onEdit?: (updates: { name: string; slots: number; time?: string; symbol?: string }) => Promise<void>
+  onEdit?: (updates: { name: string; slots: number; time?: string }) => Promise<void>
   /** Wenn true: Namensfeld im Edit-Formular ausgeblendet (z.B. bei Stationskarten). */
   readonlyName?: boolean
   /** Soft-Lock: Eintrag eines anderen Users, der diese Aufgabe gerade bearbeitet. */
@@ -50,7 +50,6 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
   const [editName, setEditName] = useState(task.name)
   const [editSlots, setEditSlots] = useState(task.slots)
   const [editTime, setEditTime] = useState(task.time ?? '')
-  const [editSymbol, setEditSymbol] = useState(task.symbol ?? '')
   const [editSaving, setEditSaving] = useState(false)
 
   const isFull = task.filled >= task.slots
@@ -76,7 +75,6 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
     setEditName(task.name)
     setEditSlots(task.slots)
     setEditTime(task.time ?? '')
-    setEditSymbol(task.symbol ?? '')
     setIsSigningUp(false)
     setIsEditing(true)
     onEditOpen?.()
@@ -96,7 +94,6 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
         name: readonlyName ? task.name : editName.trim(),
         slots: editSlots,
         time: editTime || undefined,
-        symbol: editSymbol || undefined,
       })
       closeEdit()
     } finally {
@@ -308,27 +305,13 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
             ) : isEditing ? (
               /* ── Edit Form ── */
               <div className="flex flex-col gap-2">
-                {/* Symbol (Emoji) */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm text-muted-foreground shrink-0">Symbol</span>
-                  <input
-                    className="flex-1 h-10 rounded-xl border border-border bg-muted/50 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
-                    placeholder="Emoji oder Kürzel…"
-                    value={editSymbol}
-                    autoFocus={readonlyName}
-                    onChange={e => setEditSymbol(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Escape') closeEdit()
-                    }}
-                  />
-                </div>
                 {/* Name — nur wenn editierbar */}
                 {!readonlyName && (
                   <input
                     className="w-full h-10 rounded-xl border border-border bg-muted/50 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6bbfd4]"
                     placeholder="Aufgabe benennen…"
                     value={editName}
-                    autoFocus={!readonlyName}
+                    autoFocus
                     onChange={e => setEditName(e.target.value)}
                     onKeyDown={e => {
                       if (e.key === 'Enter') void handleSaveEdit()
