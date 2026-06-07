@@ -134,20 +134,29 @@ export default function AdminPanel({ community, currentUserId, adminProfile, onC
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4"
       onClick={onClose}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+          e.preventDefault();
+          onClose();
+        }
+      }}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b">
+        <div className="flex items-center justify-between px-5 py-4 border-b dark:border-gray-700">
           <div>
-            <h2 className="font-semibold text-gray-900">Verwaltung</h2>
-            {community && <p className="text-xs text-gray-700 mt-0.5">{community.name}</p>}
+            <h2 className="font-semibold text-gray-900 dark:text-gray-50">Verwaltung</h2>
+            {community && <p className="text-xs text-gray-700 dark:text-gray-300 mt-0.5">{community.name}</p>}
           </div>
-          <button onClick={onClose} className="text-gray-600 hover:text-gray-800 transition-colors">
+          <button onClick={onClose} className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -155,20 +164,20 @@ export default function AdminPanel({ community, currentUserId, adminProfile, onC
         {/* User list */}
         <div className="flex-1 overflow-y-auto">
           {!adminProfile?.team ? (
-            <p className="text-center text-gray-700 text-sm py-10">Kein Team zugewiesen – Benutzerverwaltung nicht verfügbar.</p>
+            <p className="text-center text-gray-700 dark:text-gray-300 text-sm py-10">Kein Team zugewiesen – Benutzerverwaltung nicht verfügbar.</p>
           ) : loading ? (
-            <p className="text-center text-gray-700 text-sm py-10">Wird geladen…</p>
+            <p className="text-center text-gray-700 dark:text-gray-300 text-sm py-10">Wird geladen…</p>
           ) : loadError ? (
             <p className="text-center text-red-500 text-sm py-10 px-5">Fehler: {loadError}</p>
           ) : users.length === 0 ? (
-            <p className="text-center text-gray-700 text-sm py-10">Keine Benutzer gefunden.</p>
+            <p className="text-center text-gray-700 dark:text-gray-300 text-sm py-10">Keine Benutzer gefunden.</p>
           ) : (
             <div>
-              <p className="px-5 pt-4 pb-2 text-xs font-medium text-gray-700 uppercase tracking-wider">
+              <p className="px-5 pt-4 pb-2 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                 Benutzer ({users.length})
               </p>
               {users.map(u => (
-                <div key={u.id} className="flex items-center gap-3 px-5 py-3 border-b last:border-0">
+                <div key={u.id} className="flex items-center gap-3 px-5 py-3 border-b dark:border-gray-700 last:border-0">
                   <div className="w-8 h-8 rounded-full bg-[#6bbfd4]/20 flex items-center justify-center shrink-0">
                     {u.role === 'admin'
                       ? <Shield className="w-4 h-4 text-[#6bbfd4]" />
@@ -176,10 +185,10 @@ export default function AdminPanel({ community, currentUserId, adminProfile, onC
                     }
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-50 truncate">
                       {u.name || u.displayName || u.email || u.id.slice(0, 8) + '…'}
                     </p>
-                    <p className="text-xs text-gray-600 truncate">{u.email || '—'}</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 truncate">{u.email || '—'}</p>
                     <p className="text-xs truncate" style={{ color: u.team ? undefined : '#f59e0b' }}>
                       {u.team ? `Team: ${u.team}` : 'Kein Team'}
                     </p>
@@ -188,7 +197,7 @@ export default function AdminPanel({ community, currentUserId, adminProfile, onC
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                       u.role === 'admin'
                         ? 'bg-[#6bbfd4]/15 text-[#6bbfd4]'
-                        : 'bg-gray-100 text-gray-700'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                     }`}>
                       {u.role === 'admin' ? 'Admin' : 'Benutzer'}
                     </span>
@@ -197,7 +206,7 @@ export default function AdminPanel({ community, currentUserId, adminProfile, onC
                         <button
                           onClick={() => handleRoleToggle(u)}
                           disabled={updatingId === u.id || deletingId === u.id}
-                          className="text-xs px-3 py-1 border rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-40 text-gray-700"
+                          className="text-xs px-3 py-1 border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40 text-gray-700 dark:text-gray-300"
                         >
                           {updatingId === u.id ? '…' : u.role === 'admin' ? '→ Benutzer' : '→ Admin'}
                         </button>
@@ -212,7 +221,7 @@ export default function AdminPanel({ community, currentUserId, adminProfile, onC
                             </button>
                             <button
                               onClick={() => setConfirmDeleteId(null)}
-                              className="text-xs px-2 py-1 border rounded-lg hover:bg-gray-50 transition-colors text-gray-700"
+                              className="text-xs px-2 py-1 border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
                             >
                               Abbrechen
                             </button>
@@ -221,7 +230,7 @@ export default function AdminPanel({ community, currentUserId, adminProfile, onC
                           <button
                             onClick={() => setConfirmDeleteId(u.id)}
                             disabled={deletingId === u.id}
-                            className="p-1 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-40 rounded"
+                            className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors disabled:opacity-40 rounded"
                             title="Benutzer löschen"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -237,17 +246,17 @@ export default function AdminPanel({ community, currentUserId, adminProfile, onC
         </div>
 
         {/* Invite section */}
-        <div className="px-5 py-4 border-t bg-gray-50">
-          <p className="text-xs font-medium text-gray-800 mb-2">Einladen per E-Mail</p>
+        <div className="px-5 py-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+          <p className="text-xs font-medium text-gray-800 dark:text-gray-200 mb-2">Einladen per E-Mail</p>
           <form onSubmit={handleInvite} className="flex gap-2">
-            <div className="flex-1 flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2">
-              <Mail className="w-4 h-4 text-gray-500 shrink-0" />
+            <div className="flex-1 flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2">
+              <Mail className="w-4 h-4 text-gray-500 dark:text-gray-400 shrink-0" />
               <input
                 type="email"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 placeholder="name@beispiel.de"
-                className="bg-transparent border-none outline-none text-sm flex-1 text-gray-800 placeholder:text-gray-400"
+                className="bg-transparent border-none outline-none text-sm flex-1 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
               />
             </div>
             <button
@@ -266,7 +275,7 @@ export default function AdminPanel({ community, currentUserId, adminProfile, onC
               onChange={(e) => setInviteAsAdmin(e.target.checked)}
               className="w-3.5 h-3.5 accent-[#6bbfd4]"
             />
-            <span className="text-xs text-gray-700">Admin-Rechte vergeben</span>
+            <span className="text-xs text-gray-700 dark:text-gray-300">Admin-Rechte vergeben</span>
           </label>
           {inviteMsg && (
             <p className={`text-xs mt-2 ${inviteMsg.startsWith('Fehler') ? 'text-red-500' : 'text-green-600'}`}>

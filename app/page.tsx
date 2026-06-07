@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import LoginScreen from '@/components/LoginScreen';
 import PlanningList from '@/components/PlanningList';
 import ErkiApp from '@/components/ErkiApp';
-import { loadPlanningMeta, savePlanning, loadProfile, loadCommunity, updateProfileNameAndTeam } from '@/lib/db';
+import { loadPlanningMeta, loadPlanningFull, savePlanning, loadProfile, loadCommunity, updateProfileNameAndTeam, VersionConflictError } from '@/lib/db';
 import { Plan, Profile, Community } from '@/lib/types';
 import OnboardingModal from '@/components/OnboardingModal';
 
@@ -22,6 +22,7 @@ export default function Home() {
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [conflictToast, setConflictToast] = useState<{ planId: string } | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   // Ref hält immer den neuesten Plan-Stand synchron (unabhängig von React-State-Batching)
   const latestPlanRef = useRef<Plan | null>(null);
@@ -32,6 +33,12 @@ export default function Home() {
   // Hält die aktuell laufende savePlanning-Promise, damit handleBack darauf
   // warten kann, bevor selbst gespeichert wird (verhindert DELETE+INSERT-Races).
   const inFlightSaveRef = useRef<Promise<void> | null>(null);
+  // Snapshot des zuletzt erfolgreich geladenen oder gespeicherten Plans.
+  // Wird an savePlanning(plan, previousPlan) übergeben, damit der Field-Level
+  // Diff in lib/db.ts nur tatsächlich geänderte Felder ins UPDATE schreibt
+  // (verhindert clobbering paralleler Edits anderer Mitarbeiter).
+  // Deep-Clone via JSON, um Aliasing mit dem aktiven Plan-State auszuschließen.
+  const previousPlanRef = useRef<Plan | null>(null);
 
   // viewRef keeps the auth state change handler from using a stale closure value
   useEffect(() => { viewRef.current = view; }, [view]);
@@ -90,12 +97,14 @@ export default function Home() {
     try {
       const plan = await loadPlanningMeta(planId);
       latestPlanRef.current = plan;
+      // Baseline für Field-Level Diff: Deep-Clone des frisch geladenen Plans.
+      previousPlanRef.current = JSON.parse(JSON.stringify(plan)) as Plan;
       isDirtyRef.current = false;
       sessionStorage.setItem('activePlanId', planId);
       setActivePlan(plan);
       setView('editor');
     } catch (e) {
-      console.error(e);
+      console.error('[handleOpenPlan] Fehler beim Laden:', e);
       sessionStorage.removeItem('activePlanId');
       alert('Fehler beim Laden der Planung.');
     }
@@ -104,20 +113,46 @@ export default function Home() {
 
   // Führt einen savePlanning-Call aus und markiert die ref als clean,
   // wenn in der Zwischenzeit keine neue Änderung reinkam.
+  // Übergibt previousPlanRef.current für Field-Level Diff (verhindert Clobbern
+  // paralleler Edits anderer Mitarbeiter). Bei Erfolg wird die Baseline auf
+  // einen Deep-Clone des gerade gespeicherten Plans aktualisiert.
+  // Bei Fehler bleibt die Baseline unverändert, damit der nächste Save
+  // weiterhin gegen den letzten bekannten DB-Stand diffed.
   const runSave = useCallback(async (planToSave: Plan): Promise<void> => {
     try {
-      await savePlanning(planToSave);
+      const newVersion = await savePlanning(planToSave, previousPlanRef.current ?? undefined);
       if (latestPlanRef.current === planToSave) {
         isDirtyRef.current = false;
       }
-      console.log('[Auto-Save] erfolgreich');
+      // Neue Version in den Plan-Snapshot schreiben, damit der nächste Save
+      // die richtige Version im WHERE-Filter hat (verhindert False-Positive
+      // VersionConflictError wenn der DB-Trigger die Version hochgezählt hat).
+      const savedPlan: Plan = newVersion !== null
+        ? { ...planToSave, version: newVersion }
+        : planToSave;
+      previousPlanRef.current = JSON.parse(JSON.stringify(savedPlan)) as Plan;
+      // Auch latestPlanRef und activePlan aktualisieren, falls keine neuere
+      // Änderung reingekommen ist (latestPlanRef === planToSave).
+      if (newVersion !== null && latestPlanRef.current === planToSave) {
+        latestPlanRef.current = savedPlan;
+        setActivePlan(savedPlan);
+      } else if (newVersion !== null && latestPlanRef.current !== null) {
+        // Edit kam während des Saves rein — User-Änderungen behalten, aber
+        // Version hochziehen, damit der nächste Save nicht mit veralteter
+        // expectedVersion einen False-Positive VersionConflictError wirft.
+        latestPlanRef.current = { ...latestPlanRef.current, version: newVersion };
+      }
+      console.log('[Auto-Save] erfolgreich, neue Version:', newVersion);
     } catch (e) {
       console.error('[Auto-Save] fehlgeschlagen:', e);
+      if (e instanceof VersionConflictError) {
+        setConflictToast({ planId: planToSave.id });
+      }
     }
   }, []);
 
   // Wird von ErkiApp aufgerufen, wenn eine strukturelle Änderung (z.B.
-  // addStation) sofort persistiert werden soll, ohne auf den 1.5s
+  // addStation) sofort persistiert werden soll, ohne auf den 300ms
   // Auto-Save-Timer zu warten. Sequenzialisiert über inFlightSaveRef, damit
   // sich parallele DELETE+INSERT-Aufrufe nicht überlagern.
   const handleImmediateSave = useCallback(() => {
@@ -151,7 +186,12 @@ export default function Home() {
     isDirtyRef.current = true;
     setActivePlan(updatedPlan);
     clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
+    saveTimer.current = setTimeout(async () => {
+      // Laufenden Save abwarten — sonst feuern zwei Saves gleichzeitig mit
+      // derselben expectedVersion und der zweite wirft VersionConflictError.
+      if (inFlightSaveRef.current) {
+        try { await inFlightSaveRef.current; } catch { /* bereits geloggt */ }
+      }
       const planToSave = latestPlanRef.current;
       if (!planToSave || !isDirtyRef.current) return;
       console.log('[Auto-Save] speichere:', planToSave.title, '| Stationen:', planToSave.stations.length);
@@ -162,12 +202,15 @@ export default function Home() {
           inFlightSaveRef.current = null;
         }
       });
-    }, 1500);
+    }, 300);
   }, [runSave]);
 
   // Externes Realtime-Update von einem anderen Client – kein Auto-Save, kein dirty-Flag.
+  // Die Baseline für den Field-Level Diff wird ebenfalls auf den neuen Stand gehoben,
+  // damit der nächste lokale Save nur die seitdem geänderten Felder ins UPDATE schreibt.
   const handleExternalPlanUpdate = useCallback((updatedPlan: Plan) => {
     latestPlanRef.current = updatedPlan;
+    previousPlanRef.current = JSON.parse(JSON.stringify(updatedPlan)) as Plan;
     setActivePlan(updatedPlan);
   }, []);
 
@@ -189,13 +232,24 @@ export default function Home() {
     setIsSaving(true);
     const savePromise = (async () => {
       try {
-        await savePlanning(planToSave);
+        const newVersion = await savePlanning(planToSave, previousPlanRef.current ?? undefined);
         if (latestPlanRef.current === planToSave) {
           isDirtyRef.current = false;
         }
-        console.log('[handleSaveNow] erfolgreich');
+        const savedPlan: Plan = newVersion !== null ? { ...planToSave, version: newVersion } : planToSave;
+        previousPlanRef.current = JSON.parse(JSON.stringify(savedPlan)) as Plan;
+        if (newVersion !== null && latestPlanRef.current === planToSave) {
+          latestPlanRef.current = savedPlan;
+          setActivePlan(savedPlan);
+        } else if (newVersion !== null && latestPlanRef.current !== null) {
+          latestPlanRef.current = { ...latestPlanRef.current, version: newVersion };
+        }
+        console.log('[handleSaveNow] erfolgreich, neue Version:', newVersion);
       } catch (e) {
         console.error('[handleSaveNow] FEHLGESCHLAGEN:', e);
+        if (e instanceof VersionConflictError) {
+          setConflictToast({ planId: planToSave.id });
+        }
       } finally {
         setIsSaving(false);
       }
@@ -222,10 +276,17 @@ export default function Home() {
     saveTimer.current = undefined;
     // Einen Microtask-Tick abwarten, damit React etwaige onBlur-Handler
     // vollständig verarbeiten kann, bevor wir latestPlanRef lesen.
+    // Dirty-Flag sofort deaktivieren: ausstehende Timer-Callbacks prüfen
+    // isDirtyRef.current und starten keinen parallelen Auto-Save mehr, was
+    // sonst mit identischem expectedVersion zum false-positive VersionConflictError
+    // führt. handleBack speichert weiter unbedingt (if plan) – kein Datenverlust.
+    isDirtyRef.current = false;
     await Promise.resolve();
-    // Noch laufenden Save abwarten, damit sich DELETE+INSERT zweier parallel
-    // laufender savePlanning-Aufrufe nicht überlagern.
-    if (inFlightSaveRef.current) {
+    // While-Schleife statt if: ein bereits laufender Timer-Callback kann nach dem
+    // ersten Await einen neuen In-Flight-Save (savePromise2) starten. Wir warten
+    // so lange, bis keiner mehr läuft — sonst zwei parallele Saves mit gleichem
+    // expectedVersion → false-positive VersionConflictError.
+    while (inFlightSaveRef.current) {
       console.log('[handleBack] warte auf laufenden Save...');
       try { await inFlightSaveRef.current; } catch { /* bereits geloggt */ }
     }
@@ -241,11 +302,16 @@ export default function Home() {
       console.log('[handleBack] starte savePlanning (unbedingt)...');
       setIsSaving(true);
       try {
-        await savePlanning(plan);
+        const newVersion = await savePlanning(plan, previousPlanRef.current ?? undefined);
         isDirtyRef.current = false;
-        console.log('[handleBack] savePlanning erfolgreich');
+        const savedPlan: Plan = newVersion !== null ? { ...plan, version: newVersion } : plan;
+        previousPlanRef.current = JSON.parse(JSON.stringify(savedPlan)) as Plan;
+        console.log('[handleBack] savePlanning erfolgreich, neue Version:', newVersion);
       } catch (e) {
         console.error('[handleBack] savePlanning FEHLGESCHLAGEN:', e);
+        if (e instanceof VersionConflictError) {
+          setConflictToast({ planId: plan.id });
+        }
       } finally {
         setIsSaving(false);
       }
@@ -253,16 +319,36 @@ export default function Home() {
       console.warn('[handleBack] kein Plan in latestPlanRef – nichts gespeichert!');
     }
     latestPlanRef.current = null;
+    previousPlanRef.current = null;
     isDirtyRef.current = false;
     sessionStorage.removeItem('activePlanId');
     setActivePlan(null);
     setView('list');
   }, []);
 
+  // Wird vom Conflict-Toast aufgerufen, wenn der User "Neu laden" klickt.
+  // Lädt den aktuellen DB-Stand (inkl. background_image, masks etc.) und
+  // setzt sämtliche lokalen Refs zurück, damit der nächste Save sauber
+  // gegen den frisch geladenen Stand diffed.
+  const handleConflictReload = useCallback(async (planId: string) => {
+    try {
+      const reloaded = await loadPlanningFull(planId);
+      latestPlanRef.current = reloaded;
+      previousPlanRef.current = JSON.parse(JSON.stringify(reloaded)) as Plan;
+      isDirtyRef.current = false;
+      setActivePlan(reloaded);
+      setConflictToast(null);
+      console.log('[handleConflictReload] erfolgreich:', planId);
+    } catch (e) {
+      console.error('[handleConflictReload] fehlgeschlagen:', e);
+      alert('Neu laden fehlgeschlagen.');
+    }
+  }, []);
+
   if (loadingPlan) {
     return (
-      <main className="min-h-[100dvh] flex items-center justify-center bg-[#fdfdfd]">
-        <p className="text-gray-600">Wird geladen…</p>
+      <main className="min-h-[100dvh] flex items-center justify-center bg-background">
+        <p className="text-muted-foreground">Wird geladen…</p>
       </main>
     );
   }
@@ -277,6 +363,7 @@ export default function Home() {
           profile={profile}
           community={community}
           onOpenPlan={handleOpenPlan}
+          onProfileUpdate={(updatedName) => setProfile(p => p ? { ...p, name: updatedName } : p)}
         />
         {needsOnboarding && (
           <OnboardingModal
@@ -298,6 +385,7 @@ export default function Home() {
         <ErkiApp
           plan={activePlan}
           user={user}
+          displayName={profile?.name || profile?.displayName || undefined}
           onPlanUpdate={handlePlanUpdate}
           onExternalPlanUpdate={handleExternalPlanUpdate}
           onSaveNow={handleSaveNow}
@@ -307,6 +395,32 @@ export default function Home() {
           latestPlanRef={latestPlanRef}
           isDirtyRef={isDirtyRef}
         />
+        {conflictToast && (
+          <div
+            role="alert"
+            className="fixed top-4 right-4 z-50 max-w-sm rounded-lg border border-amber-300 bg-amber-50 p-4 shadow-lg"
+          >
+            <p className="text-sm text-amber-900">
+              Diese Planung wurde von einem anderen Mitarbeiter geändert.
+            </p>
+            <div className="mt-3 flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setConflictToast(null)}
+                className="px-3 py-1 text-sm rounded border border-amber-300 text-amber-900 hover:bg-amber-100"
+              >
+                Schließen
+              </button>
+              <button
+                type="button"
+                onClick={() => handleConflictReload(conflictToast.planId)}
+                className="px-3 py-1 text-sm rounded bg-amber-600 text-white hover:bg-amber-700"
+              >
+                Neu laden
+              </button>
+            </div>
+          </div>
+        )}
       </main>
     );
   }

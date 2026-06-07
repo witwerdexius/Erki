@@ -95,7 +95,7 @@ export default function ShareButton({ planningId, planningTitle }: ShareButtonPr
     <button
       onClick={handleShare}
       disabled={state === 'loading'}
-      className="flex items-center gap-2 px-3 py-2 bg-white text-[#6bbfd4] rounded-full shadow-lg border border-[#6bbfd4]/20 cursor-pointer hover:bg-[#6bbfd4]/10 transition-all active:scale-95 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+      className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 text-[#6bbfd4] rounded-full shadow-lg border border-[#6bbfd4]/20 dark:border-[#6bbfd4]/30 cursor-pointer hover:bg-[#6bbfd4]/10 transition-all active:scale-95 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
       title="Link in Zwischenablage kopieren"
     >
       {state === 'loading' && <Loader2 className="w-4 h-4 animate-spin" />}

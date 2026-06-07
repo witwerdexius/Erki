@@ -14,6 +14,25 @@ export interface Station {
   targetY: number; // Percentage from top for connection point
   isFilled?: boolean;
   colorVariant?: number; // 0-3 for specific color override
+  helpersRequired?: number;
+  time?: string;
+  symbol?: string;
+}
+
+export type TaskSection = string;
+
+export const DEFAULT_TASK_SECTIONS: TaskSection[] = ['aufbau', 'feierzeit', 'catering', 'abbau'];
+
+export interface PlanningTask {
+  id: string;
+  planningId: string;
+  section: TaskSection;
+  name: string;
+  helpersRequired: number;
+  sortOrder: number;
+  volunteers: string[];
+  time?: string;
+  createdAt?: string;
 }
 
 export interface MaskPolygon {
@@ -31,6 +50,14 @@ export interface StationTemplate {
   impulses: string[];
   setupBy: string;
   conductedBy: string;
+  createdAt?: string;
+}
+
+export interface TaskTemplate {
+  id: string;
+  name: string;
+  helpersRequired: number;
+  time?: string;
   createdAt?: string;
 }
 
@@ -95,6 +122,7 @@ export interface Plan {
   status: PlanStatus;
   url?: string;
   stations: Station[];
+  taskSections?: string[];
   stationCount?: number; // Nur in der Listenansicht gesetzt (ohne vollständiges Laden der Stationen)
   backgroundImage?: string; // Data URL
   masks?: MaskPolygon[];
@@ -106,4 +134,8 @@ export interface Plan {
   nachdenk_template?: string; // base64 data URL of vorlage.pdf
   explanationData?: ExplanationData;
   sourceUrl?: string;
+  // Optimistic Locking: wird vom DB-Trigger plannings_version_bump bei jedem
+  // UPDATE inkrementiert. savePlanning() nutzt diesen Wert als If-Match.
+  // Optional, weil ältere Code-Pfade die Spalte ggf. noch nicht laden.
+  version?: number;
 }

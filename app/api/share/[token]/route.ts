@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { extractUuid } from '@/lib/slugify';
+import { ShareTokenParamSchema } from '@/lib/api/validation';
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ token: string }> },
 ) {
-  const { token } = await params;
+  const rawParams = await params;
+  const parsed = ShareTokenParamSchema.safeParse(rawParams);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+  const { token } = parsed.data;
   const full = req.nextUrl.searchParams.get('full') === '1';
   const uuid = extractUuid(token);
 

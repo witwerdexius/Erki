@@ -1,10 +1,26 @@
 import { supabase } from './supabase';
-import { Plan, PlanStatus, Station, LogoOverlay, LabelOverlay, StationTemplate, Profile, Community, UserRole } from './types';
+import { Plan, PlanStatus, Station, LogoOverlay, LabelOverlay, StationTemplate, TaskTemplate, Profile, Community, UserRole, PlanningTask, TaskSection } from './types';
+
+// ── Errors ──────────────────────────────────────────────────────
+
+/**
+ * Wird von savePlanning() geworfen, wenn die DB-Zeile in der Zwischenzeit
+ * von einem anderen Client geändert wurde (Optimistic-Locking-Konflikt).
+ *
+ * Der Caller sollte den User informieren, die aktuelle Planung neu laden
+ * (loadPlanningFull) und ggf. den Save erneut auslösen.
+ */
+export class VersionConflictError extends Error {
+  constructor(public readonly planId: string, public readonly expectedVersion: number) {
+    super(`Planung ${planId} wurde in der Zwischenzeit geändert (erwartete Version ${expectedVersion}).`);
+    this.name = 'VersionConflictError';
+  }
+}
 
 // ── Row converters ──────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function rowToPlan(row: any, stations: Station[]): Plan {
+export function rowToPlan(row: any, stations: Station[]): Plan {
   return {
     id: row.id,
     title: row.title,
@@ -17,6 +33,8 @@ function rowToPlan(row: any, stations: Station[]): Plan {
     bgZoom: row.bg_zoom ?? 1,
     explanationData: row.explanation_data ?? undefined,
     sourceUrl: row.source_url ?? undefined,
+    version: typeof row.version === 'number' ? row.version : undefined,
+    taskSections: Array.isArray(row.task_sections) ? row.task_sections : undefined,
     stations,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -24,7 +42,7 @@ function rowToPlan(row: any, stations: Station[]): Plan {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function rowToStation(row: any): Station {
+export function rowToStation(row: any): Station {
   return {
     id: row.id,
     number: row.number,
@@ -41,10 +59,12 @@ function rowToStation(row: any): Station {
     targetY: row.target_y,
     isFilled: row.is_filled,
     colorVariant: row.color_variant,
+    helpersRequired: row.helpers_required ?? 1,
+    time: row.time ?? undefined,
   };
 }
 
-function stationToRow(station: Station, planningId: string, sortOrder: number) {
+export function stationToRow(station: Station, planningId: string, sortOrder: number) {
   return {
     id: station.id,
     planning_id: planningId,
@@ -63,6 +83,8 @@ function stationToRow(station: Station, planningId: string, sortOrder: number) {
     is_filled: station.isFilled ?? false,
     color_variant: station.colorVariant ?? 0,
     sort_order: sortOrder,
+    helpers_required: station.helpersRequired ?? 1,
+    time: station.time ?? null,
   };
 }
 
@@ -97,7 +119,7 @@ export async function loadPlanningMeta(id: string): Promise<Plan> {
     await Promise.all([
       supabase
         .from('plannings')
-        .select('id, title, status, url, bg_zoom, source_url, created_at, updated_at')
+        .select('id, title, status, url, bg_zoom, source_url, version, task_sections, created_at, updated_at')
         .eq('id', id)
         .single(),
       supabase.from('stations').select('*').eq('planning_id', id).order('sort_order'),
@@ -131,9 +153,84 @@ export async function createPlanning(title: string, userId: string): Promise<Pla
   return rowToPlan(data, []);
 }
 
-export async function savePlanning(plan: Plan): Promise<void> {
-  if (!plan || !plan.id) return;
+/**
+ * Pure helper: berechnet, welche plannings-Spalten zwischen prev und next
+ * geändert wurden. Liefert die Patch-Map mit snake_case-Keys.
+ *
+ * Komplexe Felder (masks-Array, logo_overlay-Objekt, label_overlay-Objekt,
+ * explanation_data) werden via JSON.stringify shallow verglichen — pragmatisch,
+ * nicht bulletproof: bei unterschiedlicher Key-Reihenfolge sind false-positives
+ * möglich, das ist akzeptabel (überflüssiger DB-Write < verlorene Felder).
+ */
+export function diffPlanRow(prev: Plan, next: Plan): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  if (prev.title !== next.title) patch.title = next.title;
+  if (prev.status !== next.status) patch.status = next.status;
+  if ((prev.url ?? null) !== (next.url ?? null)) patch.url = next.url ?? null;
+  if ((prev.backgroundImage ?? null) !== (next.backgroundImage ?? null)) {
+    patch.background_image = next.backgroundImage ?? null;
+  }
+  if (JSON.stringify(prev.masks ?? []) !== JSON.stringify(next.masks ?? [])) {
+    patch.masks = next.masks ?? [];
+  }
+  if (JSON.stringify(prev.logoOverlay ?? null) !== JSON.stringify(next.logoOverlay ?? null)) {
+    patch.logo_overlay = next.logoOverlay ?? null;
+  }
+  if (JSON.stringify(prev.labelOverlay ?? null) !== JSON.stringify(next.labelOverlay ?? null)) {
+    patch.label_overlay = next.labelOverlay ?? null;
+  }
+  if ((prev.bgZoom ?? 1) !== (next.bgZoom ?? 1)) patch.bg_zoom = next.bgZoom ?? 1;
+  if ((prev.sourceUrl ?? null) !== (next.sourceUrl ?? null)) patch.source_url = next.sourceUrl ?? null;
+  if (JSON.stringify(prev.explanationData ?? null) !== JSON.stringify(next.explanationData ?? null)) {
+    patch.explanation_data = next.explanationData ?? null;
+  }
+  if (JSON.stringify(prev.taskSections ?? null) !== JSON.stringify(next.taskSections ?? null)) {
+    patch.task_sections = next.taskSections ?? null;
+  }
+  return patch;
+}
+
+/**
+ * Build the plannings UPDATE payload.
+ *
+ * Mit previousPlan: nur geänderte Felder ins Patch-Objekt (Field-Level Diff,
+ * vermeidet, dass parallel editierte Spalten überschrieben werden). Ohne
+ * previousPlan: Vollupdate aller Spalten (Backward-Compat). `updated_at` ist
+ * immer enthalten.
+ */
+function buildPlanningUpdatePayload(plan: Plan, previousPlan: Plan | undefined): Record<string, unknown> {
+  const nowIso = new Date().toISOString();
+  if (previousPlan) {
+    const patch = diffPlanRow(previousPlan, plan);
+    patch.updated_at = nowIso;
+    return patch;
+  }
+  // Backward-Compat: Vollupdate wie zuvor
+  return {
+    title: plan.title,
+    status: plan.status,
+    url: plan.url ?? null,
+    background_image: plan.backgroundImage ?? null,
+    masks: plan.masks ?? [],
+    logo_overlay: plan.logoOverlay ?? null,
+    label_overlay: plan.labelOverlay ?? null,
+    bg_zoom: plan.bgZoom ?? 1,
+    source_url: plan.sourceUrl ?? null,
+    explanation_data: plan.explanationData ?? null,
+    task_sections: plan.taskSections ?? null,
+    updated_at: nowIso,
+  };
+}
+
+export async function savePlanning(plan: Plan, previousPlan?: Plan): Promise<number | null> {
+  if (!plan || !plan.id) return null;
   console.log('[savePlanning] starte für:', plan.id, '|', plan.title, '| status:', plan.status, '| Stationen:', plan.stations.length);
+
+  // Optimistic Locking: wenn plan.version gesetzt, wird die UPDATE-WHERE-
+  // Klausel auf diese Version eingegrenzt. Wenn die DB-Zeile inzwischen
+  // eine höhere Version hat (Konkurrent hat geschrieben), matcht der UPDATE
+  // keine Zeile und wir werfen VersionConflictError.
+  const expectedVersion: number | null = typeof plan.version === 'number' ? plan.version : null;
 
   // Sicherstellen dass alle IDs gültige UUIDs sind (alte .rki-Importe können Non-UUIDs enthalten)
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -155,28 +252,28 @@ export async function savePlanning(plan: Plan): Promise<void> {
   const newIds = new Set(stations.map(s => s.id));
   const idsToDelete = [...existingIds].filter(id => !newIds.has(id));
 
-  // plannings UPDATE und stations UPSERT parallel ausführen
+  // plannings UPDATE und stations UPSERT parallel ausführen.
+  // Bei previousPlan: nur Diff-Felder updaten (verhindert Überschreiben
+  // parallel editierter Spalten). Sonst: Vollupdate (Backward-Compat).
   const rows = stations.map((s, i) => stationToRow(s, plan.id, i));
-  const planUpdate = supabase
+  const updatePayload = buildPlanningUpdatePayload(plan, previousPlan);
+  let planUpdateBuilder = supabase
     .from('plannings')
-    .update({
-      title: plan.title,
-      status: plan.status,
-      url: plan.url ?? null,
-      background_image: plan.backgroundImage ?? null,
-      masks: plan.masks ?? [],
-      logo_overlay: plan.logoOverlay ?? null,
-      label_overlay: plan.labelOverlay ?? null,
-      bg_zoom: plan.bgZoom ?? 1,
-      source_url: plan.sourceUrl ?? null,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq('id', plan.id);
+  if (expectedVersion !== null) {
+    planUpdateBuilder = planUpdateBuilder.eq('version', expectedVersion);
+  }
+  // .select('id,version') liefert nach dem UPDATE die neue Version zurück (die
+  // DB-Trigger bump_plannings_version() inkrementiert sie), damit der Client
+  // immer gegen die aktuelle Version speichert und keinen False-Positive
+  // VersionConflictError auslöst.
+  const planUpdate = planUpdateBuilder.select('id,version');
   const stationsUpsert = rows.length > 0
     ? supabase.from('stations').upsert(rows, { onConflict: 'id' })
-    : Promise.resolve({ error: null });
+    : Promise.resolve({ error: null, data: null });
 
-  const [{ error: planError }, { error: upsertError }] = await Promise.all([planUpdate, stationsUpsert]);
+  const [{ data: planUpdateData, error: planError }, { error: upsertError }] = await Promise.all([planUpdate, stationsUpsert]);
   if (planError) {
     console.error('[savePlanning] plannings UPDATE Fehler:', planError);
     console.error('[savePlanning] plannings UPDATE Fehler detail:', JSON.stringify(planError));
@@ -186,7 +283,17 @@ export async function savePlanning(plan: Plan): Promise<void> {
     console.error('[savePlanning] stations UPSERT Fehler:', upsertError);
     throw upsertError;
   }
-  console.log('[savePlanning] plannings UPDATE + stations UPSERT ok (' + rows.length + ' Zeilen)');
+  // Wenn expectedVersion gesetzt war und kein Row matcht → Konflikt
+  if (expectedVersion !== null && Array.isArray(planUpdateData) && planUpdateData.length === 0) {
+    console.warn('[savePlanning] VersionConflictError: erwartete Version', expectedVersion, 'für', plan.id);
+    throw new VersionConflictError(plan.id, expectedVersion);
+  }
+  // Neue Version aus der DB-Antwort lesen (vom Trigger hochgezählt)
+  const newVersion: number | null =
+    Array.isArray(planUpdateData) && planUpdateData.length > 0
+      ? (planUpdateData[0] as { version: number }).version
+      : null;
+  console.log('[savePlanning] plannings UPDATE + stations UPSERT ok (' + rows.length + ' Zeilen), neue Version:', newVersion);
 
   // Entfernte Stationen gezielt löschen (nicht mehr im neuen Array vorhanden)
   if (idsToDelete.length > 0) {
@@ -201,19 +308,8 @@ export async function savePlanning(plan: Plan): Promise<void> {
     console.log('[savePlanning] entfernte Stationen gelöscht:', idsToDelete.length);
   }
 
-  // explanation_data separat updaten (kann bei großen Base64-Bildern timeoutten)
-  try {
-    const { error: explError } = await supabase
-      .from('plannings')
-      .update({ explanation_data: plan.explanationData ?? null })
-      .eq('id', plan.id);
-    if (explError) throw explError;
-    console.log('[savePlanning] explanation_data UPDATE ok');
-  } catch (e) {
-    console.error('[savePlanning] explanation_data UPDATE Fehler (ignoriert):', e);
-  }
-
   console.log('[savePlanning] komplett abgeschlossen');
+  return newVersion;
 }
 
 export async function deletePlanning(id: string): Promise<void> {
@@ -221,12 +317,16 @@ export async function deletePlanning(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function updatePlanningStatus(id: string, status: PlanStatus): Promise<void> {
-  const { error } = await supabase
+export async function updatePlanningStatus(id: string, status: PlanStatus): Promise<number | null> {
+  const { data, error } = await supabase
     .from('plannings')
     .update({ status, updated_at: new Date().toISOString() })
-    .eq('id', id);
+    .eq('id', id)
+    .select('id,version');
   if (error) throw error;
+  return Array.isArray(data) && data.length > 0
+    ? (data[0] as { version: number }).version
+    : null;
 }
 
 /** Import a .rki array of plans, creating new DB entries for each. */
@@ -262,7 +362,7 @@ export async function importPlannings(plans: Plan[], userId: string): Promise<vo
 // ── Templates ───────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function rowToTemplate(row: any): StationTemplate {
+export function rowToTemplate(row: any): StationTemplate {
   return {
     id: row.id,
     name: row.name,
@@ -328,10 +428,67 @@ export async function deleteTemplate(id: string): Promise<void> {
   if (error) throw error;
 }
 
+// ── Task Templates ───────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToTaskTemplate(row: any): TaskTemplate {
+  return {
+    id: row.id,
+    name: row.name,
+    helpersRequired: row.helpers_required,
+    time: row.time ?? undefined,
+    createdAt: row.created_at,
+  };
+}
+
+export async function loadTaskTemplates(): Promise<TaskTemplate[]> {
+  const { data, error } = await supabase
+    .from('task_templates')
+    .select('*')
+    .order('name');
+  if (error) throw error;
+  return (data ?? []).map(rowToTaskTemplate);
+}
+
+export async function createTaskTemplate(
+  t: Omit<TaskTemplate, 'id' | 'createdAt'>,
+  userId: string,
+): Promise<TaskTemplate> {
+  const { data, error } = await supabase
+    .from('task_templates')
+    .insert({
+      user_id: userId,
+      name: t.name,
+      helpers_required: t.helpersRequired,
+      time: t.time ?? null,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToTaskTemplate(data);
+}
+
+export async function updateTaskTemplate(
+  id: string,
+  updates: Partial<Omit<TaskTemplate, 'id' | 'createdAt'>>,
+): Promise<void> {
+  const row: Record<string, unknown> = {};
+  if (updates.name             !== undefined) row.name             = updates.name;
+  if (updates.helpersRequired  !== undefined) row.helpers_required = updates.helpersRequired;
+  if (updates.time             !== undefined) row.time             = updates.time ?? null;
+  const { error } = await supabase.from('task_templates').update(row).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteTaskTemplate(id: string): Promise<void> {
+  const { error } = await supabase.from('task_templates').delete().eq('id', id);
+  if (error) throw error;
+}
+
 // ── Profiles & Communities ──────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function rowToProfile(row: any): Profile {
+export function rowToProfile(row: any): Profile {
   return {
     id: row.id,
     communityId: row.community_id,
@@ -401,6 +558,14 @@ export async function updateProfileNameAndTeam(userId: string, name: string, tea
   if (error) throw error;
 }
 
+export async function updateProfileName(userId: string, name: string): Promise<void> {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ name })
+    .eq('id', userId);
+  if (error) throw error;
+}
+
 export async function updateUserRole(userId: string, role: UserRole): Promise<void> {
   const { error } = await supabase
     .from('profiles')
@@ -419,4 +584,86 @@ export async function sendInvite(email: string, communityId?: string, isAdmin?: 
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? 'Einladung fehlgeschlagen');
   }
+}
+
+// ── Planning Tasks ──────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToTask(row: any): PlanningTask {
+  return {
+    id: row.id,
+    planningId: row.planning_id,
+    section: row.section as TaskSection,
+    name: row.name,
+    helpersRequired: row.helpers_required,
+    sortOrder: row.sort_order,
+    volunteers: row.volunteers ?? [],
+    time: row.time ?? undefined,
+    createdAt: row.created_at,
+  };
+}
+
+export async function loadPlanningTasks(planningId: string): Promise<PlanningTask[]> {
+  const { data, error } = await supabase
+    .from('planning_tasks')
+    .select('*')
+    .eq('planning_id', planningId)
+    .order('created_at');
+  if (error) throw error;
+  return (data ?? []).map(rowToTask);
+}
+
+export async function createPlanningTask(
+  planningId: string,
+  section: TaskSection,
+  name: string,
+  helpersRequired: number,
+  time?: string,
+): Promise<PlanningTask> {
+  const { data, error } = await supabase
+    .from('planning_tasks')
+    .insert({
+      planning_id: planningId,
+      section,
+      name,
+      helpers_required: helpersRequired,
+      sort_order: 0,
+      ...(time ? { time } : {}),
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToTask(data);
+}
+
+export async function deletePlanningTask(id: string): Promise<void> {
+  const { error } = await supabase.from('planning_tasks').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function updatePlanningTask(
+  id: string,
+  updates: { name: string; helpersRequired: number; time?: string },
+): Promise<void> {
+  const { error } = await supabase
+    .from('planning_tasks')
+    .update({ name: updates.name, helpers_required: updates.helpersRequired, time: updates.time ?? null })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+export async function updatePlanningTaskVolunteers(taskId: string, volunteers: string[]): Promise<void> {
+  const { error } = await supabase
+    .from('planning_tasks')
+    .update({ volunteers })
+    .eq('id', taskId);
+  if (error) throw error;
+}
+
+export async function updateStationHelpersRequired(stationId: string, helpersRequired: number): Promise<void> {
+  const { error } = await supabase
+    .from('stations')
+    .update({ helpers_required: helpersRequired })
+    .eq('id', stationId);
+  if (error) throw error;
 }
