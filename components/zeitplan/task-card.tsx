@@ -17,6 +17,7 @@ import {
   Settings,
   Users,
   Clock,
+  BookmarkPlus,
 } from "lucide-react"
 import type { EditingEntry } from "@/lib/realtime/editingMapHelpers"
 import { getPresenceColor } from "@/lib/realtime/presenceUtils"
@@ -39,9 +40,11 @@ type TaskCardProps = {
   onEditOpen?: () => void
   /** Callback wenn Edit-Formular geschlossen wird (für Broadcast). */
   onEditClose?: () => void
+  /** Wenn gesetzt: "Als Vorlage speichern"-Button erscheint im Edit-Formular. */
+  onSaveAsTemplate?: (template: { name: string; helpersRequired: number; time?: string }) => Promise<void>
 }
 
-export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDelete, onEdit, readonlyName, editingEntry, onEditOpen, onEditClose }: TaskCardProps) {
+export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDelete, onEdit, readonlyName, editingEntry, onEditOpen, onEditClose, onSaveAsTemplate }: TaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isSigningUp, setIsSigningUp] = useState(false)
   const [name, setName] = useState("")
@@ -51,6 +54,8 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
   const [editSlots, setEditSlots] = useState(task.slots)
   const [editTime, setEditTime] = useState(task.time ?? '')
   const [editSaving, setEditSaving] = useState(false)
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false)
+  const [templateSaved, setTemplateSaved] = useState(false)
 
   const isFull = task.filled >= task.slots
   const isOverbooked = task.filled > task.slots
@@ -83,6 +88,22 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
   const closeEdit = () => {
     setIsEditing(false)
     onEditClose?.()
+  }
+
+  const handleSaveAsTemplate = async () => {
+    if (!onSaveAsTemplate) return
+    setIsSavingTemplate(true)
+    try {
+      await onSaveAsTemplate({
+        name: readonlyName ? task.name : editName.trim(),
+        helpersRequired: editSlots,
+        time: editTime || undefined,
+      })
+      setTemplateSaved(true)
+      setTimeout(() => setTemplateSaved(false), 2000)
+    } finally {
+      setIsSavingTemplate(false)
+    }
   }
 
   const handleSaveEdit = async () => {
@@ -358,6 +379,24 @@ export function TaskCard({ task, phaseId, onSignUp, onRemove, currentUser, onDel
                       className="flex-1 h-10 rounded-full text-sm font-medium border border-border text-muted-foreground hover:bg-muted transition-colors"
                     >
                       Abbrechen
+                    </button>
+                  )}
+                  {onSaveAsTemplate && (
+                    <button
+                      disabled={isSavingTemplate || (!readonlyName && !editName.trim())}
+                      onClick={() => void handleSaveAsTemplate()}
+                      className={cn(
+                        'flex-1 h-10 rounded-full text-sm font-medium border transition-colors flex items-center justify-center gap-1.5',
+                        templateSaved
+                          ? 'border-green-500 text-green-600 bg-green-50 dark:bg-green-950/30'
+                          : 'border-border text-muted-foreground hover:bg-muted',
+                        (isSavingTemplate || (!readonlyName && !editName.trim())) && 'opacity-50 cursor-not-allowed',
+                      )}
+                    >
+                      {templateSaved
+                        ? <><Check className="h-3.5 w-3.5 shrink-0" /> Gespeichert</>
+                        : <><BookmarkPlus className="h-3.5 w-3.5 shrink-0" /> Als Vorlage</>
+                      }
                     </button>
                   )}
                   <button

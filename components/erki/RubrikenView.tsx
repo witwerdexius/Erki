@@ -45,6 +45,8 @@ type RubrikenViewProps = {
   currentUserPresence?: PresenceUserLike;
   /** Öffnet das Aufgaben-Vorlagen-Menü für eine bestimmte Rubrik. */
   onOpenTaskTemplatePicker?: (section: TaskSection, sectionLabel: string) => void;
+  /** Speichert eine Aufgabe als Vorlage. */
+  onSaveTaskAsTemplate?: (template: { name: string; helpersRequired: number; time?: string }) => Promise<void>;
 };
 
 type AddFormState = {
@@ -75,6 +77,7 @@ export default function RubrikenView({
   planId,
   currentUserPresence,
   onOpenTaskTemplatePicker,
+  onSaveTaskAsTemplate,
 }: RubrikenViewProps) {
   const openStationTasks = phases.reduce((acc, p) => acc + p.tasks.filter(t => t.filled < t.slots).length, 0);
   const myStationTasks = phases.reduce((acc, p) => acc + p.tasks.filter(t => t.volunteers.includes(currentUser)).length, 0);
@@ -400,6 +403,7 @@ export default function RubrikenView({
                               currentUser={currentUser}
                               onDelete={() => onDeleteTask(task.id)}
                               onEdit={(updates) => onEditTask(task.id, { name: updates.name, helpersRequired: updates.slots, time: updates.time })}
+                              onSaveAsTemplate={onSaveTaskAsTemplate}
                               editingEntry={editingEntry}
                               onEditOpen={() => handleTaskEditOpen(task.id)}
                               onEditClose={() => handleTaskEditClose(task.id)}

@@ -188,6 +188,11 @@ export default function ErkiApp({ plan, user, displayName, onPlanUpdate, onExter
         setTaskTemplatesLoaded(true);
     };
 
+    const handleSaveTaskAsTemplate = async (template: { name: string; helpersRequired: number; time?: string }) => {
+        const created = await createTaskTemplate(template, user.id);
+        setTaskTemplates(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+    };
+
     const handleOpenTaskTemplatePicker = (section: TaskSection, sectionLabel: string) => {
         void ensureTaskTemplatesLoaded();
         setTaskTemplatePickerTarget({ section, sectionLabel });
@@ -795,6 +800,7 @@ export default function ErkiApp({ plan, user, displayName, onPlanUpdate, onExter
                             planId={activePlan.id}
                             currentUserPresence={presenceUser}
                             onOpenTaskTemplatePicker={handleOpenTaskTemplatePicker}
+                            onSaveTaskAsTemplate={handleSaveTaskAsTemplate}
                         />
                     ) : null}
 
