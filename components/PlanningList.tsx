@@ -73,16 +73,19 @@ export default function PlanningList({ user, profile, community, onOpenPlan, onP
       const result = await importPlanFromUrl(dialogUrl.trim());
       if (result.success && result.data) {
         const base = plans.find(p => p.id === urlImportDialog.planId);
-        if (base) {
-          const updated: Plan = {
-            ...base,
-            title: result.data.title || base.title,
-            stations: result.data.stations,
-            sourceUrl: dialogUrl.trim(),
-          };
-          await savePlanning(updated, base);
-          setPlans(prev => prev.map(p => p.id === updated.id ? updated : p));
+        if (!base) {
+          alert('Interner Fehler: Planung nicht gefunden. Bitte Seite neu laden und erneut versuchen.');
+          setDialogImporting(false);
+          return;
         }
+        const updated: Plan = {
+          ...base,
+          title: result.data.title || base.title,
+          stations: result.data.stations,
+          sourceUrl: dialogUrl.trim(),
+        };
+        await savePlanning(updated, base);
+        setPlans(prev => prev.map(p => p.id === updated.id ? updated : p));
       } else {
         alert('Import fehlgeschlagen: ' + result.error);
         setDialogImporting(false);
