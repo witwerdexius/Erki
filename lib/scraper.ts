@@ -28,7 +28,7 @@ export async function scrapeJugendarbeit(url: string): Promise<{ title: string; 
         // Look for station patterns like "Station 1: …" or "Station 1 – …"
         const stationElements = $("h1, h2, h3, h4, h5, h6").filter((_, el) => {
             const text = $(el).text().trim();
-            return /^Station\s+\d+/i.test(text);
+            return /^Station\s+\d+/i.test(text) || /^Station\s*:/i.test(text);
         });
 
         stationElements.each((i, el) => {
@@ -37,7 +37,7 @@ export async function scrapeJugendarbeit(url: string): Promise<{ title: string; 
             const numberMatch = fullText.match(/Station\s+(\d+)/i);
             const number = numberMatch ? numberMatch[1] : (i + 1).toString();
             // Strip "Station N" plus any following separator character(s)
-            const name = fullText.replace(/^Station\s+\d+[\s:–—.-]*/i, '').trim();
+            const name = fullText.replace(/^Station\s+\d+[\s:–—.-]*/i, '').replace(/^Station\s*:\s*/i, '').trim();
 
             let material = '';
             let instructions = '';
@@ -59,7 +59,7 @@ export async function scrapeJugendarbeit(url: string): Promise<{ title: string; 
                 const match = src.match(label);
                 if (!match || match.index === undefined) return '';
                 const after = src.slice(match.index + match[0].length);
-                return after.split(/(?:Bastelanleitung:|Stationsbeschreibung:|Material:|Gesprächsimpulse:|Impulse:)/i)[0].trim();
+                return after.split(/(?:Bastelanleitung:|Stationsbeschreibung:|Beschreibung:|Material:|Gesprächsimpulse:|Gesprächsimpuls:|Impulse:)/i)[0].trim();
             };
 
             let next = $el.next();
@@ -84,16 +84,20 @@ export async function scrapeJugendarbeit(url: string): Promise<{ title: string; 
                     inGespraechsimpulse = false;
                     instructions = extractSection(cleanedText, /Stationsbeschreibung:/i);
                 }
+                if (/^Beschreibung:/i.test(text) && !inBastelanleitung) {
+                    inGespraechsimpulse = false;
+                    instructions = extractSection(cleanedText, /^Beschreibung:/i);
+                }
                 if (/Bastelanleitung:/i.test(text)) {
                     inBastelanleitung = true;
                     inGespraechsimpulse = false;
                     next = next.next();
                     continue;
                 }
-                if (/(Gesprächsimpulse:|Impulse:)/i.test(text)) {
+                if (/(Gesprächsimpulse:|Gesprächsimpuls:|Impulse:)/i.test(text)) {
                     inBastelanleitung = false;
                     inGespraechsimpulse = true;
-                    const inline = extractSection(cleanedText, /(Gesprächsimpulse:|Impulse:)/i);
+                    const inline = extractSection(cleanedText, /(Gesprächsimpulse:|Gesprächsimpuls:|Impulse:)/i);
                     if (inline) impulses.push(inline);
                     next = next.next();
                     continue;

@@ -11,6 +11,19 @@ const HTML_COLON = `<html><body>
   <ul><li>Was hat dir gefallen?</li><li>Was war schwer?</li></ul>
 </body></html>`;
 
+// Station: Name format (no number) – jugendarbeit.online/kommt-her-und-esst Variante
+const HTML_NO_NUMBER = `<html><body>
+  <h1>Essen-Plan</h1>
+  <h5>Station: Lieblingsessen</h5>
+  <p>**Material**</p>
+  <p>Teller, Besteck</p>
+  <p>**Beschreibung**</p>
+  <p>Beschreibung: Jeder erzählt von seinem Lieblingsessen.</p>
+  <p>**Gesprächsimpuls**</p>
+  <p>Gesprächsimpuls:</p>
+  <ul><li>Was isst du am liebsten?</li></ul>
+</body></html>`;
+
 // Heading ohne Doppelpunkt (Gedankenstrich) – jugendarbeit.online-Variante
 const HTML_DASH = `<html><body>
   <h1>Dash-Plan</h1>
@@ -29,6 +42,15 @@ describe('scrapeJugendarbeit (smoke)', () => {
     expect(result.stations[0].name).toBe('Bastelstation');
     expect(result.stations[0].material).toBe('Schere, Papier');
     expect(result.stations[0].impulses).toEqual(['Was hat dir gefallen?', 'Was war schwer?']);
+  });
+
+  it('parsed Station: Name format (kein Nummer)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(HTML_NO_NUMBER, { status: 200 })));
+    const result = await scrapeJugendarbeit('https://example.invalid/');
+    expect(result.stations).toHaveLength(1);
+    expect(result.stations[0].name).toBe('Lieblingsessen');
+    expect(result.stations[0].instructions).toBe('Jeder erzählt von seinem Lieblingsessen.');
+    expect(result.stations[0].impulses).toEqual(['Was isst du am liebsten?']);
   });
 
   it('parsed Station mit Gedankenstrich statt Doppelpunkt', async () => {
