@@ -25,19 +25,19 @@ export async function scrapeJugendarbeit(url: string): Promise<{ title: string; 
             aktivZeitContainer = $('body');
         }
 
-        // Look for station patterns like "#### Station 1: ..."
-        // In actual HTML these are usually h4 or similar
+        // Look for station patterns like "Station 1: …" or "Station 1 – …"
         const stationElements = $("h1, h2, h3, h4, h5, h6").filter((_, el) => {
-            const text = $(el).text();
-            return /Station \d+:/i.test(text);
+            const text = $(el).text().trim();
+            return /^Station\s+\d+/i.test(text);
         });
 
         stationElements.each((i, el) => {
             const $el = $(el);
             const fullText = $el.text().trim();
-            const numberMatch = fullText.match(/Station (\d+):/i);
+            const numberMatch = fullText.match(/Station\s+(\d+)/i);
             const number = numberMatch ? numberMatch[1] : (i + 1).toString();
-            const name = fullText.replace(/Station \d+:/i, '').trim();
+            // Strip "Station N" plus any following separator character(s)
+            const name = fullText.replace(/^Station\s+\d+[\s:–—.-]*/i, '').trim();
 
             let material = '';
             let instructions = '';

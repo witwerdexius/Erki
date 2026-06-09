@@ -72,6 +72,11 @@ export default function PlanningList({ user, profile, community, onOpenPlan, onP
     try {
       const result = await importPlanFromUrl(dialogUrl.trim());
       if (result.success && result.data) {
+        if (result.data.stations.length === 0) {
+          alert('Import abgeschlossen, aber es wurden keine Stationen gefunden. Bitte prüfe, ob die URL eine jugendarbeit.online-Seite mit Stationen enthält.');
+          setDialogImporting(false);
+          return;
+        }
         const base = plans.find(p => p.id === urlImportDialog.planId);
         if (!base) {
           alert('Interner Fehler: Planung nicht gefunden. Bitte Seite neu laden und erneut versuchen.');
