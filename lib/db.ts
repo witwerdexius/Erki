@@ -84,7 +84,6 @@ export function stationToRow(station: Station, planningId: string, sortOrder: nu
     color_variant: station.colorVariant ?? 0,
     sort_order: sortOrder,
     helpers_required: station.helpersRequired ?? 1,
-    time: station.time ?? null,
   };
 }
 
