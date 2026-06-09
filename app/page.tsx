@@ -226,19 +226,27 @@ export default function Home() {
     if (inFlightSaveRef.current) {
       try { await inFlightSaveRef.current; } catch { /* bereits geloggt */ }
     }
-    // Ref synchron aktualisieren, damit nachfolgende handleBack-Calls denselben Stand sehen.
-    latestPlanRef.current = planToSave;
+    // Nach dem Await hat ein abgeschlossener In-Flight-Save evtl. die Version
+    // in latestPlanRef hochgezählt. Die aktuelle Version übernehmen, damit der
+    // WHERE version = N korrekt matcht und keinen false-positive
+    // VersionConflictError auslöst.
+    const latestVersion = latestPlanRef.current?.version;
+    const planWithVersion: Plan =
+      typeof latestVersion === 'number' && latestVersion !== planToSave.version
+        ? { ...planToSave, version: latestVersion }
+        : planToSave;
+    latestPlanRef.current = planWithVersion;
     isDirtyRef.current = true;
     setIsSaving(true);
     const savePromise = (async () => {
       try {
-        const newVersion = await savePlanning(planToSave, previousPlanRef.current ?? undefined);
-        if (latestPlanRef.current === planToSave) {
+        const newVersion = await savePlanning(planWithVersion, previousPlanRef.current ?? undefined);
+        if (latestPlanRef.current === planWithVersion) {
           isDirtyRef.current = false;
         }
-        const savedPlan: Plan = newVersion !== null ? { ...planToSave, version: newVersion } : planToSave;
+        const savedPlan: Plan = newVersion !== null ? { ...planWithVersion, version: newVersion } : planWithVersion;
         previousPlanRef.current = JSON.parse(JSON.stringify(savedPlan)) as Plan;
-        if (newVersion !== null && latestPlanRef.current === planToSave) {
+        if (newVersion !== null && latestPlanRef.current === planWithVersion) {
           latestPlanRef.current = savedPlan;
           setActivePlan(savedPlan);
         } else if (newVersion !== null && latestPlanRef.current !== null) {
@@ -248,7 +256,7 @@ export default function Home() {
       } catch (e) {
         console.error('[handleSaveNow] FEHLGESCHLAGEN:', e);
         if (e instanceof VersionConflictError) {
-          setConflictToast({ planId: planToSave.id });
+          setConflictToast({ planId: planWithVersion.id });
         }
       } finally {
         setIsSaving(false);
