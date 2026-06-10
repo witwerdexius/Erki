@@ -58,7 +58,18 @@ export async function scrapeJugendarbeit(url: string): Promise<{ title: string; 
             const afterLabel = (text: string, label: RegExp) => text.replace(label, '').trim();
 
             let next = $el.next();
-            while (next.length && !next.is('h1, h2, h3, h4, h5, h6')) {
+            while (next.length) {
+                // Higher-level headings always end the station
+                if (next.is('h1, h2, h3, h4')) break;
+                // h5/h6: stop at peer stations or major sections (WILLKOMMENS-ZEIT etc.),
+                // but traverse sub-headings (Variante N, …) with a section reset
+                if (next.is('h5, h6')) {
+                    const t = next.text().trim();
+                    if (/^Station[\s:]/i.test(t) || /ZEIT$/i.test(t)) break;
+                    activeSection = null;
+                    next = next.next();
+                    continue;
+                }
                 const text = next.text().trim();
                 const cleaned = cleanText(next);
 
