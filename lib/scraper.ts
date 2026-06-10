@@ -46,16 +46,42 @@ export async function scrapeJugendarbeit(url: string): Promise<{ title: string; 
 
             const isFotoCredit = (t: string) => /^Foto:/i.test(t.trim());
 
-            // Remove link text, photo credits and image elements from a cheerio element
+            // Convert <br> to newlines and strip noise — preserves label boundaries within one element
             const cleanText = (el: ReturnType<typeof $>) => {
                 const clone = el.clone();
                 clone.find('a').remove();
                 clone.find('figure, figcaption, img').remove();
+                clone.find('br').replaceWith('\n');
                 const txt = clone.text().trim();
-                return txt.split('\n').filter(l => !isFotoCredit(l)).join('\n').trim();
+                return txt.split('\n').filter(l => !isFotoCredit(l.trim())).join('\n').trim();
             };
 
-            const afterLabel = (text: string, label: RegExp) => text.replace(label, '').trim();
+            // Process one line through the label state machine
+            const processLine = (line: string) => {
+                const t = line.trim();
+                if (!t) return;
+                if (/^Material:?\s*/i.test(t) && !/^Materialart:/i.test(t)) {
+                    activeSection = 'material';
+                    const rest = t.replace(/^Material:?\s*/i, '').trim();
+                    if (rest) material += (material ? '\n' : '') + rest;
+                } else if (/^(?:Stations)?[Bb]eschreibung:?\s*/i.test(t)) {
+                    activeSection = 'instructions';
+                    const rest = t.replace(/^(?:Stations)?[Bb]eschreibung:?\s*/i, '').trim();
+                    if (rest) instructions += (instructions ? '\n' : '') + rest;
+                } else if (/^Gesprächsimpuls[e]?:?\s*/i.test(t) || /^Impuls[e]?:?\s*/i.test(t)) {
+                    activeSection = 'impulses';
+                    const rest = t.replace(/^Gesprächsimpuls[e]?:?\s*|^Impuls[e]?:?\s*/i, '').trim();
+                    if (rest) impulses.push(rest);
+                } else if (/^(?:Vorbemerkung|Bastelanleitung|Liedvorschläge|Vorüberlegung)/i.test(t)) {
+                    activeSection = null;
+                } else if (activeSection === 'material') {
+                    material += (material ? '\n' : '') + t;
+                } else if (activeSection === 'instructions') {
+                    instructions += (instructions ? '\n' : '') + t;
+                } else if (activeSection === 'impulses') {
+                    impulses.push(t);
+                }
+            };
 
             let next = $el.next();
             while (next.length) {
@@ -70,62 +96,22 @@ export async function scrapeJugendarbeit(url: string): Promise<{ title: string; 
                     next = next.next();
                     continue;
                 }
-                const text = next.text().trim();
-                const cleaned = cleanText(next);
 
-                if (!text || isFotoCredit(text)) { next = next.next(); continue; }
-
-                // Detect section labels (colon optional, must start the text)
-                if (/^Material:?\s*/i.test(text) && !/^Materialart:/i.test(text)) {
-                    activeSection = 'material';
-                    const inline = afterLabel(cleaned, /^Material:?\s*/i);
-                    if (inline) material = inline;
-                    next = next.next(); continue;
-                }
-                if (/^(?:Stations)?[Bb]eschreibung:?\s*/i.test(text)) {
-                    activeSection = 'instructions';
-                    const inline = afterLabel(cleaned, /^(?:Stations)?[Bb]eschreibung:?\s*/i);
-                    if (inline) instructions = inline;
-                    next = next.next(); continue;
-                }
-                if (/^Bastelanleitung:?\s*/i.test(text)) {
-                    activeSection = null;
-                    next = next.next(); continue;
-                }
-                if (/^Gesprächsimpuls[e]?:?\s*/i.test(text) || /^Impuls[e]?:?\s*/i.test(text)) {
-                    activeSection = 'impulses';
-                    const inline = afterLabel(cleaned, /^Gesprächsimpuls[e]?:?\s*|^Impuls[e]?:?\s*/i);
-                    if (inline) impulses.push(inline);
-                    next = next.next(); continue;
-                }
-                // Skip preamble/meta sections that aren't station content
-                if (/^Vorbemerkung/i.test(text) || /^Vorüberlegung/i.test(text) || /^Liedvorschläge/i.test(text)) {
-                    activeSection = null;
-                    next = next.next(); continue;
-                }
-
-                // Accumulate content into active section
-                if (activeSection === 'material') {
-                    if (next.is('ul, ol')) {
-                        const items: string[] = [];
-                        next.find('li').each((_, li) => { const t = $(li).text().trim(); if (t) items.push(t); });
-                        if (items.length) material += (material ? '\n' : '') + items.map(t => '• ' + t).join('\n');
-                    } else if (cleaned) {
-                        material += (material ? '\n' : '') + cleaned;
-                    }
-                } else if (activeSection === 'instructions') {
-                    if (next.is('ul, ol')) {
-                        const items: string[] = [];
-                        next.find('li').each((_, li) => { const t = $(li).text().trim(); if (t) items.push(t); });
-                        if (items.length) instructions += (instructions ? '\n' : '') + items.join('\n');
-                    } else if (cleaned) {
-                        instructions += (instructions ? '\n' : '') + cleaned;
-                    }
-                } else if (activeSection === 'impulses') {
-                    if (next.is('ul, ol')) {
-                        next.find('li').each((_, li) => { const t = $(li).text().trim(); if (t) impulses.push(t); });
-                    } else if (cleaned) {
-                        impulses.push(cleaned);
+                if (next.is('ul, ol')) {
+                    // List items: add each to active section
+                    next.find('li').each((_, li) => {
+                        const t = $(li).text().trim();
+                        if (!t) return;
+                        if (activeSection === 'material') material += (material ? '\n' : '') + t;
+                        else if (activeSection === 'instructions') instructions += (instructions ? '\n' : '') + t;
+                        else if (activeSection === 'impulses') impulses.push(t);
+                    });
+                } else {
+                    // For all other elements: convert <br>→\n, then process line by line
+                    // This correctly splits labels and content even within a single <p>
+                    const cleaned = cleanText(next);
+                    for (const line of cleaned.split('\n')) {
+                        processLine(line);
                     }
                 }
 
