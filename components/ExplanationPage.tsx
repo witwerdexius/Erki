@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Download, Plus, Trash2, Loader2 } from 'lucide-react';
+import { Download, Plus, Trash2, Loader2, LayoutTemplate } from 'lucide-react';
 
 import { LOGO1_DATA, LOGO2_DATA, QR_DATA } from '@/lib/logoData';
 import { Plan, ExplanationData, TimeBlock } from '@/lib/types';
 import { jsPDF } from 'jspdf';
+import { buildLageplanCanvas, exportCombinedPDF } from '@/lib/pdfExport';
 import { cn } from '@/lib/utils';
 
 async function urlToDataUrl(url: string): Promise<string> {
@@ -168,6 +169,7 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
   const wrapperRef = useRef<HTMLDivElement>(null);
   const qrInputRef = useRef<HTMLInputElement>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingCombined, setIsExportingCombined] = useState(false);
   const [paperScale, setPaperScale] = useState(1);
 
   useEffect(() => {
@@ -214,120 +216,108 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
     reader.readAsDataURL(file);
   };
 
+  // ── Shared: render explanation page to canvas ────────────────────────────
+  const buildExplanationCanvas = async (): Promise<HTMLCanvasElement> => {
+    const el = pageRef.current!;
+
+    // Hide export-only-hidden UI elements (upload labels, buttons)
+    const hiddenEls = el.querySelectorAll<HTMLElement>('[data-export-hidden]');
+    hiddenEls.forEach((h) => (h.style.visibility = 'hidden'));
+
+    // Step 1: Embed Patrick Hand font directly into SVG context
+    let fontEmbedCSS = '';
+    try {
+      const r = await fetch('/fonts/PatrickHand-Regular.ttf');
+      if (r.ok) {
+        const buf = await r.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let bin = '';
+        for (let i = 0; i < bytes.length; i += 8192)
+          bin += String.fromCharCode(...bytes.subarray(i, Math.min(i + 8192, bytes.length)));
+        const base64 = btoa(bin);
+        fontEmbedCSS = [
+          `@font-face {`,
+          `  font-family: 'Patrick Hand';`,
+          `  src: url('data:font/ttf;base64,${base64}') format('truetype');`,
+          `  font-weight: normal; font-style: normal; font-display: block;`,
+          `}`,
+        ].join('\n');
+      }
+    } catch { /* fallback cursive */ }
+
+    // Step 2: Pre-convert external image URLs to data URLs
+    const imgs = Array.from(el.querySelectorAll<HTMLImageElement>('img'));
+    await Promise.all(
+      imgs.map(async (img) => {
+        if (!img.src.startsWith('data:')) {
+          try { img.src = await urlToDataUrl(img.src); } catch { /* keep original */ }
+        }
+      }),
+    );
+    await Promise.all(imgs.map((img) => img.decode().catch(() => {})));
+
+    // Step 3: Record image positions at scale(1)
+    const originalTransform = el.style.transform;
+    el.style.transform = 'scale(1)';
+    el.style.transformOrigin = 'top left';
+    const parentRect = el.getBoundingClientRect();
+    const imgData = imgs.map((img) => {
+      const r = img.getBoundingClientRect();
+      return { src: img.src, x: r.left - parentRect.left, y: r.top - parentRect.top, w: r.width, h: r.height };
+    });
+    el.style.transform = originalTransform;
+
+    // Step 4: Hide images (avoid nested data: URL issue in SVG sandbox)
+    imgs.forEach((img) => { img.style.opacity = '0'; });
+    await new Promise((r) => setTimeout(r, 50));
+
+    // Step 5: Render layout to canvas
+    const { toCanvas } = await import('html-to-image');
+    const canvas = await toCanvas(el, {
+      width: 559,
+      height: 794,
+      style: { transform: 'scale(1)', transformOrigin: 'top left' },
+      pixelRatio: 2,
+      backgroundColor: '#ffffff',
+      cacheBust: false,
+      ...(fontEmbedCSS ? { fontEmbedCSS } : { skipFonts: true }),
+    });
+
+    // Step 6: Draw images directly onto canvas
+    const ctx = canvas.getContext('2d')!;
+    const ratio = 2;
+    await Promise.all(
+      imgData.map(({ src, x, y, w, h }) =>
+        new Promise<void>((resolve) => {
+          const image = new window.Image();
+          image.onload = () => {
+            ctx.drawImage(image, Math.round(x * ratio), Math.round(y * ratio), Math.round(w * ratio), Math.round(h * ratio));
+            resolve();
+          };
+          image.onerror = () => resolve();
+          image.src = src;
+        }),
+      ),
+    );
+
+    // Step 7: Restore DOM
+    imgs.forEach((img) => { img.style.opacity = ''; });
+    hiddenEls.forEach((h) => (h.style.visibility = ''));
+
+    return canvas;
+  };
+
   const exportToPDF = async () => {
     if (!pageRef.current) return;
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     setIsExporting(true);
     await new Promise((r) => setTimeout(r, 150));
     try {
-      const { toCanvas } = await import('html-to-image');
-
-      const el = pageRef.current;
-
-      // Hide export-only-hidden UI elements (upload labels, buttons)
-      const hiddenEls = el.querySelectorAll<HTMLElement>('[data-export-hidden]');
-      hiddenEls.forEach((h) => (h.style.visibility = 'hidden'));
-
-      // ── Step 1: Build fontEmbedCSS with Patrick Hand TTF as base64 ──────────
-      // We pass this directly to toCanvas so html-to-image embeds the @font-face
-      // *inside* the SVG. This is the only reliable approach in WKWebView /
-      // iOS Safari: the SVG is rendered in a sandboxed context that has no access
-      // to document.head fonts, so the font must live inside the SVG itself.
-      let fontEmbedCSS = '';
-      try {
-        const r = await fetch('/fonts/PatrickHand-Regular.ttf');
-        if (r.ok) {
-          const buf = await r.arrayBuffer();
-          const bytes = new Uint8Array(buf);
-          let bin = '';
-          for (let i = 0; i < bytes.length; i += 8192)
-            bin += String.fromCharCode(...bytes.subarray(i, Math.min(i + 8192, bytes.length)));
-          const base64 = btoa(bin);
-          fontEmbedCSS = [
-            `@font-face {`,
-            `  font-family: 'Patrick Hand';`,
-            `  src: url('data:font/ttf;base64,${base64}') format('truetype');`,
-            `  font-weight: normal; font-style: normal; font-display: block;`,
-            `}`,
-          ].join('\n');
-        }
-      } catch { /* proceed without embedded font; canvas will use fallback cursive */ }
-
-      // ── Step 2: Pre-convert any non-data: image URLs, then decode ────────────
-      const imgs = Array.from(el.querySelectorAll<HTMLImageElement>('img'));
-      await Promise.all(
-        imgs.map(async (img) => {
-          if (!img.src.startsWith('data:')) {
-            try { img.src = await urlToDataUrl(img.src); } catch { /* keep original */ }
-          }
-        }),
-      );
-      await Promise.all(imgs.map((img) => img.decode().catch(() => {})));
-
-      // ── Step 3: Record each image's position relative to the paper element ───
-      // We temporarily force transform:scale(1) so getBoundingClientRect returns
-      // true layout coordinates (not scaled-down display coordinates).
-      const originalTransform = el.style.transform;
-      el.style.transform = 'scale(1)';
-      el.style.transformOrigin = 'top left';
-      const parentRect = el.getBoundingClientRect();
-      const imgData = imgs.map((img) => {
-        const r = img.getBoundingClientRect();
-        return { src: img.src, x: r.left - parentRect.left, y: r.top - parentRect.top, w: r.width, h: r.height };
-      });
-      el.style.transform = originalTransform;
-
-      // ── Step 4: Hide images so toCanvas doesn't embed them in the SVG ────────
-      // html-to-image serialises the DOM → SVG data URL → <img> → canvas.
-      // Nesting large data: image URLs inside that SVG data URL breaks rendering
-      // in WKWebView (nested data: URLs are blocked by WebKit's security policy).
-      // We draw images manually onto the canvas in Step 6 instead.
-      imgs.forEach((img) => { img.style.opacity = '0'; });
-      await new Promise((r) => setTimeout(r, 50));
-
-      // ── Step 5: Render the canvas (text + layout, no images) ─────────────────
-      // fontEmbedCSS takes priority over skipFonts in html-to-image's
-      // embedWebFonts() — the @font-face is injected directly into the SVG's
-      // <style> block, making it available in the sandboxed canvas context.
-      const canvas = await toCanvas(el, {
-        width: 559,
-        height: 794,
-        style: { transform: 'scale(1)', transformOrigin: 'top left' },
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-        cacheBust: false,
-        ...(fontEmbedCSS ? { fontEmbedCSS } : { skipFonts: true }),
-      });
-
-      // ── Step 6: Draw images directly onto the canvas ──────────────────────────
-      // Loading from data: URL into a plain Image() and calling ctx.drawImage()
-      // is always reliable — no SVG sandboxing involved.
-      const ctx = canvas.getContext('2d')!;
-      const ratio = 2; // matches pixelRatio above
-      await Promise.all(
-        imgData.map(({ src, x, y, w, h }) =>
-          new Promise<void>((resolve) => {
-            const image = new window.Image();
-            image.onload = () => {
-              ctx.drawImage(image, Math.round(x * ratio), Math.round(y * ratio), Math.round(w * ratio), Math.round(h * ratio));
-              resolve();
-            };
-            image.onerror = () => resolve(); // skip broken images gracefully
-            image.src = src;
-          }),
-        ),
-      );
-
-      // ── Step 7: Restore DOM ───────────────────────────────────────────────────
-      imgs.forEach((img) => { img.style.opacity = ''; });
-      hiddenEls.forEach((h) => (h.style.visibility = ''));
-
-      // ── Step 8: Export to PDF ─────────────────────────────────────────────────
+      const canvas = await buildExplanationCanvas();
       const png = canvas.toDataURL();
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a5' });
       pdf.addImage(png, 'PNG', 0, 0, 148, 210);
       pdf.save('erklaerungsseite.pdf');
-
     } catch (err) {
       console.error('PDF-Export fehlgeschlagen:', err);
       alert('PDF-Export fehlgeschlagen.');
@@ -336,13 +326,64 @@ export default function ExplanationPage({ activePlan, updateActivePlan }: Props)
     }
   };
 
+  const exportCombinedWithLageplan = async () => {
+    if (!pageRef.current || !activePlan) return;
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    setIsExportingCombined(true);
+    await new Promise((r) => setTimeout(r, 150));
+    try {
+      // Derive lageplan aspect ratio from background image dimensions
+      let aspectRatio: 'landscape' | 'portrait' = 'landscape';
+      if (activePlan.backgroundImage) {
+        aspectRatio = await new Promise<'landscape' | 'portrait'>((resolve) => {
+          const img = new window.Image();
+          img.onload = () => resolve(img.width >= img.height ? 'landscape' : 'portrait');
+          img.onerror = () => resolve('landscape');
+          img.src = activePlan.backgroundImage!;
+        });
+      }
+
+      const [explanationCanvas, lageplanCanvas] = await Promise.all([
+        buildExplanationCanvas(),
+        buildLageplanCanvas({
+          backgroundImage: activePlan.backgroundImage,
+          bgZoom: activePlan.bgZoom,
+          masks: activePlan.masks,
+          stations: (activePlan.stations ?? []).map((s) => ({
+            x: s.x, y: s.y, targetX: s.targetX, targetY: s.targetY,
+            colorVariant: s.colorVariant, isFilled: s.isFilled, name: s.name,
+          })),
+          logoOverlay: activePlan.logoOverlay,
+          labelOverlay: activePlan.labelOverlay,
+          title: activePlan.title,
+          aspectRatio,
+        }),
+      ]);
+
+      await exportCombinedPDF(explanationCanvas, lageplanCanvas, aspectRatio, activePlan.title);
+    } catch (err) {
+      console.error('Kombinierter PDF-Export fehlgeschlagen:', err);
+      alert('Export fehlgeschlagen.');
+    } finally {
+      setIsExportingCombined(false);
+    }
+  };
+
   return (
     <div className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-800 p-4 sm:p-8">
-      {/* Export button */}
-      <div style={{ maxWidth: 559 }} className="mx-auto mb-4 flex justify-end">
+      {/* Export buttons */}
+      <div style={{ maxWidth: 559 }} className="mx-auto mb-4 flex justify-end gap-2 flex-wrap">
+        <button
+          onClick={exportCombinedWithLageplan}
+          disabled={isExportingCombined || isExporting}
+          className="flex items-center gap-2 px-4 py-2 bg-[#9b8ec4] text-white rounded-full shadow text-sm font-medium hover:bg-[#8a7db3] transition-all active:scale-95 disabled:opacity-50"
+        >
+          {isExportingCombined ? <Loader2 className="w-4 h-4 animate-spin" /> : <LayoutTemplate className="w-4 h-4" />}
+          Als PDF mit Lageplan exportieren
+        </button>
         <button
           onClick={exportToPDF}
-          disabled={isExporting}
+          disabled={isExporting || isExportingCombined}
           className="flex items-center gap-2 px-4 py-2 bg-[#6bbfd4] text-white rounded-full shadow text-sm font-medium hover:bg-[#5aaec3] transition-all active:scale-95 disabled:opacity-50"
         >
           {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}

@@ -475,23 +475,31 @@ async function savePngAsPdf(
   pdf.save(fileName);
 }
 
+export async function buildLageplanCanvas(params: LageplanPDFParams): Promise<HTMLCanvasElement> {
+  const { backgroundImage, bgZoom, masks, stations, logoOverlay, labelOverlay, aspectRatio } = params;
+  const { canvas, ctx, size } = createPageCanvas(aspectRatio);
+  const zoom = bgZoom ?? 1;
+
+  if (backgroundImage) await drawBackground(ctx, size, backgroundImage, zoom);
+  if (masks && masks.length > 0) drawMasks(ctx, size, masks, zoom);
+
+  const hyphenate = await loadHyphenator();
+
+  drawConnectionLines(ctx, size, stations);
+  drawStations(ctx, size, stations, hyphenate);
+
+  if (logoOverlay) await drawLogoOverlay(ctx, size, logoOverlay);
+  if (labelOverlay) drawLabelOverlay(ctx, size, labelOverlay);
+
+  return canvas;
+}
+
 export async function exportLageplanPDF(params: LageplanPDFParams): Promise<void> {
-  const { backgroundImage, bgZoom, masks, stations, logoOverlay, labelOverlay, title, aspectRatio } = params;
+  const { title, aspectRatio } = params;
   try {
     console.log('[PDF] Step 1: building canvas');
-    const { canvas, ctx, size } = createPageCanvas(aspectRatio);
-    const zoom = bgZoom ?? 1;
-
-    if (backgroundImage) await drawBackground(ctx, size, backgroundImage, zoom);
-    if (masks && masks.length > 0) drawMasks(ctx, size, masks, zoom);
-
-    const hyphenate = await loadHyphenator();
-
-    drawConnectionLines(ctx, size, stations);
-    drawStations(ctx, size, stations, hyphenate);
-
-    if (logoOverlay) await drawLogoOverlay(ctx, size, logoOverlay);
-    if (labelOverlay) drawLabelOverlay(ctx, size, labelOverlay);
+    const canvas = await buildLageplanCanvas(params);
+    const { size } = createPageCanvas(aspectRatio);
 
     console.log('[PDF] Step 2: creating PDF');
     const sanitizedTitle = sanitizeTitle(title, 'lageplan');
@@ -503,6 +511,63 @@ export async function exportLageplanPDF(params: LageplanPDFParams): Promise<void
     console.error('[PDF] Export failed:', error);
     alert(`PDF Export fehlgeschlagen:\n${msg}`);
   }
+}
+
+export async function exportCombinedPDF(
+  explanationCanvas: HTMLCanvasElement,
+  lageplanCanvas: HTMLCanvasElement,
+  lageplanAspectRatio: 'landscape' | 'portrait',
+  title: string,
+): Promise<void> {
+  const { jsPDF } = await import('jspdf');
+
+  // A4 landscape: 297 × 210 mm — two A5-portrait slots side by side
+  const A4W = 297, A4H = 210;
+  const slotW = A4W / 2; // 148.5 mm
+
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+  // If lageplan is landscape, rotate it 90° CCW to portrait so it fits the slot upright
+  let lpCanvas = lageplanCanvas;
+  if (lageplanAspectRatio === 'landscape') {
+    const rot = document.createElement('canvas');
+    rot.width = lageplanCanvas.height;
+    rot.height = lageplanCanvas.width;
+    const rCtx = rot.getContext('2d')!;
+    rCtx.translate(0, lageplanCanvas.width);
+    rCtx.rotate(-Math.PI / 2);
+    rCtx.drawImage(lageplanCanvas, 0, 0);
+    lpCanvas = rot;
+  }
+
+  const explDataUrl = explanationCanvas.toDataURL('image/png');
+  const lpDataUrl = lpCanvas.toDataURL('image/png');
+
+  // Centre and scale image to fill slot, preserving aspect ratio
+  const fitInSlot = (dataUrl: string, imgW: number, imgH: number, slotX: number) => {
+    const imgAspect = imgW / imgH;
+    const slotAspect = slotW / A4H;
+    let dw: number, dh: number;
+    if (imgAspect > slotAspect) {
+      dw = slotW; dh = slotW / imgAspect;
+    } else {
+      dh = A4H; dw = A4H * imgAspect;
+    }
+    const ox = slotX + (slotW - dw) / 2;
+    const oy = (A4H - dh) / 2;
+    pdf.addImage(dataUrl, 'PNG', ox, oy, dw, dh);
+  };
+
+  // Page 1: Erklärseite left, Lageplan right
+  fitInSlot(explDataUrl, explanationCanvas.width, explanationCanvas.height, 0);
+  fitInSlot(lpDataUrl, lpCanvas.width, lpCanvas.height, slotW);
+
+  // Page 2: reversed — for double-sided printing
+  pdf.addPage('a4', 'landscape');
+  fitInSlot(lpDataUrl, lpCanvas.width, lpCanvas.height, 0);
+  fitInSlot(explDataUrl, explanationCanvas.width, explanationCanvas.height, slotW);
+
+  pdf.save(`${sanitizeTitle(title, 'erki')}-mit-lageplan.pdf`);
 }
 
 const TABLE_CELL_PADDING = 3;
