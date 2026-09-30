@@ -12,6 +12,7 @@ import { computePolygonPerimeterSlots, type BlockedZone, type MaskPolygon } from
 import {
     clientToPercent,
     deriveContainerHeight,
+    computeMapScale,
     distributeColors,
     resolveColorConflicts,
     spreadPiledStations,
@@ -35,7 +36,7 @@ function computeAutoLayout(
 ): Station[] {
     if (stations.length === 0 || containerWidth === 0 || containerHeight === 0) return stations;
 
-    const mapScale = containerWidth / 800;
+    const mapScale = computeMapScale(containerWidth, containerHeight);
     const bubbleRadius = 48 * mapScale;
     const blockedZones: BlockedZone[] = [];
     if (logoOverlay) {
@@ -112,7 +113,9 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
 
     const containerRef = useRef<HTMLDivElement>(null);
     const [containerWidth, setContainerWidth] = useState(0);
-    const mapScale = containerWidth > 0 ? containerWidth / 800 : 1;
+    const mapScale = containerWidth > 0
+        ? computeMapScale(containerWidth, deriveContainerHeight(containerWidth, aspectRatio))
+        : 1;
 
     const currentZoom = activePlan.bgZoom ?? 1;
     const zoomIn  = () => { const next = ZOOM_STEPS.find(z => z > currentZoom); if (next) updateActivePlan({ bgZoom: next }); };

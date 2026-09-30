@@ -214,3 +214,14 @@ export function deriveContainerHeight(
         ? containerWidth * (210 / 297)
         : containerWidth * (297 / 210);
 }
+
+/**
+ * Skalierungsfaktor fuer Blasen, Marker, Linien und Titel.
+ * Bezugsgroesse ist die LANGE Seite des Plans (Referenz: 800 px), damit alle
+ * Elemente im Hoch- und Querformat physisch gleich gross sind
+ * (vorher: Breite -> im Hochformat ~1,41x kleiner).
+ */
+export function computeMapScale(containerWidth: number, containerHeight: number): number {
+    const longSide = Math.max(containerWidth, containerHeight);
+    return longSide > 0 ? longSide / 800 : 1;
+}
