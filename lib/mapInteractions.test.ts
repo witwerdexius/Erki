@@ -67,21 +67,55 @@ describe('distributeColors', () => {
         expect(stations).toEqual(before);
     });
 
-    it('weit auseinander liegende Stationen -> alle bekommen colorVariant 0', () => {
-        // Distanz zwischen (0,0) und (50,50) ≈ 70.7, weit über default threshold=20
-        const stations = [stub('a', 0, 0), stub('b', 50, 50)];
-        const result = distributeColors(stations);
-        expect(result[0].colorVariant).toBe(0);
-        expect(result[1].colorVariant).toBe(0);
+    it('weit auseinander liegende Stationen -> Farben gleichmaessig (nicht alle Tuerkis)', () => {
+        const stations = Array.from({ length: 8 }, (_, i) => stub(`s${i}`, (i % 4) * 30, Math.floor(i / 4) * 60));
+        const counts = [0, 0, 0, 0];
+        for (const s of distributeColors(stations)) counts[s.colorVariant!]++;
+        expect(counts).toEqual([2, 2, 2, 2]);
     });
 
     it('benachbarte Stationen erhalten unterschiedliche Farben', () => {
         // Distanz (10,10) -> (12,12) ≈ 2.83, deutlich unter threshold=20 -> Konflikt
         const stations = [stub('a', 10, 10), stub('b', 12, 12), stub('c', 14, 14)];
+        const colors = distributeColors(stations).map(s => s.colorVariant);
+        expect(new Set(colors).size).toBe(3);
+    });
+
+    it('nebeneinanderliegende Blasen erhalten unterschiedliche Farben (Marker weit weg)', () => {
+        const a = { ...stub('a', 10, 10), x: 50, y: 50 };
+        const b = { ...stub('b', 90, 90), x: 60, y: 52 };
+        const [ra, rb] = distributeColors([a, b]);
+        expect(ra.colorVariant).not.toBe(rb.colorVariant);
+    });
+
+    it('echter Plan (16 Stationen): je Farbe 4x, keine eng benachbarten mit gleicher Farbe', () => {
+        // Marker-/Blasenpositionen aus "26-10-18 Kommt her und esst!"
+        const raw: [number, number, number, number][] = [
+            [29.86, 47.78, 9.67, 86.62], [74.46, 53.37, 54.22, 80.56], [25.0, 46.25, 9.67, 35.55],
+            [31.66, 39.64, 85.38, 33.35], [28.24, 53.37, 42.08, 89.43], [31.3, 67.23, 59.64, 73.25],
+            [82.37, 45.74, 90.33, 74.58], [31.12, 71.81, 24.54, 93.05], [27.88, 27.05, 50.15, 21.66],
+            [29.86, 57.69, 42.84, 75.89], [27.88, 42.56, 12.31, 10.83], [22.84, 26.67, 48.35, 8.0],
+            [24.28, 53.5, 9.67, 58.25], [71.94, 61.51, 75.61, 76.73], [32.2, 44.34, 66.75, 42.15],
+            [30.4, 31.37, 49.25, 35.4],
+        ];
+        const stations = raw.map(([tx, ty, x, y], i) => ({ ...stub(`s${i}`, tx, ty), x, y }));
         const result = distributeColors(stations);
-        expect(result[0].colorVariant).toBe(0);
-        expect(result[1].colorVariant).toBe(1);
-        expect(result[2].colorVariant).toBe(2);
+        const counts = [0, 0, 0, 0];
+        for (const s of result) counts[s.colorVariant!]++;
+        expect(counts).toEqual([4, 4, 4, 4]);
+        let sameColorNeighbors = 0;
+        for (let i = 0; i < result.length; i++) for (let j = i + 1; j < result.length; j++) {
+            const a = result[i], b = result[j];
+            // eng benachbart: Marker < 8 % (wie beim Ziehen) oder Blasen beruehren sich fast
+            const near = Math.hypot(a.targetX - b.targetX, a.targetY - b.targetY) < 8 || Math.hypot(a.x - b.x, a.y - b.y) < 22;
+            if (near && a.colorVariant === b.colorVariant) sameColorNeighbors++;
+        }
+        expect(sameColorNeighbors).toBe(0);
+    });
+
+    it('deterministisch', () => {
+        const stations = Array.from({ length: 10 }, (_, i) => stub(`s${i}`, (i * 37) % 100, (i * 53) % 100));
+        expect(distributeColors(stations)).toEqual(distributeColors(stations));
     });
 });
 
