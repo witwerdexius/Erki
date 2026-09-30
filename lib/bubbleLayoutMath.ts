@@ -979,11 +979,14 @@ export function computePolygonPerimeterSlotsLegacy(input: ComputeRadialSlotsInpu
 //   5. Zuordnung Marker -> Plaetze: zyklisch-monotone DP (kurze Linien, keine
 //      Kreuzungen durch Reihenfolge), danach Kreuzungs-Tausch.
 // Ueberlappungsfreiheit entsteht durch die Konstruktion; es gibt keine
-// nachtraegliche Abstossung. Reicht der Platz nicht, erst ohne Luecke/Spreizung,
-// dann Rueckfall auf computePolygonPerimeterSlotsLegacy.
+// nachtraegliche Abstossung. Reicht der Platz nicht, kommen weitere Ringe nach aussen hinzu (erst mit,
+// dann ohne Luecke/Spreizung); erst dann Rueckfall auf
+// computePolygonPerimeterSlotsLegacy. Kein Mittelpunkt liegt naeher als
+// r + offset an der Maske (auch nicht am Seitenrand).
 
 interface RingSlot extends Slot {
-    row: 1 | 2;
+    /** 1 = innerste Reihe, 2 = Hex-Reihe dahinter, >= 3 = weitere Ringe aussen */
+    row: number;
 }
 
 /**
@@ -1022,7 +1025,6 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
     }
 
     const maskDist = makeMaskDistance(masksPx);
-    const isInMask = (x: number, y: number) => maskDist(x, y) === 0;
 
     const isInBlockedZone = (x: number, y: number): boolean => {
         if (!blockedZones) return false;
@@ -1037,14 +1039,19 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
         return false;
     };
     const tol = 0.5;
+    const cell = Math.max(3, r / 8);
+    // Mindestabstand Mittelpunkt -> Maske. Wichtig dort, wo die Linie am
+    // Seitenrand entlanglaeuft (Maske reicht bis an den Rand): dort waere sonst
+    // nur der Mittelpunkt ausserhalb der Maske und die Blase wuerde den Plan
+    // (z. B. Beschriftungen) weit mehr als `offset` ueberdecken.
+    const minMaskDist = d - cell / 2;
     const isValid = (x: number, y: number) =>
         x >= r - tol && x <= W - r + tol && y >= r - tol && y <= H - r + tol &&
-        !isInMask(x, y) && !isInBlockedZone(x, y);
+        maskDist(x, y) >= minMaskDist && !isInBlockedZone(x, y);
 
     // 1. Linie gleichen Abstands, am Seitenrand (Abstand r) abgeschnitten
     const F = (x: number, y: number) =>
         Math.max(maskDist(x, y) - d, rectSignedDistance(x, y, r, r, W - r, H - r));
-    const cell = Math.max(3, r / 8);
     const loops: ArcLoop[] = extractOuterLoops(F, W, H, cell)
         .map(makeArcLoop)
         .filter(l => l.length >= 2 * r)
@@ -1161,8 +1168,45 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
         ];
     };
 
+    // Weitere Ringe nach aussen, wenn Reihe 1 + 2 nicht reichen
+    // (Abstand je Ring = Reihenabstand eines Hex-Gitters).
+    const addOuterRings = (base: RingSlot[], g: number): RingSlot[] => {
+        const out = [...base];
+        const step = 2 * r + g;
+        const ringGap = hexFactor * step * Math.sqrt(3) / 2;
+        for (let k = 1; k <= 8 && out.length < N; k++) {
+            const dk = d + k * ringGap;
+            const Fk = (x: number, y: number) =>
+                Math.max(maskDist(x, y) - dk, rectSignedDistance(x, y, r, r, W - r, H - r));
+            const ringLoops = extractOuterLoops(Fk, W, H, cell)
+                .map(makeArcLoop)
+                .filter(l => l.length >= 2 * r)
+                .sort((a, b) => b.length - a.length);
+            if (ringLoops.length === 0) break;
+            const before = out.length;
+            for (const loop of ringLoops) {
+                let prev: Slot | null = null;
+                let sArc = 0;
+                while (sArc < loop.length) {
+                    const p = pointAtArc(loop, sArc);
+                    const okStep = !prev || Math.hypot(p.x - prev.x, p.y - prev.y) >= step - 1e-6;
+                    if (okStep && isValid(p.x, p.y) && farEnough(p.x, p.y, out, minDist)) {
+                        out.push({ x: p.x, y: p.y, row: k + 2 });
+                        prev = p;
+                        sArc += step;
+                    } else {
+                        sArc += step / 24;
+                    }
+                }
+            }
+            if (out.length === before && dk > Math.max(W, H)) break;
+        }
+        return out;
+    };
+
     let slots = buildSlots(gap, spread);
-    if (slots.length < N) slots = buildSlots(0, 0);
+    if (slots.length < N) slots = addOuterRings(slots, gap);
+    if (slots.length < N) slots = addOuterRings(buildSlots(0, 0), 0);
     if (slots.length < N) return computePolygonPerimeterSlotsLegacy(input);
 
     // 5. Zuordnung: zyklisch-monotone DP ueber Winkel um den Marker-Schwerpunkt
@@ -1172,9 +1216,9 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
     const ms = [...markers].sort((a, b) => ang(a) - ang(b) || a.id.localeCompare(b.id));
     const ss = [...slots].sort((a, b) => ang(a) - ang(b) || a.x - b.x || a.y - b.y);
     const M = ss.length;
-    const r2Penalty = r; // Reihe 1 bevorzugen (Reihe 2 nur, wenn deutlich kuerzere Linie)
+    const r2Penalty = r; // je Reihe weiter aussen +r: innere Reihen bevorzugen
     const cost = (i: number, k: number) =>
-        Math.hypot(ms[i].x - ss[k].x, ms[i].y - ss[k].y) + (ss[k].row === 2 ? r2Penalty : 0);
+        Math.hypot(ms[i].x - ss[k].x, ms[i].y - ss[k].y) + (ss[k].row - 1) * r2Penalty;
 
     let bestTotal = Infinity;
     let bestPick: number[] = [];
