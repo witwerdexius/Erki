@@ -119,6 +119,23 @@ export function clientToPercent(
 }
 
 /**
+ * Rechnet eine sichtbare Position (in % des Containers) in das ungezoomte
+ * Koordinatensystem des Hintergrunds zurueck. Hintergrund und Masken werden
+ * per CSS `scale(bgZoom)` um die Mitte skaliert; gespeichert werden Masken
+ * aber ungezoomt: sichtbar = 50 + (gespeichert - 50) * bgZoom.
+ */
+export function visualToStoredPercent(
+    pos: { x: number; y: number },
+    bgZoom: number,
+): { x: number; y: number } {
+    const z = bgZoom > 0 ? bgZoom : 1;
+    return {
+        x: 50 + (pos.x - 50) / z,
+        y: 50 + (pos.y - 50) / z,
+    };
+}
+
+/**
  * Greedy-Graph-Coloring: jeder Station wird die niedrigste Farbe (0..3) zugewiesen,
  * die kein "Nachbar" (innerhalb threshold % Distanz) bereits benutzt.
  *

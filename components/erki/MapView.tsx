@@ -11,6 +11,7 @@ import { exportLageplanPDF } from '@/lib/pdfExport';
 import { computePolygonPerimeterSlots, type BlockedZone, type MaskPolygon } from '@/lib/bubbleLayoutMath';
 import {
     clientToPercent,
+    visualToStoredPercent,
     deriveContainerHeight,
     computeMapScale,
     distributeColors,
@@ -310,9 +311,12 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
         setDraggedItem(null);
     };
 
+    // Masken-Koordinaten: Maske liegt im Zoom-Wrapper (scale um die Mitte),
+    // daher Klickposition in ungezoomte % zurueckrechnen.
     const getMapCoords = (e: React.MouseEvent) => {
         if (!containerRef.current) return null;
-        return clientToPercent(e.clientX, e.clientY, containerRef.current.getBoundingClientRect());
+        const visual = clientToPercent(e.clientX, e.clientY, containerRef.current.getBoundingClientRect());
+        return visualToStoredPercent(visual, currentZoom);
     };
 
     const handleMapClick = (e: React.MouseEvent) => {
