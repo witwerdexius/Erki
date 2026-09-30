@@ -197,11 +197,10 @@ function drawConnectionLines(
 ): void {
   const { W, H, mapScale } = size;
   ctx.save();
-  ctx.globalAlpha = 0.4;
-  ctx.strokeStyle = '#000000';
   ctx.lineWidth = 1.5 * mapScale;
   ctx.setLineDash([4 * mapScale, 4 * mapScale]);
-  for (const s of stations) {
+  for (const [idx, s] of stations.entries()) {
+    ctx.strokeStyle = COLORS[(s.colorVariant ?? idx) % 4];
     ctx.beginPath();
     ctx.moveTo((s.targetX / 100) * W, (s.targetY / 100) * H);
     ctx.lineTo((s.x / 100) * W, (s.y / 100) * H);

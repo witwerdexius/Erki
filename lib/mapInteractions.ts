@@ -242,3 +242,13 @@ export function computeMapScale(containerWidth: number, containerHeight: number)
     const longSide = Math.max(containerWidth, containerHeight);
     return longSide > 0 ? longSide / 800 : 1;
 }
+
+/** Stationsfarben (Tuerkis, Lila, Mint, Pink) — wie Blasen und Marker. */
+export const STATION_COLOR_HEX = ['#6bbfd4', '#9b8ec4', '#7bc9a0', '#e07aaa'] as const;
+
+/** Farbe einer Station: explizite colorVariant, sonst Index-basiert (wie Blasen/Marker). */
+export function stationColorHex(colorVariant: number | null | undefined, index: number): string {
+    const i = colorVariant ?? index;
+    const n = STATION_COLOR_HEX.length;
+    return STATION_COLOR_HEX[((i % n) + n) % n];
+}

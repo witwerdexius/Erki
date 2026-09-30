@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { exportLageplanPDF, exportTablePDF } from '@/lib/pdfExport';
 import { extractUuid } from '@/lib/slugify';
+import { stationColorHex } from '@/lib/mapInteractions';
 import type { User } from '@supabase/supabase-js';
 
 interface SharedStation {
@@ -163,17 +164,16 @@ function ReadonlyLageplan({
 
         <div className="absolute inset-0 select-none">
           <svg className="absolute inset-0 w-full h-full overflow-visible pointer-events-none z-20">
-            {planning.stations.map(s => (
+            {planning.stations.map((s, idx) => (
               <line
                 key={s.id}
                 x1={`${s.targetX}%`}
                 y1={`${s.targetY}%`}
                 x2={`${s.x}%`}
                 y2={`${s.y}%`}
-                stroke="black"
+                stroke={stationColorHex(s.colorVariant, idx)}
                 strokeWidth="1.5"
                 strokeDasharray="4 4"
-                className="opacity-40"
               />
             ))}
           </svg>

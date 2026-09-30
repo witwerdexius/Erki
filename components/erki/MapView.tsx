@@ -12,6 +12,7 @@ import { computePolygonPerimeterSlots, type BlockedZone, type MaskPolygon } from
 import {
     clientToPercent,
     visualToStoredPercent,
+    stationColorHex,
     deriveContainerHeight,
     computeMapScale,
     distributeColors,
@@ -643,17 +644,16 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
 
                     {!maskDrawing && <div className="absolute inset-0 select-none">
                         <svg className="absolute inset-0 w-full h-full overflow-visible pointer-events-none z-20">
-                            {activePlan.stations.map(s => (
+                            {activePlan.stations.map((s, idx) => (
                                 <line
                                     key={s.id}
                                     x1={`${s.targetX}%`}
                                     y1={`${s.targetY}%`}
                                     x2={`${s.x}%`}
                                     y2={`${s.y}%`}
-                                    stroke="black"
+                                    stroke={stationColorHex(s.colorVariant, idx)}
                                     strokeWidth="1.5"
                                     strokeDasharray="4 4"
-                                    className="opacity-40"
                                 />
                             ))}
                         </svg>
