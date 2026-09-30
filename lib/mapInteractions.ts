@@ -136,33 +136,131 @@ export function visualToStoredPercent(
 }
 
 /**
- * Greedy-Graph-Coloring: jeder Station wird die niedrigste Farbe (0..3) zugewiesen,
- * die kein "Nachbar" (innerhalb threshold % Distanz) bereits benutzt.
+ * Verteilt die 4 Stationsfarben GLEICHMAESSIG und so, dass Nachbarn
+ * moeglichst verschiedene Farben haben.
  *
- * Wichtige Eigenschaft: deterministisch und reihenfolgebasiert — Station[i] sieht
- * nur Stationen 0..i-1 als Nachbarn, identisch zur Originalimplementierung in
- * ErkiApp.handleDistributeColors. Ergebnis ist eine neue Station[] mit eventuell
- * geänderten colorVariant-Werten; Original-Array wird nicht mutiert.
+ * Nachbarn: Marker naeher als `threshold` % ODER Blasen naeher als
+ * `bubbleThreshold` % (nebeneinanderliegende Kreise sollen sich abheben).
+ *
+ * Vorgehen (deterministisch):
+ *  1. DSatur-Faerbung: zuerst die Station mit den meisten verschieden
+ *     gefaerbten Nachbarn; gewaehlt wird unter den konfliktfreien Farben die
+ *     bisher SELTENSTE (statt immer der niedrigsten -> frueher viel Tuerkis).
+ *  2. Ausgleich: solange eine Farbe mehr als 1 Station haeufiger ist als eine
+ *     andere, werden Stationen konfliktfrei umgefaerbt.
+ *  3. Feinschliff: Paare tauschen ihre Farben (Anzahlen bleiben), wenn das die
+ *     nach Naehe gewichteten Konflikte senkt. Bei sehr dicht liegenden Markern
+ *     sind 4 Farben nicht immer konfliktfrei moeglich; dann bleiben die
+ *     Konflikte bei moeglichst weit entfernten Paaren.
+ * Das Eingabe-Array wird nicht mutiert.
  */
-export function distributeColors(stations: Station[], threshold = 20): Station[] {
+export function distributeColors(
+    stations: Station[],
+    threshold = 20,
+    bubbleThreshold = 22,
+    closeThreshold = 8,
+): Station[] {
     const out = stations.map(s => ({ ...s }));
-    for (let i = 0; i < out.length; i++) {
-        const usedByNeighbors = new Set<number>();
-        for (let j = 0; j < i; j++) {
-            const dx = out[i].targetX - out[j].targetX;
-            const dy = out[i].targetY - out[j].targetY;
-            if (Math.sqrt(dx * dx + dy * dy) < threshold) {
-                usedByNeighbors.add(out[j].colorVariant ?? (j % 4));
+    const n = out.length;
+    const K = 4;
+    if (n === 0) return out;
+
+    const adj: number[][] = Array.from({ length: n }, () => []);
+    for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+            const dm = Math.hypot(out[i].targetX - out[j].targetX, out[i].targetY - out[j].targetY);
+            const db = Math.hypot(out[i].x - out[j].x, out[i].y - out[j].y);
+            if (dm < threshold || db < bubbleThreshold) {
+                adj[i].push(j);
+                adj[j].push(i);
             }
         }
-        let color = 0;
-        let attempts = 0;
-        while (usedByNeighbors.has(color) && attempts < 8) {
-            color = (color + 1) % 4;
-            attempts++;
-        }
-        out[i].colorVariant = color;
     }
+
+    const color: number[] = new Array(n).fill(-1);
+    const counts: number[] = new Array(K).fill(0);
+    const conflicts = (i: number, c: number) => adj[i].filter(j => color[j] === c).length;
+
+    // 1. DSatur mit "seltenste freie Farbe"
+    for (let step = 0; step < n; step++) {
+        let pick = -1, bestSat = -1, bestDeg = -1;
+        for (let i = 0; i < n; i++) {
+            if (color[i] !== -1) continue;
+            const sat = new Set(adj[i].map(j => color[j]).filter(c => c !== -1)).size;
+            if (sat > bestSat || (sat === bestSat && adj[i].length > bestDeg)) {
+                pick = i; bestSat = sat; bestDeg = adj[i].length;
+            }
+        }
+        let best = 0, bestKey: [number, number, number] = [Infinity, Infinity, Infinity];
+        for (let c = 0; c < K; c++) {
+            const key: [number, number, number] = [conflicts(pick, c), counts[c], c];
+            if (key[0] < bestKey[0] || (key[0] === bestKey[0] && (key[1] < bestKey[1] || (key[1] === bestKey[1] && key[2] < bestKey[2])))) {
+                best = c; bestKey = key;
+            }
+        }
+        color[pick] = best;
+        counts[best]++;
+    }
+
+    // 2. Ausgleich ohne neue Konflikte
+    for (let guard = 0; guard < n * K; guard++) {
+        const maxC = counts.indexOf(Math.max(...counts));
+        const minC = counts.indexOf(Math.min(...counts));
+        if (counts[maxC] - counts[minC] <= 1) break;
+        let moved = false;
+        // bevorzugt direkt von der haeufigsten in die seltenste Farbe
+        for (let i = 0; i < n && !moved; i++) {
+            if (color[i] !== maxC) continue;
+            if (conflicts(i, minC) <= conflicts(i, maxC)) {
+                color[i] = minC; counts[maxC]--; counts[minC]++; moved = true;
+            }
+        }
+        // sonst ueber eine Zwischenfarbe (haeufigste -> irgendeine seltenere)
+        for (let i = 0; i < n && !moved; i++) {
+            if (color[i] !== maxC) continue;
+            for (let c = 0; c < K; c++) {
+                if (c === maxC || counts[c] >= counts[maxC] - 1) continue;
+                if (conflicts(i, c) <= conflicts(i, maxC)) {
+                    color[i] = c; counts[maxC]--; counts[c]++; moved = true; break;
+                }
+            }
+        }
+        if (!moved) break;
+    }
+
+    // 3. Feinschliff: paarweise Farben tauschen (Anzahlen bleiben gleich), wenn
+    //    das die gewichteten Konflikte senkt. Naehere Nachbarn wiegen schwerer.
+    //    Stufe 1 (stark): Marker < closeThreshold (wie beim Ziehen) oder Blasen
+    //    beruehren sich (< bubbleThreshold). Stufe 2 (schwach): Marker < threshold.
+    const weight = (i: number, j: number) => {
+        const dm = Math.hypot(out[i].targetX - out[j].targetX, out[i].targetY - out[j].targetY);
+        const db = Math.hypot(out[i].x - out[j].x, out[i].y - out[j].y);
+        const close = dm < closeThreshold || db < bubbleThreshold ? 100 : 0;
+        return close + Math.max(0, 1 - dm / threshold);
+    };
+    const w: number[][] = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => (i === j ? 0 : weight(i, j))));
+    const costOf = (i: number, c: number, skip: number) => {
+        let sum = 0;
+        for (let j = 0; j < n; j++) if (j !== i && j !== skip && color[j] === c) sum += w[i][j];
+        return sum;
+    };
+    for (let pass = 0; pass < 50; pass++) {
+        let improved = false;
+        for (let i = 0; i < n; i++) {
+            for (let j = i + 1; j < n; j++) {
+                const ci = color[i], cj = color[j];
+                if (ci === cj) continue;
+                const before = costOf(i, ci, j) + costOf(j, cj, i);
+                const after = costOf(i, cj, j) + costOf(j, ci, i);
+                if (after < before - 1e-9) {
+                    color[i] = cj; color[j] = ci; improved = true;
+                }
+            }
+        }
+        if (!improved) break;
+    }
+
+    for (let i = 0; i < n; i++) out[i].colorVariant = color[i];
     return out;
 }
 
