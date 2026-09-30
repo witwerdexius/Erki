@@ -17,6 +17,15 @@
 //
 // Extrahiert aus components/ErkiApp.tsx (Welle 4 - 1/4).
 
+import {
+    extractOuterLoops,
+    makeArcLoop,
+    makeMaskDistance,
+    pointAtArc,
+    rectSignedDistance,
+    type ArcLoop,
+} from './offsetContour';
+
 /** Marker-Position im Pixelraum mit eindeutiger Stations-ID. */
 export interface Marker {
     id: string;
@@ -58,7 +67,7 @@ export interface ComputeBubbleSlotsInput {
     blockedZones?: BlockedZone[];
     /**
      * Optional: expliziter Bubble-Radius in Pixeln. Wenn undefined,
-     * wird er aus containerWidth abgeleitet (48 * containerWidth / 800),
+     * wird er aus der langen Seite abgeleitet (48 * max(W, H) / 800),
      * was dem ErkiApp-Default entspricht.
      */
     bubbleRadius?: number;
@@ -176,7 +185,7 @@ export function computeBubbleSlots(input: ComputeBubbleSlotsInput): LayoutResult
     const result: LayoutResult = {};
     if (N === 0 || containerWidth <= 0 || containerHeight <= 0) return result;
 
-    const mapScale = containerWidth / 800;
+    const mapScale = Math.max(containerWidth, containerHeight) / 800;
     const bubbleRadius = input.bubbleRadius ?? 48 * mapScale;
     const R = bubbleRadius + 10;
 
@@ -358,6 +367,24 @@ export interface ComputeRadialSlotsInput {
     /** Sperrzonen für Logo/Titel in % (wie bei computeBubbleSlots). */
     blockedZones?: BlockedZone[];
     bubbleRadius?: number;
+    /** Feineinstellung des Offset-Ring-Layouts (px). Defaults relativ zum Radius. */
+    layout?: OffsetRingOptions;
+}
+
+/**
+ * Parameter des Offset-Ring-Layouts (aus lageplan-algo-test.html uebernommen).
+ * Alle Werte in px; Defaults skalieren mit dem Blasen-Radius r
+ * (Mockup-Werte bei r = 67: Luecke 5, Offset -30, Hex 1.0, Spreizung 40).
+ */
+export interface OffsetRingOptions {
+    /** Luecke zwischen benachbarten Blasen in Reihe 1. Default 0.075 r. */
+    gap?: number;
+    /** Abstand Blasen-RAND zur Maske; negativ = Blase ragt in die Maske. Default -0.45 r. */
+    offset?: number;
+    /** Abstand Reihe 2 zu ihren Reihe-1-Nachbarn als Faktor von (2r + gap). Default 1.0. */
+    hexFactor?: number;
+    /** Zusaetzliche Spreizung der Reihe-1-Paare mit Reihe-2-Blase dahinter. Default 0.6 r. */
+    spread?: number;
 }
 
 /**
@@ -409,7 +436,7 @@ export function computeRadialSlots(input: ComputeRadialSlotsInput): LayoutResult
     }
 
     const bgZoom = input.bgZoom ?? 1;
-    const mapScale = containerWidth / 800;
+    const mapScale = Math.max(containerWidth, containerHeight) / 800;
     const bubbleRadius = input.bubbleRadius ?? 48 * mapScale;
 
     // Masken-Polygone: stored % -> visual % (mit Zoom) -> Pixel
@@ -561,10 +588,12 @@ export function computeRadialSlots(input: ComputeRadialSlotsInput): LayoutResult
 // weiter außen. Logo/Titel-Sperrzonen werden ausgespart.
 
 /**
- * Berechnet Slots entlang des Masken-Polygon-Randes.
- * Benötigt mindestens eine Maske — sonst Fallback auf computeBubbleSlots.
+ * ALTER Algorithmus (bis v0.9.x): Slots entlang des Masken-Polygon-Randes,
+ * radial vom Schwerpunkt versetzt, Sektor-Auswahl, 2D-Abstossung.
+ * Dient nur noch als Rueckfall, wenn der Offset-Ring (computePolygonPerimeterSlots)
+ * nicht genug ueberlappungsfreie Plaetze findet.
  */
-export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): LayoutResult {
+export function computePolygonPerimeterSlotsLegacy(input: ComputeRadialSlotsInput): LayoutResult {
     const { markers, containerWidth, containerHeight, blockedZones } = input;
     const N = markers.length;
     const result: LayoutResult = {};
@@ -575,7 +604,7 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
     }
 
     const bgZoom = input.bgZoom ?? 1;
-    const mapScale = containerWidth / 800;
+    const mapScale = Math.max(containerWidth, containerHeight) / 800;
     const bubbleRadius = input.bubbleRadius ?? 48 * mapScale;
 
     // Masken-Polygon -> Pixel (mit Zoom-Transformation)
@@ -933,5 +962,269 @@ export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): La
             y: Math.max(margin, Math.min(containerHeight - margin, a.slot.y)),
         };
     }
+    return result;
+}
+
+// ── Offset-Ring Layout (aktuell) ─────────────────────────────────────────────
+// Portierung von lageplan-algo-test.html, erweitert um echten Offset:
+//   1. Abstandsfeld zur Vereinigung aller Masken -> Linie mit Abstand d = r + offset
+//      (Marching Squares). Auf dem Seitenrand (Abstand r) wird die Linie
+//      abgeschnitten, Blasen laufen dort am Rand entlang.
+//   2. Reihe 1: entlang jeder Linie im festen Luftlinien-Abstand 2r + gap,
+//      nur Plaetze ausserhalb von Masken/Sperrzonen und >= 2r von allen anderen.
+//   3. Reihe 2: hinter einem Reihe-1-Paar im Abstand hexFactor*(2r+gap) zu
+//      beiden, senkrecht zur Verbindung, auf der maskenfernen Seite.
+//   4. Reihe-1-Paare mit Reihe-2-Blase dahinter werden um `spread` entlang der
+//      Linie gespreizt (nur tangential), danach Reihe 2 neu.
+//   5. Zuordnung Marker -> Plaetze: zyklisch-monotone DP (kurze Linien, keine
+//      Kreuzungen durch Reihenfolge), danach Kreuzungs-Tausch.
+// Ueberlappungsfreiheit entsteht durch die Konstruktion; es gibt keine
+// nachtraegliche Abstossung. Reicht der Platz nicht, erst ohne Luecke/Spreizung,
+// dann Rueckfall auf computePolygonPerimeterSlotsLegacy.
+
+interface RingSlot extends Slot {
+    row: 1 | 2;
+}
+
+/**
+ * Berechnet Slots auf einem Ring mit konstantem Abstand um die Masken.
+ * Benötigt mindestens eine Maske — sonst Fallback auf computeBubbleSlots.
+ */
+export function computePolygonPerimeterSlots(input: ComputeRadialSlotsInput): LayoutResult {
+    const { markers, containerWidth: W, containerHeight: H, blockedZones } = input;
+    const N = markers.length;
+    const result: LayoutResult = {};
+    if (N === 0 || W <= 0 || H <= 0) return result;
+
+    const r = input.bubbleRadius ?? 48 * (Math.max(W, H) / 800);
+
+    if (!input.masks || input.masks.length === 0) {
+        return computeBubbleSlots({ markers, containerWidth: W, containerHeight: H, blockedZones, bubbleRadius: r });
+    }
+    if (W <= 2 * r || H <= 2 * r) return computePolygonPerimeterSlotsLegacy(input);
+
+    const opt = input.layout ?? {};
+    const gap = opt.gap ?? 0.075 * r;
+    const offset = opt.offset ?? -0.45 * r;
+    const hexFactor = opt.hexFactor ?? 1.0;
+    const spread = opt.spread ?? 0.6 * r;
+    const d = Math.max(1, r + offset); // Abstand Blasen-MITTELPUNKT zur Maske
+
+    const bgZoom = input.bgZoom ?? 1;
+    const masksPx = input.masks
+        .map(mask => mask.points.map(p => ({
+            x: (50 + (p.x - 50) * bgZoom) / 100 * W,
+            y: (50 + (p.y - 50) * bgZoom) / 100 * H,
+        })))
+        .filter(poly => poly.length >= 3);
+    if (masksPx.length === 0) {
+        return computeBubbleSlots({ markers, containerWidth: W, containerHeight: H, blockedZones, bubbleRadius: r });
+    }
+
+    const maskDist = makeMaskDistance(masksPx);
+    const isInMask = (x: number, y: number) => maskDist(x, y) === 0;
+
+    const isInBlockedZone = (x: number, y: number): boolean => {
+        if (!blockedZones) return false;
+        for (const zone of blockedZones) {
+            const lx = (zone.x / 100) * W;
+            const ly = (zone.y / 100) * H;
+            const lw = (zone.width / 100) * W;
+            const lh = (zone.height / 100) * W; // Konvention: Hoehe in % der Breite
+            const pad = zone.padding ?? r;
+            if (x >= lx - pad && x <= lx + lw + pad && y >= ly - pad && y <= ly + lh + pad) return true;
+        }
+        return false;
+    };
+    const tol = 0.5;
+    const isValid = (x: number, y: number) =>
+        x >= r - tol && x <= W - r + tol && y >= r - tol && y <= H - r + tol &&
+        !isInMask(x, y) && !isInBlockedZone(x, y);
+
+    // 1. Linie gleichen Abstands, am Seitenrand (Abstand r) abgeschnitten
+    const F = (x: number, y: number) =>
+        Math.max(maskDist(x, y) - d, rectSignedDistance(x, y, r, r, W - r, H - r));
+    const cell = Math.max(3, r / 8);
+    const loops: ArcLoop[] = extractOuterLoops(F, W, H, cell)
+        .map(makeArcLoop)
+        .filter(l => l.length >= 2 * r)
+        // deterministische Reihenfolge: laengste Linie zuerst
+        .sort((a, b) => b.length - a.length);
+    if (loops.length === 0) return computePolygonPerimeterSlotsLegacy(input);
+
+    const minDist = 2 * r - 1e-6;
+    const farEnough = (x: number, y: number, others: Slot[], dist: number) =>
+        others.every(o => Math.hypot(o.x - x, o.y - y) >= dist);
+
+    const buildSlots = (g: number, sp: number): RingSlot[] => {
+        const step = 2 * r + g;
+        // 2. Reihe 1 je Linie (mit Bogenlaenge s)
+        const r1: { x: number; y: number; s: number }[][] = loops.map(() => []);
+        const allR1: Slot[] = [];
+        // Schrittweite nach LUFTLINIE (nicht Bogenlaenge): an Ecken ist die Sehne
+        // kuerzer als der Bogen -> dort fein weiterschieben statt Platz zu verlieren.
+        const fine = step / 24;
+        loops.forEach((loop, li) => {
+            let prev: { x: number; y: number } | null = null;
+            let s = 0;
+            while (s < loop.length) {
+                const p = pointAtArc(loop, s);
+                const okStep = !prev || Math.hypot(p.x - prev.x, p.y - prev.y) >= step - 1e-6;
+                if (okStep && isValid(p.x, p.y) && farEnough(p.x, p.y, allR1, minDist)) {
+                    r1[li].push({ x: p.x, y: p.y, s });
+                    allR1.push(p);
+                    prev = p;
+                    s += step;
+                } else {
+                    s += fine;
+                }
+            }
+        });
+
+        // 3. Reihe 2
+        const buildRow2 = (rows1: { x: number; y: number; s: number }[][]) => {
+            const all1: Slot[] = rows1.flat();
+            const out: (Slot & { loop: number; pair: number })[] = [];
+            const target = hexFactor * step;
+            rows1.forEach((row, li) => {
+                const n = row.length;
+                if (n < 2) return;
+                const pairs = n >= 3 ? n : 1;
+                for (let i = 0; i < pairs; i++) {
+                    const a = row[i], b = row[(i + 1) % n];
+                    const ab = Math.hypot(b.x - a.x, b.y - a.y);
+                    if (ab < 1e-6 || ab > 2.2 * step) continue;
+                    const half = ab / 2;
+                    if (half >= target) continue;
+                    const h = Math.sqrt(target * target - half * half);
+                    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+                    const px = -(b.y - a.y) / ab, py = (b.x - a.x) / ab;
+                    const c1 = { x: mx + px * h, y: my + py * h };
+                    const c2 = { x: mx - px * h, y: my - py * h };
+                    const c = maskDist(c1.x, c1.y) >= maskDist(c2.x, c2.y) ? c1 : c2;
+                    if (!isValid(c.x, c.y)) continue;
+                    if (!farEnough(c.x, c.y, all1, minDist)) continue;
+                    if (!farEnough(c.x, c.y, out, 2 * r + g - 1e-6)) continue;
+                    out.push({ ...c, loop: li, pair: i });
+                }
+            });
+            return out;
+        };
+
+        let row2 = buildRow2(r1);
+
+        // 4. Spreizung der Reihe-1-Paare mit Reihe-2-Blase dahinter (1D, tangential)
+        if (sp > 0 && row2.length > 0) {
+            const relaxed = r1.map((row, li) => {
+                const n = row.length;
+                const loop = loops[li];
+                const L = loop.length;
+                const hasR2 = new Set(row2.filter(q => q.loop === li).map(q => q.pair));
+                if (n < 3 || hasR2.size === 0) return row;
+                const spEff = Math.min(sp, (L - n * step) / hasR2.size);
+                if (spEff <= 0) return row;
+                const s = row.map(p => p.s);
+                for (let pass = 0; pass < 200; pass++) {
+                    let moved = false;
+                    for (let i = 0; i < n; i++) {
+                        const j = (i + 1) % n;
+                        const gapS = j === 0 ? L - s[i] + s[j] : s[j] - s[i];
+                        const need = hasR2.has(i) ? step + spEff : step;
+                        if (gapS < need - 0.1) {
+                            const push = (need - gapS) / 2;
+                            s[i] -= push;
+                            s[j] += push;
+                            moved = true;
+                        }
+                    }
+                    if (!moved) break;
+                }
+                return s.map(si => {
+                    const p = pointAtArc(loop, si);
+                    return { x: p.x, y: p.y, s: ((si % L) + L) % L };
+                });
+            });
+            // Nur uebernehmen, wenn alle Plaetze gueltig und ueberlappungsfrei bleiben
+            const flat = relaxed.flat();
+            const ok = flat.every((p, i) =>
+                isValid(p.x, p.y) &&
+                flat.every((q, j) => j === i || Math.hypot(p.x - q.x, p.y - q.y) >= minDist));
+            if (ok) {
+                for (let li = 0; li < r1.length; li++) r1[li] = relaxed[li];
+                row2 = buildRow2(r1);
+            }
+        }
+
+        return [
+            ...r1.flat().map(p => ({ x: p.x, y: p.y, row: 1 as const })),
+            ...row2.map(p => ({ x: p.x, y: p.y, row: 2 as const })),
+        ];
+    };
+
+    let slots = buildSlots(gap, spread);
+    if (slots.length < N) slots = buildSlots(0, 0);
+    if (slots.length < N) return computePolygonPerimeterSlotsLegacy(input);
+
+    // 5. Zuordnung: zyklisch-monotone DP ueber Winkel um den Marker-Schwerpunkt
+    const cx = markers.reduce((a, m) => a + m.x, 0) / N;
+    const cy = markers.reduce((a, m) => a + m.y, 0) / N;
+    const ang = (p: Slot) => Math.atan2(p.y - cy, p.x - cx);
+    const ms = [...markers].sort((a, b) => ang(a) - ang(b) || a.id.localeCompare(b.id));
+    const ss = [...slots].sort((a, b) => ang(a) - ang(b) || a.x - b.x || a.y - b.y);
+    const M = ss.length;
+    const r2Penalty = r; // Reihe 1 bevorzugen (Reihe 2 nur, wenn deutlich kuerzere Linie)
+    const cost = (i: number, k: number) =>
+        Math.hypot(ms[i].x - ss[k].x, ms[i].y - ss[k].y) + (ss[k].row === 2 ? r2Penalty : 0);
+
+    let bestTotal = Infinity;
+    let bestPick: number[] = [];
+    const dp = new Float64Array((N + 1) * (M + 1));
+    const take = new Uint8Array((N + 1) * (M + 1));
+    const idx = (i: number, k: number) => i * (M + 1) + k;
+    for (let rot = 0; rot < M; rot++) {
+        dp.fill(Infinity);
+        take.fill(0);
+        for (let k = 0; k <= M; k++) dp[idx(0, k)] = 0;
+        for (let i = 1; i <= N; i++) {
+            for (let k = i; k <= M; k++) {
+                const skip = dp[idx(i, k - 1)];
+                const use = dp[idx(i - 1, k - 1)] + cost(i - 1, (rot + k - 1) % M);
+                if (use <= skip) { dp[idx(i, k)] = use; take[idx(i, k)] = 1; }
+                else dp[idx(i, k)] = skip;
+            }
+        }
+        const total = dp[idx(N, M)];
+        if (total < bestTotal - 1e-9) {
+            bestTotal = total;
+            const pick: number[] = new Array(N);
+            let i = N, k = M;
+            while (i > 0) {
+                if (take[idx(i, k)]) { pick[i - 1] = (rot + k - 1) % M; i--; }
+                k--;
+            }
+            bestPick = pick;
+        }
+    }
+
+    const assigned: Slot[] = bestPick.map(k => ({ x: ss[k].x, y: ss[k].y }));
+
+    // Kreuzungs-Tausch (Plaetze bleiben dieselben, nur die Zuordnung aendert sich)
+    for (let pass = 0; pass < 20; pass++) {
+        let swapped = false;
+        for (let i = 0; i < N; i++) {
+            for (let j = i + 1; j < N; j++) {
+                if (segmentsCross(
+                    ms[i].x, ms[i].y, assigned[i].x, assigned[i].y,
+                    ms[j].x, ms[j].y, assigned[j].x, assigned[j].y,
+                )) {
+                    const t = assigned[i]; assigned[i] = assigned[j]; assigned[j] = t;
+                    swapped = true;
+                }
+            }
+        }
+        if (!swapped) break;
+    }
+
+    ms.forEach((m, i) => { result[m.id] = assigned[i]; });
     return result;
 }
