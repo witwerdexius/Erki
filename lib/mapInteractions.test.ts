@@ -5,6 +5,7 @@ import {
     resolveColorConflicts,
     deriveContainerHeight,
     computeMapScale,
+    visualToStoredPercent,
 } from './mapInteractions';
 import type { Station } from '@/lib/types';
 
@@ -132,5 +133,26 @@ describe('computeMapScale', () => {
     });
     it('liefert 1 bei Groesse 0', () => {
         expect(computeMapScale(0, 0)).toBe(1);
+    });
+});
+
+describe('visualToStoredPercent', () => {
+    it('Zoom 1: unveraendert', () => {
+        expect(visualToStoredPercent({ x: 12, y: 80 }, 1)).toEqual({ x: 12, y: 80 });
+    });
+    it('Mitte bleibt bei jedem Zoom die Mitte', () => {
+        expect(visualToStoredPercent({ x: 50, y: 50 }, 0.7)).toEqual({ x: 50, y: 50 });
+    });
+    it('ist die Umkehrung von sichtbar = 50 + (gespeichert - 50) * zoom', () => {
+        for (const zoom of [0.7, 0.9, 1.2, 1.3]) {
+            const stored = { x: 23, y: 71 };
+            const visual = { x: 50 + (stored.x - 50) * zoom, y: 50 + (stored.y - 50) * zoom };
+            const back = visualToStoredPercent(visual, zoom);
+            expect(back.x).toBeCloseTo(stored.x, 10);
+            expect(back.y).toBeCloseTo(stored.y, 10);
+        }
+    });
+    it('Zoom 0 oder negativ -> wie Zoom 1 (kein NaN/Infinity)', () => {
+        expect(visualToStoredPercent({ x: 30, y: 40 }, 0)).toEqual({ x: 30, y: 40 });
     });
 });
