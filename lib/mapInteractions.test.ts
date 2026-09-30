@@ -6,6 +6,7 @@ import {
     deriveContainerHeight,
     computeMapScale,
     visualToStoredPercent,
+    fitPageSize,
     stationColorHex,
     STATION_COLOR_HEX,
 } from './mapInteractions';
@@ -169,5 +170,34 @@ describe('stationColorHex', () => {
     });
     it('colorVariant 0 wird nicht als "leer" behandelt', () => {
         expect(stationColorHex(0, 3)).toBe(STATION_COLOR_HEX[0]);
+    });
+});
+
+describe('fitPageSize', () => {
+    const A4 = 210 / 297;
+    it('Hochformat auf dem iPhone: exakt A4, durch die Breite begrenzt', () => {
+        // 390 px breit, viel Hoehe verfuegbar (vorher: Blatt zu hoch)
+        const { width, height } = fitPageSize(374, 700, 'portrait', 1024, 0.8 * 844);
+        expect(width).toBeCloseTo(374, 5);
+        expect(width / height).toBeCloseTo(A4, 6);
+    });
+    it('Hochformat am Desktop: durch die Hoehe (max 80vh) begrenzt', () => {
+        const { width, height } = fitPageSize(1200, 900, 'portrait', 1024, 0.8 * 1000);
+        expect(height).toBeCloseTo(800, 5);
+        expect(width / height).toBeCloseTo(A4, 6);
+    });
+    it('Querformat: volle Breite bis max. 1024 px, Hoehe folgt', () => {
+        expect(fitPageSize(1400, 900, 'landscape', 1024, 800)).toEqual({ width: 1024, height: 1024 * A4 });
+        const small = fitPageSize(360, 600, 'landscape', 1024, 800);
+        expect(small.width).toBe(360);
+        expect(small.height / small.width).toBeCloseTo(A4, 6);
+    });
+    it('noch nicht gemessen -> 0', () => {
+        expect(fitPageSize(0, 0, 'portrait', 1024, 800)).toEqual({ width: 0, height: 0 });
+    });
+    it('Hoehe noch 0 (Layout nicht fertig) -> ueber die Breite', () => {
+        const { width, height } = fitPageSize(374, 0, 'portrait', 1024, Infinity);
+        expect(width).toBe(374);
+        expect(width / height).toBeCloseTo(A4, 6);
     });
 });
