@@ -4,6 +4,7 @@ import {
     distributeColors,
     resolveColorConflicts,
     deriveContainerHeight,
+    computeMapScale,
 } from './mapInteractions';
 import type { Station } from '@/lib/types';
 
@@ -119,5 +120,17 @@ describe('resolveColorConflicts', () => {
         // a rotiert auf 1. c/d/e weit weg, kein weiterer Konflikt.
         const result = resolveColorConflicts('a', stations);
         expect(result.find(s => s.id === 'a')?.colorVariant).toBe(1);
+    });
+});
+
+describe('computeMapScale', () => {
+    it('nutzt die lange Seite: Hoch- und Querformat ergeben denselben Faktor', () => {
+        const quer = computeMapScale(2480, 1754);
+        const hoch = computeMapScale(1754, 2480);
+        expect(quer).toBeCloseTo(3.1, 5);
+        expect(hoch).toBeCloseTo(quer, 5);
+    });
+    it('liefert 1 bei Groesse 0', () => {
+        expect(computeMapScale(0, 0)).toBe(1);
     });
 });

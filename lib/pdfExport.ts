@@ -114,7 +114,7 @@ function createPageCanvas(aspectRatio: 'landscape' | 'portrait'): {
   const ctx = canvas.getContext('2d')!;
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, W, H);
-  return { canvas, ctx, size: { W, H, mapScale: W / 800 } };
+  return { canvas, ctx, size: { W, H, mapScale: Math.max(W, H) / 800 } };
 }
 
 async function loadImageFromUrl(url: string): Promise<HTMLImageElement> {
