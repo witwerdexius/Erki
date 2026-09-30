@@ -173,6 +173,17 @@ describe('computePolygonPerimeterSlots (Offset-Ring)', () => {
         expectCleanLayout(res, markers, [zoomed], W, H, R);
     });
 
+    it('Maske mit Zungen bis an den Seitenrand (OG/EG/UG-Beschriftung): kein Kreis naeher als r + offset', () => {
+        // Maskenform eines echten Plans: links drei schmale Zungen bis zum Seitenrand
+        const tabs: MaskPolygon = { points: [{ x: -2.36, y: 14.18 }, { x: 16.83, y: 15.17 }, { x: 24.22, y: 7.26 }, { x: 44.40, y: 12.91 }, { x: 44.20, y: 38.34 }, { x: 62.99, y: 45.69 }, { x: 77.98, y: 33.96 }, { x: 100.56, y: 43.29 }, { x: 100.16, y: 55.02 }, { x: 81.17, y: 75.36 }, { x: 68.18, y: 77.34 }, { x: 46.60, y: 70.14 }, { x: 32.42, y: 92.60 }, { x: 11.23, y: 86.10 }, { x: 12.63, y: 76.92 }, { x: 0.84, y: 77.06 }, { x: 0.64, y: 71.12 }, { x: 12.63, y: 71.27 }, { x: 12.63, y: 59.96 }, { x: 12.43, y: 49.22 }, { x: -0.36, y: 49.37 }, { x: 0.44, y: 43.15 }, { x: 12.23, y: 43.43 }, { x: 11.63, y: 25.35 }, { x: 14.03, y: 20.97 }, { x: -0.76, y: 20.97 }, { x: -0.96, y: 15.17 }] };
+        const W = SHORT, H = LONG;
+        const markers = markersInside(tabs, W, H, 21);
+        const res = computePolygonPerimeterSlots({ markers, containerWidth: W, containerHeight: H, masks: [tabs], bubbleRadius: R });
+        const { pts, dist } = expectCleanLayout(res, markers, [tabs], W, H, R);
+        const cell = Math.max(3, R / 8);
+        for (const p of pts) expect(dist(p.x, p.y)).toBeGreaterThanOrEqual(0.55 * R - cell / 2 - 1e-6);
+    });
+
     it('deterministisch', () => {
         const W = SHORT, H = LONG;
         const markers = markersInside(tallMask, W, H, 15);
