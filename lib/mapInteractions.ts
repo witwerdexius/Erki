@@ -252,3 +252,33 @@ export function stationColorHex(colorVariant: number | null | undefined, index: 
     const n = STATION_COLOR_HEX.length;
     return STATION_COLOR_HEX[((i % n) + n) % n];
 }
+
+/**
+ * Blattgroesse (A4) in px, eingepasst in den verfuegbaren Bereich.
+ * Ersetzt die reine CSS-Loesung (aspect-ratio + h-full), die iOS-Safari
+ * nicht zuverlaessig umsetzt (Blatt wurde dort zu hoch -> Maske, Bild und
+ * Kreise verschoben).
+ *  - Querformat: volle Breite (max. maxLandscapeWidth), Hoehe folgt.
+ *  - Hochformat: volle Hoehe (max. maxPortraitHeight), bei zu wenig Breite
+ *    wird ueber die Breite begrenzt.
+ */
+export function fitPageSize(
+    availW: number,
+    availH: number,
+    aspectRatio: 'portrait' | 'landscape',
+    maxLandscapeWidth: number,
+    maxPortraitHeight: number,
+): { width: number; height: number } {
+    if (availW <= 0) return { width: 0, height: 0 };
+    if (aspectRatio === 'landscape') {
+        const width = Math.min(availW, maxLandscapeWidth);
+        return { width, height: width * (210 / 297) };
+    }
+    let height = Math.min(availH > 0 ? availH : Infinity, maxPortraitHeight);
+    let width = height * (210 / 297);
+    if (!Number.isFinite(width) || width > availW) {
+        width = availW;
+        height = width * (297 / 210);
+    }
+    return { width, height };
+}

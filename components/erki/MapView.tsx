@@ -12,6 +12,7 @@ import { computePolygonPerimeterSlots, type BlockedZone, type MaskPolygon } from
 import {
     clientToPercent,
     visualToStoredPercent,
+    fitPageSize,
     stationColorHex,
     deriveContainerHeight,
     computeMapScale,
@@ -114,6 +115,24 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
     const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
 
     const containerRef = useRef<HTMLDivElement>(null);
+    // Verfuegbarer Bereich fuer das Blatt (Scroll-Wrapper, ohne Padding).
+    const pageAreaRef = useRef<HTMLDivElement>(null);
+    const [pageArea, setPageArea] = useState<{ w: number; h: number; vh: number }>({ w: 0, h: 0, vh: 0 });
+    useEffect(() => {
+        const el = pageAreaRef.current;
+        if (!el) return;
+        const measure = () => {
+            const cs = getComputedStyle(el);
+            const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+            const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+            setPageArea({ w: el.clientWidth - padX, h: el.clientHeight - padY, vh: window.innerHeight });
+        };
+        measure();
+        const ro = new ResizeObserver(measure);
+        ro.observe(el);
+        window.addEventListener('resize', measure);
+        return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
+    }, []);
     const [containerWidth, setContainerWidth] = useState(0);
     const mapScale = containerWidth > 0
         ? computeMapScale(containerWidth, deriveContainerHeight(containerWidth, aspectRatio))
@@ -407,10 +426,14 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
         updateActivePlan({ labelOverlay: { x: 5, y: 12, text: 'LAGEPLAN', fontSize: 24 } });
     };
 
+    // Blattgroesse in px (A4 exakt, browserunabhaengig). max-w-5xl = 1024px, max-h = 80vh.
+    const pageSize = fitPageSize(pageArea.w, pageArea.h, aspectRatio, 1024, pageArea.vh * 0.8 || Infinity);
+    const pageStyle = pageSize.width > 0 ? { width: pageSize.width, height: pageSize.height } : undefined;
+
     // ── JSX ───────────────────────────────────────────────────────────────────
     return (
         <div className="flex-1 flex flex-col overflow-hidden relative">
-            <div className="absolute top-3 right-3 z-40 flex flex-wrap gap-2 justify-end items-center max-w-[calc(100%-1.5rem)]">
+            <div className="relative shrink-0 px-2 pt-2 sm:p-0 sm:absolute sm:top-3 sm:right-3 z-40 flex flex-wrap gap-2 justify-center sm:justify-end items-center sm:max-w-[calc(100%-1.5rem)]">
                 {onlineUsers && currentUser && (
                     <PresenceStack onlineUsers={onlineUsers} currentUser={currentUser} />
                 )}
@@ -562,14 +585,16 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                 )}
             </div>
 
-            <div className="flex-1 overflow-auto p-2 sm:p-8 flex items-center justify-center" style={{ overscrollBehavior: 'contain' }}>
+            <div ref={pageAreaRef} className="flex-1 min-h-0 overflow-auto p-2 sm:p-8 flex items-center justify-center" style={{ overscrollBehavior: 'contain' }}>
                 <div
                     ref={containerRef}
                     role="application"
                     aria-label="Karten-Editor"
                     className={cn(
                         "relative bg-white shadow-2xl overflow-hidden border border-gray-200 transition-all duration-500",
-                        aspectRatio === 'landscape' ? "aspect-[297/210] h-auto w-full max-w-5xl" : "aspect-[210/297] w-auto h-full max-h-[80vh]"
+                        // CSS nur als Fallback bis zur ersten Messung; danach feste px-Groesse (pageStyle)
+                        aspectRatio === 'landscape' ? "aspect-[297/210] h-auto w-full max-w-5xl" : "aspect-[210/297] w-auto h-full max-h-[80vh]",
+                        "shrink-0"
                     )}
                     onMouseMove={(e) => { handleMouseMove(e); handleMaskMouseMove(e); handleOverlayMouseMove(e.clientX, e.clientY); }}
                     onMouseUp={() => { handleMouseUp(); stopOverlayDrag(); }}
@@ -579,7 +604,7 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                     onClick={handleMapClick}
                     onDoubleClick={handleMapDoubleClick}
                     onKeyDown={(e) => { if (e.key === 'Escape') { handleMouseUp(); stopOverlayDrag(); } }}
-                    style={{ cursor: maskDrawing ? 'crosshair' : undefined, touchAction: 'none' }}
+                    style={{ ...pageStyle, cursor: maskDrawing ? 'crosshair' : undefined, touchAction: 'none' }}
                 >
                     {/* Zoom-Wrapper: Hintergrundbild + Masken skalieren gemeinsam */}
                     <div
