@@ -6,6 +6,8 @@ import {
     deriveContainerHeight,
     computeMapScale,
     visualToStoredPercent,
+    stationColorHex,
+    STATION_COLOR_HEX,
 } from './mapInteractions';
 import type { Station } from '@/lib/types';
 
@@ -154,5 +156,18 @@ describe('visualToStoredPercent', () => {
     });
     it('Zoom 0 oder negativ -> wie Zoom 1 (kein NaN/Infinity)', () => {
         expect(visualToStoredPercent({ x: 30, y: 40 }, 0)).toEqual({ x: 30, y: 40 });
+    });
+});
+
+describe('stationColorHex', () => {
+    it('nutzt colorVariant, wenn gesetzt', () => {
+        expect(stationColorHex(2, 0)).toBe(STATION_COLOR_HEX[2]);
+    });
+    it('faellt auf den Index zurueck (modulo 4), wie Blasen und Marker', () => {
+        expect(stationColorHex(undefined, 5)).toBe(STATION_COLOR_HEX[1]);
+        expect(stationColorHex(null, 3)).toBe(STATION_COLOR_HEX[3]);
+    });
+    it('colorVariant 0 wird nicht als "leer" behandelt', () => {
+        expect(stationColorHex(0, 3)).toBe(STATION_COLOR_HEX[0]);
     });
 });
