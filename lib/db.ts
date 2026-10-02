@@ -87,6 +87,51 @@ export function stationToRow(station: Station, planningId: string, sortOrder: nu
   };
 }
 
+export type StationRow = ReturnType<typeof stationToRow>;
+
+export interface StationChanges {
+  /** Neue Stationen (lokal angelegt, nicht in previousPlan) → INSERT. */
+  inserts: StationRow[];
+  /** Geänderte Stationen → UPDATE nur der geänderten Spalten. */
+  updates: { id: string; patch: Partial<StationRow> }[];
+  /** Lokal gelöschte Stationen (in previousPlan, nicht mehr in next) → DELETE. */
+  deleteIds: string[];
+}
+
+/**
+ * Field-Level-Diff für Stationen (analog zu diffPlanRow).
+ *
+ * Schreibt nur, was der lokale Client seit previousPlan selbst geändert hat.
+ * Stationen, die ein anderer Client (oder der MCP-Server) parallel angelegt
+ * oder geändert hat und die lokal noch nicht angekommen sind, bleiben so
+ * unberührt: Sie werden weder überschrieben noch gelöscht.
+ */
+export function diffStations(prev: Station[], next: Station[], planningId: string): StationChanges {
+  const prevById = new Map(prev.map((s, i) => [s.id, { s, i }]));
+  const nextIds = new Set(next.map(s => s.id));
+  const inserts: StationRow[] = [];
+  const updates: { id: string; patch: Partial<StationRow> }[] = [];
+
+  next.forEach((s, i) => {
+    const before = prevById.get(s.id);
+    const rowNext = stationToRow(s, planningId, i);
+    if (!before) {
+      inserts.push(rowNext);
+      return;
+    }
+    const rowPrev = stationToRow(before.s, planningId, before.i);
+    const patch: Record<string, unknown> = {};
+    for (const key of Object.keys(rowNext) as (keyof StationRow)[]) {
+      if (key === 'id' || key === 'planning_id') continue;
+      if (JSON.stringify(rowPrev[key]) !== JSON.stringify(rowNext[key])) patch[key] = rowNext[key];
+    }
+    if (Object.keys(patch).length > 0) updates.push({ id: s.id, patch: patch as Partial<StationRow> });
+  });
+
+  const deleteIds = prev.map(s => s.id).filter(id => !nextIds.has(id));
+  return { inserts, updates, deleteIds };
+}
+
 // ── Public API ──────────────────────────────────────────────────
 
 export async function loadPlannings(): Promise<Plan[]> {
@@ -238,23 +283,8 @@ export async function savePlanning(plan: Plan, previousPlan?: Plan): Promise<num
     id: UUID_RE.test(s.id) ? s.id : crypto.randomUUID(),
   }));
 
-  // Aktuelle Station-IDs aus DB laden, um entfernte Stationen gezielt zu löschen
-  const { data: existingRows, error: fetchError } = await supabase
-    .from('stations')
-    .select('id')
-    .eq('planning_id', plan.id);
-  if (fetchError) {
-    console.error('[savePlanning] stations ID-Fetch Fehler:', fetchError);
-    throw fetchError;
-  }
-  const existingIds = new Set((existingRows ?? []).map((r: { id: string }) => r.id));
-  const newIds = new Set(stations.map(s => s.id));
-  const idsToDelete = [...existingIds].filter(id => !newIds.has(id));
-
-  // plannings UPDATE und stations UPSERT parallel ausführen.
-  // Bei previousPlan: nur Diff-Felder updaten (verhindert Überschreiben
-  // parallel editierter Spalten). Sonst: Vollupdate (Backward-Compat).
-  const rows = stations.map((s, i) => stationToRow(s, plan.id, i));
+  // plannings UPDATE: bei previousPlan nur Diff-Felder (verhindert Überschreiben
+  // parallel editierter Spalten), sonst Vollupdate (Backward-Compat).
   const updatePayload = buildPlanningUpdatePayload(plan, previousPlan);
   let planUpdateBuilder = supabase
     .from('plannings')
@@ -267,44 +297,83 @@ export async function savePlanning(plan: Plan, previousPlan?: Plan): Promise<num
   // DB-Trigger bump_plannings_version() inkrementiert sie), damit der Client
   // immer gegen die aktuelle Version speichert und keinen False-Positive
   // VersionConflictError auslöst.
-  const planUpdate = planUpdateBuilder.select('id,version');
-  const stationsUpsert = rows.length > 0
-    ? supabase.from('stations').upsert(rows, { onConflict: 'id' })
-    : Promise.resolve({ error: null, data: null });
-
-  const [{ data: planUpdateData, error: planError }, { error: upsertError }] = await Promise.all([planUpdate, stationsUpsert]);
+  const { data: planUpdateData, error: planError } = await planUpdateBuilder.select('id,version');
   if (planError) {
     console.error('[savePlanning] plannings UPDATE Fehler:', planError);
     console.error('[savePlanning] plannings UPDATE Fehler detail:', JSON.stringify(planError));
     throw planError;
   }
-  if (upsertError) {
-    console.error('[savePlanning] stations UPSERT Fehler:', upsertError);
-    throw upsertError;
-  }
-  // Wenn expectedVersion gesetzt war und kein Row matcht → Konflikt
+  // Wenn expectedVersion gesetzt war und kein Row matcht → Konflikt.
+  // Geprüft BEVOR Stationen geschrieben werden, damit ein veralteter Client nichts anfasst.
   if (expectedVersion !== null && Array.isArray(planUpdateData) && planUpdateData.length === 0) {
     console.warn('[savePlanning] VersionConflictError: erwartete Version', expectedVersion, 'für', plan.id);
     throw new VersionConflictError(plan.id, expectedVersion);
   }
-  // Neue Version aus der DB-Antwort lesen (vom Trigger hochgezählt)
   const newVersion: number | null =
     Array.isArray(planUpdateData) && planUpdateData.length > 0
       ? (planUpdateData[0] as { version: number }).version
       : null;
-  console.log('[savePlanning] plannings UPDATE + stations UPSERT ok (' + rows.length + ' Zeilen), neue Version:', newVersion);
 
-  // Entfernte Stationen gezielt löschen (nicht mehr im neuen Array vorhanden)
-  if (idsToDelete.length > 0) {
-    const { error: deleteError } = await supabase
-      .from('stations')
-      .delete()
-      .in('id', idsToDelete);
-    if (deleteError) {
-      console.error('[savePlanning] stations DELETE Fehler:', deleteError);
-      throw deleteError;
+  if (previousPlan) {
+    // Field-Level-Diff: nur eigene Änderungen schreiben. Stationen, die nur in der
+    // DB existieren (z. B. parallel per Realtime/MCP angelegt), werden NICHT gelöscht,
+    // und unveränderte Stationen werden nicht mit lokalem (evtl. veraltetem) Stand überschrieben.
+    const { inserts, updates, deleteIds } = diffStations(previousPlan.stations, stations, plan.id);
+    const validDeleteIds = deleteIds.filter(id => UUID_RE.test(id));
+
+    if (inserts.length > 0) {
+      const { error } = await supabase.from('stations').upsert(inserts, { onConflict: 'id' });
+      if (error) {
+        console.error('[savePlanning] stations INSERT Fehler:', error);
+        throw error;
+      }
     }
-    console.log('[savePlanning] entfernte Stationen gelöscht:', idsToDelete.length);
+    const updateResults = await Promise.all(
+      updates.map(u => supabase.from('stations').update(u.patch).eq('id', u.id)),
+    );
+    const updateError = updateResults.find(r => r.error)?.error;
+    if (updateError) {
+      console.error('[savePlanning] stations UPDATE Fehler:', updateError);
+      throw updateError;
+    }
+    if (validDeleteIds.length > 0) {
+      const { error } = await supabase.from('stations').delete().in('id', validDeleteIds);
+      if (error) {
+        console.error('[savePlanning] stations DELETE Fehler:', error);
+        throw error;
+      }
+    }
+    console.log('[savePlanning] Stationen-Diff:', inserts.length, 'neu,', updates.length, 'geändert,', validDeleteIds.length, 'gelöscht | neue Version:', newVersion);
+  } else {
+    // Backward-Compat ohne Baseline: alle Stationen upserten, in der DB fehlende löschen.
+    const { data: existingRows, error: fetchError } = await supabase
+      .from('stations')
+      .select('id')
+      .eq('planning_id', plan.id);
+    if (fetchError) {
+      console.error('[savePlanning] stations ID-Fetch Fehler:', fetchError);
+      throw fetchError;
+    }
+    const newIds = new Set(stations.map(s => s.id));
+    const idsToDelete = (existingRows ?? [])
+      .map((r: { id: string }) => r.id)
+      .filter(id => !newIds.has(id));
+    const rows = stations.map((s, i) => stationToRow(s, plan.id, i));
+    if (rows.length > 0) {
+      const { error } = await supabase.from('stations').upsert(rows, { onConflict: 'id' });
+      if (error) {
+        console.error('[savePlanning] stations UPSERT Fehler:', error);
+        throw error;
+      }
+    }
+    if (idsToDelete.length > 0) {
+      const { error } = await supabase.from('stations').delete().in('id', idsToDelete);
+      if (error) {
+        console.error('[savePlanning] stations DELETE Fehler:', error);
+        throw error;
+      }
+    }
+    console.log('[savePlanning] Vollspeicherung ohne Baseline:', rows.length, 'Stationen | neue Version:', newVersion);
   }
 
   console.log('[savePlanning] komplett abgeschlossen');
