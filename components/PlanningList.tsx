@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { loadPlannings, createPlanning, updatePlanningStatus, importPlannings, savePlanning } from '@/lib/db';
 import { Plan, PlanStatus, Profile, Community } from '@/lib/types';
 import { importPlanFromUrl } from '@/lib/actions';
+import { buildBackup, downloadBackup, isCompleteBackup } from '@/lib/backup';
 import AdminPanel from '@/components/AdminPanel';
 import PlanningHistory from '@/components/PlanningHistory';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -136,15 +137,14 @@ export default function PlanningList({ user, profile, community, onOpenPlan, onP
     }
   };
 
-  const handleExport = () => {
-    const data = JSON.stringify(plans);
-    const blob = new Blob([data], { type: 'application/octet-stream' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `erki-plaene-${new Date().toISOString().split('T')[0]}.rki`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleExport = async () => {
+    try {
+      const backup = await buildBackup(plans.map(p => p.id));
+      downloadBackup(backup, `erki-plaene-${new Date().toISOString().split('T')[0]}.rki`);
+    } catch (e) {
+      console.error('[handleExport] Fehler:', e);
+      alert('Fehler beim Erstellen des Backups.');
+    }
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -158,7 +158,10 @@ export default function PlanningList({ user, profile, community, onOpenPlan, onP
           await importPlannings(parsed, user.id);
           const refreshed = await loadPlannings();
           setPlans(refreshed);
-          alert(`${parsed.length} Planung(en) erfolgreich importiert.`);
+          const incomplete = parsed.some((p: unknown) => !isCompleteBackup(p));
+          alert(`${parsed.length} Planung(en) erfolgreich importiert.` + (incomplete
+            ? '\n\nHinweis: Die Datei stammt aus einer älteren Version und enthält ggf. keine Helferaufgaben, Erklärungsseite oder Hintergrundbild.'
+            : ''));
         } else {
           alert('Ungültiges Dateiformat. Bitte eine gültige .rki-Datei wählen.');
         }

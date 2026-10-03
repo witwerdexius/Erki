@@ -397,8 +397,17 @@ export async function updatePlanningStatus(id: string, status: PlanStatus): Prom
     : null;
 }
 
-/** Import a .rki array of plans, creating new DB entries for each. */
-export async function importPlannings(plans: Plan[], userId: string): Promise<void> {
+/**
+ * Import a .rki array of plans, creating new DB entries for each.
+ *
+ * Übernimmt alle Planungsfelder, Stationen und (ab Backup-Format 2) die
+ * Helferaufgaben. Schlägt ein Teilschritt fehl, wird die halb angelegte
+ * Planung wieder entfernt, damit keine unvollständigen Kopien zurückbleiben.
+ */
+export async function importPlannings(
+  plans: (Plan & { tasks?: PlanningTask[] })[],
+  userId: string,
+): Promise<void> {
   for (const plan of plans) {
     const { data, error } = await supabase
       .from('plannings')
@@ -412,17 +421,43 @@ export async function importPlannings(plans: Plan[], userId: string): Promise<vo
         logo_overlay: plan.logoOverlay ?? null,
         label_overlay: plan.labelOverlay ?? null,
         bg_zoom: plan.bgZoom ?? 1,
+        source_url: plan.sourceUrl ?? null,
+        explanation_data: plan.explanationData ?? null,
+        nachdenk_template: plan.nachdenk_template ?? null,
+        ...(plan.taskSections ? { task_sections: plan.taskSections } : {}),
       })
       .select()
       .single();
     if (error) throw error;
 
-    if (plan.stations.length > 0) {
-      // Neue UUIDs vergeben – .rki-Dateien können alte Non-UUID-IDs enthalten
-      const stationsWithUUIDs = plan.stations.map(s => ({ ...s, id: crypto.randomUUID() }));
-      const rows = stationsWithUUIDs.map((s, i) => stationToRow(s, data.id, i));
-      const { error: stationsError } = await supabase.from('stations').insert(rows);
-      if (stationsError) throw stationsError;
+    try {
+      if (plan.stations.length > 0) {
+        // Neue UUIDs vergeben – .rki-Dateien können alte Non-UUID-IDs enthalten
+        const stationsWithUUIDs = plan.stations.map(s => ({ ...s, id: crypto.randomUUID() }));
+        const rows = stationsWithUUIDs.map((s, i) => stationToRow(s, data.id, i));
+        const { error: stationsError } = await supabase.from('stations').insert(rows);
+        if (stationsError) throw stationsError;
+      }
+
+      if (Array.isArray(plan.tasks) && plan.tasks.length > 0) {
+        const taskRows = plan.tasks.map(t => ({
+          planning_id: data.id,
+          section: t.section,
+          name: t.name,
+          helpers_required: t.helpersRequired ?? 1,
+          sort_order: t.sortOrder ?? 0,
+          volunteers: t.volunteers ?? [],
+          time: t.time ?? null,
+        }));
+        const { error: tasksError } = await supabase.from('planning_tasks').insert(taskRows);
+        if (tasksError) throw tasksError;
+      }
+    } catch (e) {
+      // Aufräumen: halb importierte Planung entfernen
+      await supabase.from('planning_tasks').delete().eq('planning_id', data.id);
+      await supabase.from('stations').delete().eq('planning_id', data.id);
+      await supabase.from('plannings').delete().eq('id', data.id);
+      throw e;
     }
   }
 }

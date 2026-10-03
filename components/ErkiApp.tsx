@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { Plan, Station, StationTemplate, TaskTemplate, PlanningTask, TaskSection, DEFAULT_TASK_SECTIONS } from '@/lib/types';
 import type { Phase, Task } from '@/components/zeitplan/types';
 import { loadTemplates, createTemplate, updateTemplate, deleteTemplate, loadTaskTemplates, createTaskTemplate, updateTaskTemplate, deleteTaskTemplate, loadPlanningFull, loadPlanningTasks, createPlanningTask, deletePlanningTask, updatePlanningTask, updatePlanningTaskVolunteers } from '@/lib/db';
+import { buildBackup, downloadBackup } from '@/lib/backup';
 import ShareButton from './ShareButton';
 import { ThemeToggle } from './ThemeToggle';
 import { cn } from '@/lib/utils';
@@ -531,8 +532,16 @@ export default function ErkiApp({ plan, user, displayName, onPlanUpdate, onExter
                         updateActivePlan({
                             title: imported.title ?? plan.title,
                             stations: imported.stations,
+                            url: imported.url,
                             backgroundImage: imported.backgroundImage,
                             masks: imported.masks,
+                            logoOverlay: imported.logoOverlay,
+                            labelOverlay: imported.labelOverlay,
+                            bgZoom: imported.bgZoom,
+                            sourceUrl: imported.sourceUrl,
+                            explanationData: imported.explanationData,
+                            taskSections: imported.taskSections,
+                            nachdenk_template: imported.nachdenk_template,
                         });
                         alert('Backup geladen! Bitte speichern.');
                     } else {
@@ -812,16 +821,19 @@ export default function ErkiApp({ plan, user, displayName, onPlanUpdate, onExter
                         </label>
                         <p className="text-center">© 2026 Erlebnis Kirche Planner · v{process.env.NEXT_PUBLIC_APP_VERSION}</p>
                         <button
-                            onClick={() => {
-                                const data = JSON.stringify([plan]);
-                                const blob = new Blob([data], { type: 'application/octet-stream' });
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                const safeName = plan.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(?:^-+)|(?:-+$)/g, '') || 'plan';
-                                a.download = `erki-${safeName}-${new Date().toISOString().split('T')[0]}.rki`;
-                                a.click();
-                                URL.revokeObjectURL(url);
+                            onClick={async () => {
+                                try {
+                                    // Erst aktuellen Stand speichern, dann vollständig aus der DB exportieren
+                                    // (der UI-State enthält je nach Tab kein Bild/keine Masken und keine Aufgaben).
+                                    const current = latestPlanRef.current ?? plan;
+                                    await onSaveNow(current);
+                                    const backup = await buildBackup([current.id]);
+                                    const safeName = current.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(?:^-+)|(?:-+$)/g, '') || 'plan';
+                                    downloadBackup(backup, `erki-${safeName}-${new Date().toISOString().split('T')[0]}.rki`);
+                                } catch (err) {
+                                    console.error('[Export] Fehler:', err);
+                                    alert('Fehler beim Erstellen des Backups.');
+                                }
                             }}
                             className="hover:text-gray-600 transition-colors"
                             title="Diese Planung als .rki exportieren"
