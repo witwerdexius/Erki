@@ -155,11 +155,19 @@ export default function PlanningList({ user, profile, community, onOpenPlan, onP
       try {
         const parsed = JSON.parse(ev.target?.result as string);
         if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id && parsed[0].stations) {
-          await importPlannings(parsed, user.id);
+          // Pro Planung Namen abfragen; Abbrechen überspringt diese Planung.
+          const toImport: Plan[] = [];
+          for (const p of parsed as Plan[]) {
+            const name = window.prompt('Name der importierten Planung:', `${p.title ?? 'Planung'} (Import)`);
+            if (name === null) continue;
+            toImport.push({ ...p, title: name.trim() || p.title });
+          }
+          if (toImport.length === 0) return;
+          await importPlannings(toImport, user.id);
           const refreshed = await loadPlannings();
           setPlans(refreshed);
-          const incomplete = parsed.some((p: unknown) => !isCompleteBackup(p));
-          alert(`${parsed.length} Planung(en) erfolgreich importiert.` + (incomplete
+          const incomplete = toImport.some((p: unknown) => !isCompleteBackup(p));
+          alert(`${toImport.length} Planung(en) erfolgreich importiert.` + (incomplete
             ? '\n\nHinweis: Die Datei stammt aus einer älteren Version und enthält ggf. keine Helferaufgaben, Erklärungsseite oder Hintergrundbild.'
             : ''));
         } else {
