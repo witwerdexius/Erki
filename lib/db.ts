@@ -716,6 +716,44 @@ export async function loadPlanningTasks(planningId: string): Promise<PlanningTas
   return (data ?? []).map(rowToTask);
 }
 
+/**
+ * Ersetzt alle Helferaufgaben einer Planung (für die Backup-Wiederherstellung).
+ * Neue Aufgaben werden zuerst eingefügt, erst danach die alten gelöscht,
+ * damit bei einem Fehler keine Aufgaben verloren gehen.
+ */
+export async function replacePlanningTasks(planningId: string, tasks: PlanningTask[]): Promise<PlanningTask[]> {
+  const { data: oldRows, error: fetchError } = await supabase
+    .from('planning_tasks')
+    .select('id')
+    .eq('planning_id', planningId);
+  if (fetchError) throw fetchError;
+
+  let inserted: PlanningTask[] = [];
+  if (tasks.length > 0) {
+    const { data, error } = await supabase
+      .from('planning_tasks')
+      .insert(tasks.map(t => ({
+        planning_id: planningId,
+        section: t.section,
+        name: t.name,
+        helpers_required: t.helpersRequired ?? 1,
+        sort_order: t.sortOrder ?? 0,
+        volunteers: t.volunteers ?? [],
+        time: t.time ?? null,
+      })))
+      .select();
+    if (error) throw error;
+    inserted = (data ?? []).map(rowToTask);
+  }
+
+  const oldIds = (oldRows ?? []).map((r: { id: string }) => r.id);
+  if (oldIds.length > 0) {
+    const { error } = await supabase.from('planning_tasks').delete().in('id', oldIds);
+    if (error) throw error;
+  }
+  return inserted;
+}
+
 export async function createPlanningTask(
   planningId: string,
   section: TaskSection,

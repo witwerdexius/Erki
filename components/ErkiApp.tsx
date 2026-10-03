@@ -6,7 +6,7 @@ import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { Plan, Station, StationTemplate, TaskTemplate, PlanningTask, TaskSection, DEFAULT_TASK_SECTIONS } from '@/lib/types';
 import type { Phase, Task } from '@/components/zeitplan/types';
-import { loadTemplates, createTemplate, updateTemplate, deleteTemplate, loadTaskTemplates, createTaskTemplate, updateTaskTemplate, deleteTaskTemplate, loadPlanningFull, loadPlanningTasks, createPlanningTask, deletePlanningTask, updatePlanningTask, updatePlanningTaskVolunteers } from '@/lib/db';
+import { loadTemplates, createTemplate, updateTemplate, deleteTemplate, loadTaskTemplates, createTaskTemplate, updateTaskTemplate, deleteTaskTemplate, loadPlanningFull, loadPlanningTasks, replacePlanningTasks, createPlanningTask, deletePlanningTask, updatePlanningTask, updatePlanningTaskVolunteers } from '@/lib/db';
 import { buildBackup, downloadBackup } from '@/lib/backup';
 import ShareButton from './ShareButton';
 import { ThemeToggle } from './ThemeToggle';
@@ -520,36 +520,51 @@ export default function ErkiApp({ plan, user, displayName, onPlanUpdate, onExter
 
     const handleBackupImport = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
+        e.target.value = '';
         if (file) {
             const reader = new FileReader();
-            reader.onload = (ev) => {
+            reader.onload = async (ev) => {
                 try {
                     const content = ev.target?.result as string;
                     const parsed = JSON.parse(content);
-                    if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id && parsed[0].stations) {
-                        // Load first plan from backup into current editor
-                        const imported = parsed[0];
-                        updateActivePlan({
-                            title: imported.title ?? plan.title,
-                            stations: imported.stations,
-                            url: imported.url,
-                            backgroundImage: imported.backgroundImage,
-                            masks: imported.masks,
-                            logoOverlay: imported.logoOverlay,
-                            labelOverlay: imported.labelOverlay,
-                            bgZoom: imported.bgZoom,
-                            sourceUrl: imported.sourceUrl,
-                            explanationData: imported.explanationData,
-                            taskSections: imported.taskSections,
-                            nachdenk_template: imported.nachdenk_template,
-                        });
-                        alert('Backup geladen! Bitte speichern.');
-                    } else {
+                    if (!(Array.isArray(parsed) && parsed.length > 0 && parsed[0].id && parsed[0].stations)) {
                         alert('Ungültiges Dateiformat. Bitte eine gültige .rki-Datei wählen.');
+                        return;
                     }
+                    const imported = parsed[0];
+                    const hasTasks = Array.isArray(imported.tasks);
+                    const ok = window.confirm(
+                        `Backup „${imported.title ?? ''}“ wiederherstellen?\n\n` +
+                        'Die geöffnete Planung wird vollständig überschrieben: alle Einstellungen, Stationen' +
+                        (hasTasks ? ' und Helferaufgaben.' : '.\n\nHinweis: Diese Datei stammt aus einer älteren Version und enthält keine Helferaufgaben – die vorhandenen Aufgaben bleiben unverändert.'),
+                    );
+                    if (!ok) return;
+
+                    updateActivePlan({
+                        title: imported.title ?? plan.title,
+                        status: imported.status ?? plan.status,
+                        stations: imported.stations,
+                        url: imported.url,
+                        backgroundImage: imported.backgroundImage,
+                        masks: imported.masks ?? [],
+                        logoOverlay: imported.logoOverlay,
+                        labelOverlay: imported.labelOverlay,
+                        bgZoom: imported.bgZoom ?? 1,
+                        sourceUrl: imported.sourceUrl,
+                        explanationData: imported.explanationData,
+                        taskSections: imported.taskSections,
+                        nachdenk_template: imported.nachdenk_template,
+                    });
+
+                    if (hasTasks) {
+                        const restored = await replacePlanningTasks(plan.id, imported.tasks);
+                        setPlanningTasks(restored);
+                        aufgabenLoadedForPlanRef.current = plan.id;
+                    }
+                    alert('Backup wiederhergestellt.');
                 } catch (error) {
-                    console.error('Failed to parse backup', error);
-                    alert('Fehler beim Laden der Datei.');
+                    console.error('Failed to restore backup', error);
+                    alert('Fehler beim Wiederherstellen des Backups.');
                 }
             };
             reader.readAsText(file);
