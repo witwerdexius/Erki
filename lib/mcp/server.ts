@@ -1,6 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { McpContext, assertPlanningAccess, assertRowAccess, createSnapshot } from './context';
+import { effectiveAreaName } from '@/lib/areas';
 
 // ── Hilfen ──────────────────────────────────────────────────────
 
@@ -32,7 +33,7 @@ function mapFields(input: Record<string, unknown>, map: Record<string, string>):
 
 // Spalten ohne große Data-URLs (background_image, nachdenk_template)
 const PLANNING_COLS =
-  'id, user_id, title, status, url, source_url, bg_zoom, masks, logo_overlay, label_overlay, explanation_data, task_sections, version, created_at, updated_at';
+  'id, user_id, title, status, url, source_url, bg_zoom, masks, areas, logo_overlay, label_overlay, explanation_data, task_sections, version, created_at, updated_at';
 
 // ── Schemas ─────────────────────────────────────────────────────
 
@@ -45,6 +46,10 @@ const planningFields = {
   sourceUrl: z.string().nullable().optional(),
   bgZoom: z.number().optional().describe('Hintergrund-Zoom, üblich: 0.5, 0.75, 1, 1.25, 1.5, 2'),
   masks: z.array(z.object({ points: z.array(point) })).optional().describe('Masken-Polygone, Koordinaten in % (0–100)'),
+  areas: z
+    .array(z.object({ id: z.string(), name: z.string(), points: z.array(point) }))
+    .optional()
+    .describe('Benannte Bereiche im Lageplan (z. B. Saal, Garten), Koordinaten in % (0–100, ungezoomt wie masks); wird komplett ersetzt'),
   logoOverlay: z.object({ x: z.number(), y: z.number(), size: z.number() }).nullable().optional(),
   labelOverlay: z.object({ x: z.number(), y: z.number(), text: z.string(), fontSize: z.number() }).nullable().optional(),
   explanationData: z
@@ -62,7 +67,7 @@ const planningFields = {
   taskSections: z.array(z.string()).optional().describe('Reihenfolge/Namen der Aufgaben-Abschnitte'),
 };
 const PLANNING_MAP: Record<string, string> = {
-  title: 'title', status: 'status', url: 'url', sourceUrl: 'source_url', bgZoom: 'bg_zoom', masks: 'masks',
+  title: 'title', status: 'status', url: 'url', sourceUrl: 'source_url', bgZoom: 'bg_zoom', masks: 'masks', areas: 'areas',
   logoOverlay: 'logo_overlay', labelOverlay: 'label_overlay', explanationData: 'explanation_data', taskSections: 'task_sections',
 };
 
@@ -82,11 +87,16 @@ const stationFields = {
   isFilled: z.boolean().optional(),
   colorVariant: z.number().int().min(0).max(3).optional(),
   helpersRequired: z.number().int().min(0).optional(),
+  areaId: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Bereich der Station: id aus planung.areas, "__none__" = kein Bereich, null = automatisch (Bereich, in dem der Marker liegt)'),
 };
 const STATION_MAP: Record<string, string> = {
   number: 'number', name: 'name', description: 'description', material: 'material', instructions: 'instructions',
   impulses: 'impulses', setupBy: 'setup_by', conductedBy: 'conducted_by', x: 'x', y: 'y', targetX: 'target_x',
-  targetY: 'target_y', isFilled: 'is_filled', colorVariant: 'color_variant', helpersRequired: 'helpers_required',
+  targetY: 'target_y', isFilled: 'is_filled', colorVariant: 'color_variant', helpersRequired: 'helpers_required', areaId: 'area_id',
 };
 
 const taskFields = {
@@ -131,7 +141,7 @@ export function buildMcpServer(ctx: McpContext): McpServer {
     'planung_lesen',
     {
       description:
-        'Liest eine Planung vollständig: Metadaten, Stationen (sortiert) und Helferaufgaben. Hintergrundbild und PDF-Vorlage werden nicht übertragen, nur ob sie vorhanden sind.',
+        'Liest eine Planung vollständig: Metadaten (inkl. Bereiche), Stationen (sortiert, mit wirksamem Bereich) und Helferaufgaben. Hintergrundbild und PDF-Vorlage werden nicht übertragen, nur ob sie vorhanden sind.',
       inputSchema: { planungId: z.string().uuid() },
     },
     wrap(async ({ planungId }: { planungId: string }) => {
@@ -143,9 +153,21 @@ export function buildMcpServer(ctx: McpContext): McpServer {
         db.from('planning_tasks').select('*').eq('planning_id', planungId).order('section').order('sort_order').order('created_at'),
       ]);
       for (const r of [plan, stations, tasks]) if (r.error) throw r.error;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const p = plan.data as any;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const stationen = (stations.data ?? []).map((s: any) => ({
+        ...s,
+        // wirksamer Bereich (manuell oder automatisch nach Marker-Position)
+        bereich: effectiveAreaName(
+          { targetX: s.target_x, targetY: s.target_y, areaId: s.area_id },
+          p?.areas ?? [],
+          p?.bg_zoom ?? 1,
+        ) || null,
+      }));
       return {
         planung: { ...plan.data, hasBackgroundImage: !!bg.data?.has_bg },
-        stationen: stations.data,
+        stationen,
         aufgaben: tasks.data,
       };
     }),

@@ -9,6 +9,7 @@ import {
 import type { Plan, Station } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { exportTablePDF } from '@/lib/pdfExport';
+import { AREA_NONE, autoAreaForStation, effectiveAreaName } from '@/lib/areas';
 import { supabase } from '@/lib/supabase';
 import {
     reorderStationsByDrop,
@@ -111,7 +112,10 @@ export default function StationsTable({
     const exportTableToPDF = async () => {
         await exportTablePDF({
             title: activePlan.title,
-            stations: activePlan.stations,
+            stations: activePlan.stations.map(s => ({
+                ...s,
+                area: effectiveAreaName(s, activePlan.areas, activePlan.bgZoom ?? 1),
+            })),
         });
     };
 
@@ -143,6 +147,35 @@ export default function StationsTable({
         updateActivePlan({
             stations: activePlan.stations.map(s => s.id === id ? { ...s, ...updates } : s),
         });
+    };
+
+    // Bereich-Auswahl: "Automatisch" (Marker-Position), "Kein Bereich" oder ein Bereich aus dem Lageplan
+    const areas = activePlan.areas ?? [];
+    const renderAreaSelect = (s: Station) => {
+        if (areas.length === 0) {
+            return (
+                <span className="text-sm text-gray-400 dark:text-gray-500" title="Bereiche im Lageplan mit dem Bereich-Werkzeug einzeichnen">–</span>
+            );
+        }
+        const auto = autoAreaForStation(s, areas, activePlan.bgZoom ?? 1);
+        const manualValid = s.areaId === AREA_NONE || areas.some(a => a.id === s.areaId);
+        return (
+            <select
+                value={manualValid ? (s.areaId as string) : ''}
+                onChange={(e) => updateStation(s.id, { areaId: e.target.value === '' ? null : e.target.value })}
+                className={cn(
+                    'w-full bg-transparent border border-gray-200 dark:border-gray-600 rounded-md px-1 py-1 text-sm focus:ring-1 focus:ring-[#6bbfd4]',
+                    !manualValid && 'text-gray-500 dark:text-gray-400 italic',
+                )}
+                aria-label="Bereich"
+            >
+                <option value="">{auto ? `${auto.name} (auto)` : 'Automatisch (keiner)'}</option>
+                {areas.map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+                <option value={AREA_NONE}>Kein Bereich</option>
+            </select>
+        );
     };
 
     const toggleExpandedRow = (id: string) => {
@@ -202,6 +235,7 @@ export default function StationsTable({
                             <th className="max-sm:hidden sm:table-cell p-4 w-8"></th>
                             <th className="p-4 w-10 text-xs font-bold uppercase text-gray-600 dark:text-gray-400 tracking-wider">Nr.</th>
                             <th className="p-4 w-48 text-xs font-bold uppercase text-gray-600 dark:text-gray-400 tracking-wider">Station</th>
+                            <th className="max-sm:hidden sm:table-cell p-4 w-40 text-xs font-bold uppercase text-gray-600 dark:text-gray-400 tracking-wider">Bereich</th>
                             <th className="max-sm:hidden sm:table-cell p-4 w-64 text-xs font-bold uppercase text-gray-600 dark:text-gray-400 tracking-wider">Beschreibung</th>
                             <th className="max-sm:hidden sm:table-cell p-4 w-64 text-xs font-bold uppercase text-gray-600 dark:text-gray-400 tracking-wider">Material</th>
                             <th className="max-sm:hidden sm:table-cell p-4 w-40 text-xs font-bold uppercase text-gray-600 dark:text-gray-400 tracking-wider">Gesprächsimpulse</th>
@@ -267,6 +301,9 @@ export default function StationsTable({
                                             <span>{editingMap[s.id].displayName} bearbeitet…</span>
                                         </div>
                                     )}
+                                </td>
+                                <td className="max-sm:hidden sm:table-cell p-4 w-40 align-top">
+                                    {renderAreaSelect(s)}
                                 </td>
                                 {/* Echo-Schutz: nur den DOM-Textinhalt überschreiben, wenn das
                                     Element NICHT fokussiert ist. Verhindert, dass eingehende
@@ -367,6 +404,10 @@ export default function StationsTable({
                             {expandedRows.has(s.id) && (
                                 <tr className="sm:hidden bg-gray-50/80 dark:bg-gray-700/80">
                                     <td colSpan={3} className="px-4 pb-4 pt-2 space-y-3">
+                                        <div>
+                                            <p className="text-xs font-bold uppercase text-gray-400 dark:text-gray-500 tracking-wider mb-1">Bereich</p>
+                                            {renderAreaSelect(s)}
+                                        </div>
                                         <div>
                                             <p className="text-xs font-bold uppercase text-gray-400 dark:text-gray-500 tracking-wider mb-1">Beschreibung</p>
                                             <textarea

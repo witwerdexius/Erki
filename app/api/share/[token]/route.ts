@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { extractUuid } from '@/lib/slugify';
 import { ShareTokenParamSchema } from '@/lib/api/validation';
+import { effectiveAreaName } from '@/lib/areas';
+import type { PlanArea } from '@/lib/types';
 
 export async function GET(
   req: NextRequest,
@@ -38,8 +40,8 @@ export async function GET(
   }
 
   const planningSelect = full
-    ? 'id, title, status, updated_at, background_image, masks, logo_overlay, label_overlay, bg_zoom, source_url'
-    : 'id, title, status, updated_at, bg_zoom, source_url';
+    ? 'id, title, status, updated_at, background_image, masks, logo_overlay, label_overlay, bg_zoom, source_url, areas'
+    : 'id, title, status, updated_at, bg_zoom, source_url, areas';
 
   const [
     { data: planning, error: planningError },
@@ -52,7 +54,7 @@ export async function GET(
       .maybeSingle(),
     supabase
       .from('stations')
-      .select('id, number, name, description, material, instructions, impulses, setup_by, conducted_by, x, y, target_x, target_y, is_filled, color_variant')
+      .select('id, number, name, description, material, instructions, impulses, setup_by, conducted_by, x, y, target_x, target_y, is_filled, color_variant, area_id')
       .eq('planning_id', planningId)
       .order('sort_order'),
   ]);
@@ -68,6 +70,10 @@ export async function GET(
     return NextResponse.json({ error: 'Nicht gefunden' }, { status: 404 });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const planAreas = ((planning as any)?.areas ?? []) as PlanArea[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const planZoom = ((planning as any)?.bg_zoom ?? 1) as number;
   const stations = (stationRows ?? []).map(r => ({
     id: r.id,
     number: r.number,
@@ -84,6 +90,8 @@ export async function GET(
     targetY: r.target_y,
     isFilled: r.is_filled,
     colorVariant: r.color_variant,
+    // nur der Name des wirksamen Bereichs; die Flaechen selbst bleiben intern
+    area: effectiveAreaName({ targetX: r.target_x, targetY: r.target_y, areaId: r.area_id }, planAreas, planZoom),
   }));
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

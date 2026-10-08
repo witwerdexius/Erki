@@ -54,6 +54,7 @@ export function rowToStation(row: Record<string, unknown>): Station {
     isFilled: row.is_filled as boolean | undefined,
     colorVariant: row.color_variant as number | undefined,
     helpersRequired: (row.helpers_required as number | null | undefined) ?? 1,
+    areaId: (row.area_id as string | null | undefined) ?? null,
   };
 }
 
@@ -83,7 +84,8 @@ export function isStationEcho(existing: Station, incoming: Station): boolean {
     existing.targetY === incoming.targetY &&
     existing.isFilled === incoming.isFilled &&
     existing.colorVariant === incoming.colorVariant &&
-    (existing.helpersRequired ?? 1) === (incoming.helpersRequired ?? 1)
+    (existing.helpersRequired ?? 1) === (incoming.helpersRequired ?? 1) &&
+    (existing.areaId ?? null) === (incoming.areaId ?? null)
   );
 }
 
@@ -120,6 +122,8 @@ export function mergeExternalPlanUpdate(
     // (z.B. planning_tasks → plannings bump) erhöht wurde, ohne dass
     // ein anderer Client den Plan tatsächlich bearbeitet hat.
     version: (row.version as number | undefined) ?? current.version,
+    // Bereiche sind leicht und werden auch im Tabellen-Tab gebraucht (Dropdown)
+    areas: Array.isArray(row.areas) ? (row.areas as Plan['areas']) : current.areas,
     ...heavy,
   };
 }

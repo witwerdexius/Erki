@@ -547,6 +547,7 @@ export default function ErkiApp({ plan, user, displayName, onPlanUpdate, onExter
                         url: imported.url,
                         backgroundImage: imported.backgroundImage,
                         masks: imported.masks ?? [],
+                        areas: imported.areas ?? [],
                         logoOverlay: imported.logoOverlay,
                         labelOverlay: imported.labelOverlay,
                         bgZoom: imported.bgZoom ?? 1,

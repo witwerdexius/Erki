@@ -17,6 +17,11 @@ export interface Station {
   helpersRequired?: number;
   time?: string;
   symbol?: string;
+  /**
+   * Manuell gewaehlter Bereich: id aus Plan.areas, AREA_NONE fuer "kein Bereich".
+   * undefined/null = automatisch (Bereich, in dem der Marker liegt).
+   */
+  areaId?: string | null;
 }
 
 export type TaskSection = string;
@@ -37,6 +42,13 @@ export interface PlanningTask {
 
 export interface MaskPolygon {
   points: { x: number; y: number }[]; // percentage coordinates
+}
+
+/** Benannter Bereich im Lageplan (nur Editor + Tabelle, nicht im PDF). */
+export interface PlanArea {
+  id: string;
+  name: string;
+  points: { x: number; y: number }[]; // % des Blatts, ungezoomt (wie masks)
 }
 
 export type PlanStatus = 'draft' | 'active' | 'archive';
@@ -126,6 +138,7 @@ export interface Plan {
   stationCount?: number; // Nur in der Listenansicht gesetzt (ohne vollständiges Laden der Stationen)
   backgroundImage?: string; // Data URL
   masks?: MaskPolygon[];
+  areas?: PlanArea[];
   logoOverlay?: LogoOverlay;
   labelOverlay?: LabelOverlay;
   bgZoom?: number; // 0.5 | 0.75 | 1 | 1.25 | 1.5 | 2

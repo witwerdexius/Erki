@@ -45,6 +45,8 @@ interface TableStation {
   setupBy?: string;
   conductedBy?: string;
   isFilled?: boolean;
+  /** Name des wirksamen Bereichs (leer = keiner). */
+  area?: string;
 }
 
 export interface TablePDFParams {
@@ -664,21 +666,34 @@ interface TableLayout {
 }
 
 const TABLE_LAYOUT: TableLayout = { nr: 12, station: 30, desc: 65, mat: 72, imp: 40, setup: 20, cond: 20, stamp: 10 };
+/** Breite der Bereich-Spalte; geht zu Lasten von Beschreibung und Material (Summe bleibt 269 mm). */
+const AREA_COL_WIDTH = 24;
+const TABLE_LAYOUT_WITH_AREA: TableLayout = { ...TABLE_LAYOUT, desc: 55, mat: 58 };
 
-function buildTableBody(
+/**
+ * Kopf, Zeilen und Spaltenbreiten der Tabelle. Die Spalte "Bereich" erscheint
+ * nur, wenn mindestens eine Station einen Bereich hat.
+ */
+export function buildTableColumns(
   stations: TableStation[],
   preWrap: (rawText: string, colWidthMm: number) => string,
-): (string)[][] {
-  return stations.map(s => [
+): { head: string[]; body: string[][]; widths: number[]; hasArea: boolean } {
+  const hasArea = stations.some(s => (s.area ?? '').trim() !== '');
+  const L = hasArea ? TABLE_LAYOUT_WITH_AREA : TABLE_LAYOUT;
+  const head = ['Nr.', 'Station', ...(hasArea ? ['Bereich'] : []), 'Beschreibung', 'Material', 'Gesprächsimpulse', 'Aufbau', 'Durchführung', 'Stempelfeld'];
+  const widths = [L.nr, L.station, ...(hasArea ? [AREA_COL_WIDTH] : []), L.desc, L.mat, L.imp, L.setup, L.cond, L.stamp];
+  const body = stations.map(s => [
     s.number,
-    preWrap(s.name, TABLE_LAYOUT.station),
-    preWrap(s.description || '', TABLE_LAYOUT.desc),
-    preWrap(s.material || '', TABLE_LAYOUT.mat),
-    (s.impulses || []).map(imp => preWrap(imp, TABLE_LAYOUT.imp)).join('\n'),
-    preWrap(s.setupBy || '', TABLE_LAYOUT.setup),
-    preWrap(s.conductedBy || '', TABLE_LAYOUT.cond),
+    preWrap(s.name, L.station),
+    ...(hasArea ? [preWrap(s.area ?? '', AREA_COL_WIDTH)] : []),
+    preWrap(s.description || '', L.desc),
+    preWrap(s.material || '', L.mat),
+    (s.impulses || []).map(imp => preWrap(imp, L.imp)).join('\n'),
+    preWrap(s.setupBy || '', L.setup),
+    preWrap(s.conductedBy || '', L.cond),
     s.isFilled ? '✓' : '',
   ]);
+  return { head, body, widths, hasArea };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -710,22 +725,18 @@ export async function exportTablePDF(params: TablePDFParams): Promise<void> {
 
     drawTableHeader(pdf, title);
 
+    const { head, body, widths } = buildTableColumns(stations, preWrap);
+    const columnStyles: Record<number, { cellWidth: number; halign?: 'center' }> = {};
+    widths.forEach((w, i) => { columnStyles[i] = { cellWidth: w }; });
+    columnStyles[widths.length - 1].halign = 'center';
+
     autoTable(pdf, {
       startY: 27,
-      head: [['Nr.', 'Station', 'Beschreibung', 'Material', 'Gesprächsimpulse', 'Aufbau', 'Durchführung', 'Stempelfeld']],
-      body: buildTableBody(stations, preWrap),
+      head: [head],
+      body,
       styles: { fontSize: 8, cellPadding: TABLE_CELL_PADDING, overflow: 'linebreak' },
       headStyles: { fillColor: [107, 191, 212], textColor: 255, fontStyle: 'bold' },
-      columnStyles: {
-        0: { cellWidth: TABLE_LAYOUT.nr },
-        1: { cellWidth: TABLE_LAYOUT.station },
-        2: { cellWidth: TABLE_LAYOUT.desc },
-        3: { cellWidth: TABLE_LAYOUT.mat },
-        4: { cellWidth: TABLE_LAYOUT.imp },
-        5: { cellWidth: TABLE_LAYOUT.setup },
-        6: { cellWidth: TABLE_LAYOUT.cond },
-        7: { cellWidth: TABLE_LAYOUT.stamp, halign: 'center' },
-      },
+      columnStyles,
       alternateRowStyles: { fillColor: [249, 250, 251] },
     });
 

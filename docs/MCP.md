@@ -32,3 +32,12 @@ Ohne gültiges Token antwortet der Endpunkt mit 404.
 - Änderungen erscheinen per `postgres_changes` live in offenen Editoren.
 - Hintergrundbild und PDF-Vorlage (Data-URLs) werden weder gelesen noch geschrieben.
 - Planungen löschen ist bewusst nicht enthalten.
+
+## Bereiche
+
+- `planung.areas`: benannte Bereiche `[{ id, name, points }]` (Koordinaten in %, ungezoomt wie `masks`);
+  per `planung_aendern` mit `areas` komplett ersetzbar.
+- Station `areaId` (`area_id`): `null` = automatisch (Bereich, in dem der Marker liegt),
+  Bereichs-`id` = manuell, `"__none__"` = kein Bereich.
+- `planung_lesen` liefert je Station zusätzlich `bereich` (Name des wirksamen Bereichs oder `null`).
+- Bereiche erscheinen nur im Editor und in Tabellen, nicht im Lageplan-PDF.

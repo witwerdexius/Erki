@@ -4,6 +4,7 @@ import {
   simulateLines,
   pickFontSize,
   computePdfImagePlacement,
+  buildTableColumns,
 } from './pdfExport';
 
 describe('sanitizeTitle', () => {
@@ -105,5 +106,29 @@ describe('computePdfImagePlacement', () => {
     const r = computePdfImagePlacement(210, 297, 1);
     expect(r.offsetX + r.drawW / 2).toBeCloseTo(105);
     expect(r.offsetY + r.drawH / 2).toBeCloseTo(148.5);
+  });
+});
+
+describe('buildTableColumns (Bereich-Spalte)', () => {
+  const id = (t: string) => t;
+  const base = { number: '1', name: 'Station', description: 'B', material: 'M', impulses: ['i'], setupBy: 'A', conductedBy: 'D', isFilled: true };
+
+  it('ohne Bereiche: keine Bereich-Spalte, Breiten wie bisher (269 mm)', () => {
+    const r = buildTableColumns([base], id);
+    expect(r.hasArea).toBe(false);
+    expect(r.head).not.toContain('Bereich');
+    expect(r.widths.reduce((a, b) => a + b, 0)).toBe(269);
+    expect(r.body[0]).toHaveLength(8);
+  });
+
+  it('mit Bereich: Spalte nach "Station", Gesamtbreite bleibt 269 mm', () => {
+    const r = buildTableColumns([{ ...base, area: 'Saal' }, { ...base, number: '2' }], id);
+    expect(r.hasArea).toBe(true);
+    expect(r.head.slice(0, 3)).toEqual(['Nr.', 'Station', 'Bereich']);
+    expect(r.widths.reduce((a, b) => a + b, 0)).toBe(269);
+    expect(r.body[0][2]).toBe('Saal');
+    expect(r.body[1][2]).toBe('');
+    expect(r.body[0]).toHaveLength(9);
+    expect(r.body[0][8]).toBe('✓');
   });
 });
