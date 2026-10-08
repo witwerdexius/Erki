@@ -55,6 +55,8 @@ export interface TablePDFParams {
 }
 
 const COLORS = ['#6bbfd4', '#9b8ec4', '#7bc9a0', '#e07aaa'];
+/** Innere Textbreite einer Stationsblase im Editor (96 - 2*6 Rand - 2*8 Padding). */
+const LABEL_TEXT_WIDTH = 68;
 const FONT_MONO = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
 
 export function sanitizeTitle(title: string, fallback: string): string {
@@ -260,81 +262,106 @@ function drawTargetMarker(
   ctx.stroke();
 }
 
-function splitWordIntoChunks(
-  rest: string,
-  maxTw: number,
-  measure: (s: string) => number,
-  pushLine: (line: string) => void,
-): string {
-  let chunk = '';
-  let working = rest;
-  while (working.length > 0) {
-    let breakAt = 1;
-    while (breakAt < working.length && measure(working.slice(0, breakAt + 1)) <= maxTw) breakAt++;
-    const ch = working.slice(0, breakAt);
-    working = working.slice(breakAt);
-    if (working.length > 0) pushLine(ch);
-    else chunk = ch;
-  }
-  return chunk;
+type BreakKind = 'start' | 'space' | 'hard' | 'soft';
+interface LabelPiece { text: string; before: BreakKind }
+
+/**
+ * Zerlegt einen Stationsnamen in Stuecke mit Umbruchart davor:
+ *  - 'space': zwischen Woertern
+ *  - 'hard':  nach einem festen Bindestrich ("Segens-|Station")
+ *  - 'soft':  Silbentrennung (beim Umbruch wird "-" angehaengt)
+ * Silbentrennung laeuft auf der Original-Schreibweise und je Bindestrich-Teil,
+ * erst danach wird in Grossbuchstaben umgewandelt (Muster sind kleingeschrieben;
+ * feste Bindestriche wuerden sonst Teil einer Silbe).
+ */
+export function labelPieces(name: string, hyphenate: (w: string) => string): LabelPiece[] {
+  const pieces: LabelPiece[] = [];
+  const words = name.split(/\s+/).filter(Boolean);
+  words.forEach((word, wi) => {
+    const parts = word.split(/(?<=-)/); // "Segens-" , "Station"
+    parts.forEach((part, pi) => {
+      const syllables = hyphenate(part).split('\u00AD').filter(Boolean);
+      syllables.forEach((syl, si) => {
+        const before: BreakKind = si > 0 ? 'soft' : pi > 0 ? 'hard' : wi > 0 ? 'space' : 'start';
+        pieces.push({ text: syl.toUpperCase(), before });
+      });
+    });
+  });
+  return pieces;
 }
 
-function breakWordWithHyphenation(
-  word: string,
-  hyphenate: (w: string) => string,
-  maxTw: number,
-  measure: (s: string) => number,
-  pushLine: (line: string) => void,
-): string {
-  const syllables = hyphenate(word).split('­');
-  let chunk = '';
-  for (let si = 0; si < syllables.length; si++) {
-    const syl = syllables[si];
-    const isLast = si === syllables.length - 1;
-    const candidate = chunk + syl;
-    const needsHyphen = !isLast && !candidate.endsWith('-');
-    const measureStr = needsHyphen ? candidate + '-' : candidate;
-    if (!chunk || measure(measureStr) <= maxTw) {
-      chunk = candidate;
-      continue;
-    }
-    pushLine(chunk.endsWith('-') ? chunk : chunk + '-');
-    const sylNeedsHyphen = !isLast && !syl.endsWith('-');
-    if (measure(sylNeedsHyphen ? syl + '-' : syl) > maxTw) {
-      chunk = splitWordIntoChunks(syl, maxTw, measure, pushLine);
-    } else {
-      chunk = syl;
-    }
-  }
-  return chunk;
+/** Zeilentext aus Stuecken (ohne abschliessenden Trennstrich). */
+function joinPieces(pieces: LabelPiece[]): string {
+  return pieces.map((p, i) => (i > 0 && p.before === 'space' ? ' ' : '') + p.text).join('');
 }
 
-function wrapStationName(
+/**
+ * Bricht einen Stationsnamen wie der Editor (CSS hyphens:auto) um:
+ * gierig so viel wie passt; Umbruch bevorzugt an Leerzeichen/Bindestrich,
+ * sonst an Silbengrenzen mit angehaengtem "-". Passt ein einzelnes Stueck
+ * nicht in eine Zeile, wird es mit "-" zerlegt.
+ */
+export function wrapStationName(
   name: string,
   hyphenate: (w: string) => string,
   maxTw: number,
   measure: (s: string) => number,
 ): string[] {
   const lines: string[] = [];
-  let cur = '';
-  const pushLine = (line: string) => lines.push(line);
-  for (const word of name.split(/\s+/)) {
-    if (!word) continue;
-    const wordW = measure(word);
-    if (!cur) {
-      cur = wordW <= maxTw ? word : breakWordWithHyphenation(word, hyphenate, maxTw, measure, pushLine);
-      continue;
+  let cur: LabelPiece[] = [];
+  // Zeile, die vor `next` endet: bei Silbentrennung mit "-"
+  const lineText = (line: LabelPiece[], next: LabelPiece) =>
+    joinPieces(line) + (next.before === 'soft' ? '-' : '');
+
+  const add = (piece: LabelPiece): void => {
+    if (cur.length === 0) {
+      let rest = piece.text;
+      // einzelnes Stueck breiter als die Zeile: zeichenweise mit "-" zerlegen
+      while (rest.length > 1 && measure(rest) > maxTw) {
+        let n = 1;
+        while (n < rest.length - 1 && measure(rest.slice(0, n + 1) + '-') <= maxTw) n++;
+        lines.push(rest.slice(0, n) + '-');
+        rest = rest.slice(n);
+      }
+      cur = [{ text: rest, before: 'start' }];
+      return;
     }
-    const testW = measure(`${cur} ${word}`);
-    if (testW <= maxTw) {
-      cur = `${cur} ${word}`;
-    } else {
-      lines.push(cur);
-      cur = wordW <= maxTw ? word : breakWordWithHyphenation(word, hyphenate, maxTw, measure, pushLine);
+    if (measure(joinPieces([...cur, piece])) <= maxTw) {
+      cur.push(piece);
+      return;
     }
-  }
-  if (cur) lines.push(cur);
+    // Umbruch vor `piece`; passt der Trennstrich nicht mehr, Silben in die naechste Zeile schieben
+    const carry: LabelPiece[] = [];
+    let next = piece;
+    while (cur.length > 1 && measure(lineText(cur, next)) > maxTw) {
+      next = cur.pop()!;
+      carry.unshift(next);
+    }
+    lines.push(lineText(cur, next));
+    cur = [];
+    for (const p of [...carry, piece]) add(p);
+  };
+
+  for (const piece of labelPieces(name, hyphenate)) add(piece);
+  if (cur.length > 0) lines.push(joinPieces(cur));
   return lines;
+}
+
+/**
+ * Schrift der Stationsnamen wie im Editor (Geist Mono via next/font, CSS-Variable
+ * --font-geist-mono). Wird vor dem Zeichnen geladen; Fallback: System-Monospace.
+ */
+async function resolveLabelFontFamily(): Promise<string> {
+  try {
+    if (typeof document === 'undefined') return FONT_MONO;
+    const fam = getComputedStyle(document.body).getPropertyValue('--font-geist-mono').trim();
+    if (!fam) return FONT_MONO;
+    const family = `${fam}, ${FONT_MONO}`;
+    if (document.fonts?.load) await document.fonts.load(`bold 16px ${fam}`);
+    return family;
+  } catch {
+    return FONT_MONO;
+  }
 }
 
 function drawStationLabel(
@@ -346,6 +373,7 @@ function drawStationLabel(
   borderW: number,
   station: LageplanStation,
   hyphenate: (w: string) => string,
+  fontFamily: string = FONT_MONO,
 ): void {
   const textColor = station.isFilled ? '#ffffff' : '#9ca3af';
   const name = station.name.toUpperCase();
@@ -353,7 +381,7 @@ function drawStationLabel(
   const availH = 58;
   const computedFontSize = pickFontSize(name, availW, availH);
   const fontPx = computedFontSize * mapScale;
-  ctx.font = `bold ${fontPx}px ${FONT_MONO}`;
+  ctx.font = `bold ${fontPx}px ${fontFamily}`;
   (ctx as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing = `${(-0.025 * fontPx).toFixed(2)}px`;
   ctx.fillStyle = textColor;
   ctx.textAlign = 'center';
@@ -364,9 +392,11 @@ function drawStationLabel(
   ctx.arc(bx, by, bubbleR - borderW - mapScale, 0, Math.PI * 2);
   ctx.clip();
 
-  const maxTw = availW * mapScale;
+  // Textbreite wie im Editor: 96 - 2*6 (Rand) - 2*8 (Innenabstand) = 68
+  const maxTw = LABEL_TEXT_WIDTH * mapScale;
   const renderLineH = 1.25;
-  const lines = wrapStationName(name, hyphenate, maxTw, (s) => ctx.measureText(s).width);
+  // Original-Schreibweise uebergeben: Silbentrennung braucht Kleinbuchstaben, Grossschreibung danach
+  const lines = wrapStationName(station.name, hyphenate, maxTw, (s) => ctx.measureText(s).width);
   const totalH = lines.length * fontPx * renderLineH;
   const startY = by - totalH / 2 + (fontPx * renderLineH) / 2;
   lines.forEach((line, i) => ctx.fillText(line, bx, startY + i * fontPx * renderLineH));
@@ -378,6 +408,7 @@ function drawStations(
   size: CanvasSize,
   stations: LageplanStation[],
   hyphenate: (w: string) => string,
+  fontFamily: string = FONT_MONO,
 ): void {
   const { W, H, mapScale } = size;
   const bubbleR = 48 * mapScale;
@@ -391,7 +422,7 @@ function drawStations(
     const by = (s.y / 100) * H;
     drawTargetMarker(ctx, mapScale, tx, ty, targetR, colorHex);
     drawStationBubble(ctx, mapScale, bx, by, bubbleR, borderW, colorHex, !!s.isFilled);
-    drawStationLabel(ctx, mapScale, bx, by, bubbleR, borderW, s, hyphenate);
+    drawStationLabel(ctx, mapScale, bx, by, bubbleR, borderW, s, hyphenate, fontFamily);
   }
 }
 
@@ -487,7 +518,8 @@ export async function buildLageplanCanvas(params: LageplanPDFParams): Promise<HT
   const hyphenate = await loadHyphenator();
 
   drawConnectionLines(ctx, size, stations);
-  drawStations(ctx, size, stations, hyphenate);
+  const labelFont = await resolveLabelFontFamily();
+  drawStations(ctx, size, stations, hyphenate, labelFont);
 
   if (logoOverlay) await drawLogoOverlay(ctx, size, logoOverlay);
   if (labelOverlay) drawLabelOverlay(ctx, size, labelOverlay);

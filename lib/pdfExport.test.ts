@@ -5,6 +5,7 @@ import {
   pickFontSize,
   computePdfImagePlacement,
   buildTableColumns,
+  wrapStationName,
 } from './pdfExport';
 
 describe('sanitizeTitle', () => {
@@ -130,5 +131,56 @@ describe('buildTableColumns (Bereich-Spalte)', () => {
     expect(r.body[1][2]).toBe('');
     expect(r.body[0]).toHaveLength(9);
     expect(r.body[0][8]).toBe('✓');
+  });
+});
+
+describe('wrapStationName (Umbruch der Kreistexte im PDF)', () => {
+  // echte deutsche Silbentrennung wie im Export
+  const hyph = async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const create = ((await import('hyphen')) as any).default;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const de = ((await import('hyphen/patterns/de-1996')) as any).default;
+    return create(de) as (w: string) => string;
+  };
+  // Monospace: jedes Zeichen gleich breit; maxTw in Zeichen
+  const mono = (s: string) => s.length;
+
+  it('bricht an festen Bindestrichen statt mitten im Wort', async () => {
+    const h = await hyph();
+    expect(wrapStationName('Segens-Station', h, 8, mono)).toEqual(['SEGENS-', 'STATION']);
+    expect(wrapStationName('Fischer-Action-Parcours', h, 9, mono)).toEqual(['FISCHER-', 'ACTION-', 'PARCOURS']);
+  });
+
+  it('Silbentrennung mit "-" nur an echten Silbengrenzen', async () => {
+    const h = await hyph();
+    const lines = wrapStationName('Willkommens-Station', h, 8, mono);
+    expect(lines).toEqual(['WILLKOM-', 'MENS-', 'STATION']);
+  });
+
+  it('Wörter mit Leerzeichen, Umlaute bleiben erhalten', async () => {
+    const h = await hyph();
+    expect(wrapStationName('Kaffee & Gespräche', h, 9, mono)).toEqual(['KAFFEE &', 'GESPRÄCHE']);
+    expect(wrapStationName('Jesus sorgt für uns', h, 8, mono)).toEqual(['JESUS', 'SORGT', 'FÜR UNS']);
+  });
+
+  it('jede Zeile passt in die Breite (auch mit angehängtem Trennstrich)', async () => {
+    const h = await hyph();
+    for (const name of ['Schokokuss-Wettbewerb', 'Der Fisch als Erkennungszeichen', 'Kleinkindbereich', 'Äpfel schälen und teilen', 'Serviettenblumen als Deko']) {
+      for (const w of [7, 8, 9, 10]) {
+        const lines = wrapStationName(name, h, w, mono);
+        for (const l of lines) expect(l.length, `${name} @${w}: ${JSON.stringify(lines)}`).toBeLessThanOrEqual(w);
+        // nichts geht verloren: ohne Trennstriche wieder der Name
+        // nichts geht verloren, Reihenfolge bleibt (Bindestriche/Leerzeichen ignoriert)
+        const letters = (t: string) => t.replace(/[-\s]/g, '');
+        expect(letters(lines.join(''))).toBe(letters(name.toUpperCase()));
+      }
+    }
+  });
+
+  it('zu langes Einzelstück wird mit Trennstrich zerlegt', () => {
+    const noHyph = (w: string) => w;
+    const lines = wrapStationName('ABCDEFGHIJ', noHyph, 4, mono);
+    expect(lines).toEqual(['ABC-', 'DEF-', 'GHIJ']);
   });
 });
