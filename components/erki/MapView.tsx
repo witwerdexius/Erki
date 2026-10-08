@@ -3,9 +3,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
     Plus, Map as MapIcon, Download, Upload, Move, Palette, PenLine, Eraser,
-    Image as ImageIcon, Type, ZoomIn, ZoomOut,
+    Image as ImageIcon, Type, ZoomIn, ZoomOut, LassoSelect, Eye, EyeOff,
 } from 'lucide-react';
-import type { Plan, Station, LogoOverlay, LabelOverlay } from '@/lib/types';
+import type { Plan, Station, LogoOverlay, LabelOverlay, PlanArea } from '@/lib/types';
+import { areaToVisual, polygonCentroid, removeArea } from '@/lib/areas';
 import { cn } from '@/lib/utils';
 import { exportLageplanPDF } from '@/lib/pdfExport';
 import { computePolygonPerimeterSlots, type BlockedZone, type MaskPolygon } from '@/lib/bubbleLayoutMath';
@@ -92,6 +93,9 @@ function computeAutoLayout(
     });
 }
 
+// Farben der Bereiche (gedeckt, klar unterscheidbar von den Stationsfarben)
+const AREA_COLORS = ['#e0a33a', '#5b8def', '#d9534f', '#3aa17e', '#8e6bbf'];
+
 const ZOOM_STEPS = [0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3];
 
 interface MapViewProps {
@@ -113,6 +117,23 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
     const [maskDrawing, setMaskDrawing] = useState(false);
     const [currentMaskPoints, setCurrentMaskPoints] = useState<{ x: number; y: number }[]>([]);
     const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
+    // ── Bereiche (benannte Flaechen, nur Editor/Tabelle, nicht im PDF) ──────────
+    const [areaDrawing, setAreaDrawing] = useState(false);
+    const [currentAreaPoints, setCurrentAreaPoints] = useState<{ x: number; y: number }[]>([]);
+    // Namens-Dialog: neuer Bereich (mit Punkten) oder bestehender (Umbenennen/Loeschen)
+    const [areaDialog, setAreaDialog] = useState<{ mode: 'new'; points: { x: number; y: number }[] } | { mode: 'edit'; id: string } | null>(null);
+    const [areaNameDraft, setAreaNameDraft] = useState('');
+    // Ein-/Ausblenden pro Betrachter (lokal gemerkt)
+    const [showAreas, setShowAreas] = useState<boolean>(() => {
+        try { return typeof window === 'undefined' || localStorage.getItem('erki.showAreas') !== '0'; } catch { return true; }
+    });
+    const toggleShowAreas = () => {
+        setShowAreas(v => {
+            const next = !v;
+            try { localStorage.setItem('erki.showAreas', next ? '1' : '0'); } catch { /* egal */ }
+            return next;
+        });
+    };
 
     const containerRef = useRef<HTMLDivElement>(null);
     // Verfuegbarer Bereich fuer das Blatt (Scroll-Wrapper, ohne Padding).
@@ -158,7 +179,7 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
         const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') cancelMaskDrawing(); };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [maskDrawing]);
+    }, [maskDrawing, areaDrawing]);
 
     // Bild aus Zwischenablage als Hintergrund einfügen.
     // (MapView ist nur gemountet, wenn activeTab === 'map' — der ehemalige
@@ -340,13 +361,57 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
     };
 
     const handleMapClick = (e: React.MouseEvent) => {
+        if (areaDrawing) {
+            const pos = getMapCoords(e);
+            if (pos) setCurrentAreaPoints(prev => [...prev, pos]);
+            return;
+        }
         if (!maskDrawing) return;
         const pos = getMapCoords(e);
         if (!pos) return;
         setCurrentMaskPoints(prev => [...prev, pos]);
     };
 
+    // Bereich abschliessen -> Namens-Dialog
+    const finishAreaDrawing = (points: { x: number; y: number }[]) => {
+        if (points.length < 3) return;
+        setAreaDialog({ mode: 'new', points });
+        setAreaNameDraft('');
+        setAreaDrawing(false);
+        setCurrentAreaPoints([]);
+        setCursorPos(null);
+    };
+
+    const saveAreaDialog = () => {
+        if (!areaDialog) return;
+        const name = areaNameDraft.trim();
+        if (!name) return;
+        if (areaDialog.mode === 'new') {
+            const area: PlanArea = { id: crypto.randomUUID(), name, points: areaDialog.points };
+            updateActivePlan({ areas: [...(activePlan.areas ?? []), area] });
+            setShowAreas(true);
+        } else {
+            updateActivePlan({
+                areas: (activePlan.areas ?? []).map(a => (a.id === areaDialog.id ? { ...a, name } : a)),
+            });
+        }
+        setAreaDialog(null);
+    };
+
+    const deleteAreaFromDialog = () => {
+        if (!areaDialog || areaDialog.mode !== 'edit') return;
+        const { areas, stations } = removeArea(activePlan.areas ?? [], activePlan.stations, areaDialog.id);
+        updateActivePlan({ areas, stations });
+        setAreaDialog(null);
+    };
+
     const handleMapDoubleClick = (e: React.MouseEvent) => {
+        if (areaDrawing) {
+            e.preventDefault();
+            // Doppelklick setzt vorher zwei Klick-Punkte an dieselbe Stelle -> den doppelten verwerfen
+            finishAreaDrawing(currentAreaPoints.slice(0, -1).length >= 3 ? currentAreaPoints.slice(0, -1) : currentAreaPoints);
+            return;
+        }
         if (!maskDrawing || currentMaskPoints.length < 3) return;
         e.preventDefault();
         const masks = [...(activePlan.masks || []), { points: currentMaskPoints }];
@@ -357,13 +422,16 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
     };
 
     const handleMaskMouseMove = (e: React.MouseEvent) => {
-        if (!maskDrawing) return;
+        if (!maskDrawing && !areaDrawing) return;
         setCursorPos(getMapCoords(e));
     };
 
+    // bricht jedes laufende Zeichnen ab (Maske und Bereich), auch per Escape
     const cancelMaskDrawing = () => {
         setMaskDrawing(false);
         setCurrentMaskPoints([]);
+        setAreaDrawing(false);
+        setCurrentAreaPoints([]);
         setCursorPos(null);
     };
 
@@ -507,6 +575,7 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                         if (maskDrawing) {
                             cancelMaskDrawing();
                         } else {
+                            cancelMaskDrawing();
                             setMaskDrawing(true);
                         }
                     }}
@@ -541,6 +610,44 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                     >
                         <Eraser className="w-4 h-4" />
                         <span className="hidden sm:inline">Masken löschen</span>
+                    </button>
+                )}
+                <button
+                    onClick={() => {
+                        if (areaDrawing) {
+                            cancelMaskDrawing();
+                        } else {
+                            cancelMaskDrawing();
+                            setAreaDrawing(true);
+                            setShowAreas(true);
+                        }
+                    }}
+                    className={cn(
+                        "flex items-center gap-2 px-3 py-2 rounded-full shadow-lg border cursor-pointer transition-all active:scale-95 text-sm font-medium",
+                        areaDrawing ? "bg-[#e0a33a] text-white border-[#e0a33a]" : "bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"
+                    )}
+                    title="Bereich einzeichnen (Eckpunkte antippen, Doppelklick oder „Fertig“ schließt) – erscheint nicht im PDF"
+                >
+                    <LassoSelect className="w-4 h-4" />
+                    <span className="hidden sm:inline">{areaDrawing ? 'Abbrechen' : 'Bereich'}</span>
+                </button>
+                {areaDrawing && currentAreaPoints.length >= 3 && (
+                    <button
+                        onClick={() => finishAreaDrawing(currentAreaPoints)}
+                        className="flex items-center gap-2 px-3 py-2 bg-[#7bc9a0] text-white rounded-full shadow-lg border-none cursor-pointer hover:bg-[#6ab890] transition-all active:scale-95 text-sm font-medium"
+                    >
+                        <span>✓ Fertig</span>
+                    </button>
+                )}
+                {(activePlan.areas?.length ?? 0) > 0 && !areaDrawing && (
+                    <button
+                        onClick={toggleShowAreas}
+                        className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full shadow-lg border dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 transition-all active:scale-95 text-sm font-medium"
+                        title={showAreas ? 'Bereiche ausblenden' : 'Bereiche einblenden'}
+                        aria-pressed={showAreas}
+                    >
+                        {showAreas ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        <span className="hidden sm:inline">{showAreas ? 'Bereiche aus' : 'Bereiche ein'}</span>
                     </button>
                 )}
                 {!activePlan.logoOverlay && (
@@ -604,7 +711,7 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                     onClick={handleMapClick}
                     onDoubleClick={handleMapDoubleClick}
                     onKeyDown={(e) => { if (e.key === 'Escape') { handleMouseUp(); stopOverlayDrag(); } }}
-                    style={{ ...pageStyle, cursor: maskDrawing ? 'crosshair' : undefined, touchAction: 'none' }}
+                    style={{ ...pageStyle, cursor: maskDrawing || areaDrawing ? 'crosshair' : undefined, touchAction: 'none' }}
                 >
                     {/* Zoom-Wrapper: Hintergrundbild + Masken skalieren gemeinsam */}
                     <div
@@ -657,6 +764,47 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                                 ))}
                             </svg>
                         )}
+
+                        {/* Bereiche (nicht im PDF – der PDF-Export zeichnet nur aus den Daten) */}
+                        {showAreas && !maskDrawing && (activePlan.areas?.length ?? 0) > 0 && (
+                            <svg data-export-hidden className="absolute inset-0 w-full h-full z-10" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                {activePlan.areas!.map((a, i) => (
+                                    <polygon
+                                        key={a.id}
+                                        points={a.points.map(p => `${p.x},${p.y}`).join(' ')}
+                                        fill={AREA_COLORS[i % AREA_COLORS.length]}
+                                        fillOpacity={0.14}
+                                        stroke={AREA_COLORS[i % AREA_COLORS.length]}
+                                        strokeWidth={0.35}
+                                        strokeDasharray="1.2 0.8"
+                                        vectorEffect="non-scaling-stroke"
+                                    />
+                                ))}
+                            </svg>
+                        )}
+
+                        {/* Bereich zeichnen: Vorschau */}
+                        {areaDrawing && currentAreaPoints.length > 0 && (
+                            <svg className="absolute inset-0 w-full h-full z-10" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                {currentAreaPoints.length >= 3 && (
+                                    <polygon
+                                        points={currentAreaPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                                        fill="#e0a33a"
+                                        fillOpacity={0.18}
+                                    />
+                                )}
+                                <polyline
+                                    points={[...currentAreaPoints, ...(cursorPos ? [cursorPos] : [])].map(p => `${p.x},${p.y}`).join(' ')}
+                                    fill="none"
+                                    stroke="#e0a33a"
+                                    strokeWidth="0.5"
+                                    strokeDasharray="2 1"
+                                />
+                                {currentAreaPoints.map((p, i) => (
+                                    <circle key={i} cx={p.x} cy={p.y} r="1" fill="#e0a33a" />
+                                ))}
+                            </svg>
+                        )}
                     </div>
 
                     {!activePlan.backgroundImage && (
@@ -667,7 +815,7 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                         </div>
                     )}
 
-                    {!maskDrawing && <div className="absolute inset-0 select-none">
+                    {!maskDrawing && <div className={cn("absolute inset-0 select-none", areaDrawing && "pointer-events-none opacity-60")}>
                         <svg className="absolute inset-0 w-full h-full overflow-visible pointer-events-none z-20">
                             {activePlan.stations.map((s, idx) => (
                                 <line
@@ -764,7 +912,7 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                     </div>}
 
                     {/* Logo Overlay */}
-                    {!maskDrawing && activePlan.logoOverlay && (() => {
+                    {!maskDrawing && !areaDrawing && activePlan.logoOverlay && (() => {
                         const lo = activePlan.logoOverlay;
                         return (
                             <div
@@ -806,7 +954,7 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                     })()}
 
                     {/* Label Overlay */}
-                    {!maskDrawing && activePlan.labelOverlay && (() => {
+                    {!maskDrawing && !areaDrawing && activePlan.labelOverlay && (() => {
                         const lb = activePlan.labelOverlay;
                         return (
                             <div
@@ -859,8 +1007,98 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                             </div>
                         );
                     })()}
+
+                    {/* Bereichs-Namen (klickbar: umbenennen/loeschen) */}
+                    {showAreas && !maskDrawing && !areaDrawing && (activePlan.areas?.length ?? 0) > 0 && (
+                        <div data-export-hidden className="absolute inset-0 pointer-events-none z-[25]">
+                            {activePlan.areas!.map((a, i) => {
+                                const c = polygonCentroid(areaToVisual(a, currentZoom));
+                                return (
+                                    <button
+                                        key={a.id}
+                                        type="button"
+                                        className="absolute pointer-events-auto -translate-x-1/2 -translate-y-1/2 px-2 py-0.5 rounded-full bg-white/85 dark:bg-gray-800/85 shadow border font-semibold whitespace-nowrap hover:bg-white"
+                                        style={{
+                                            left: `${c.x}%`,
+                                            top: `${c.y}%`,
+                                            fontSize: Math.max(10, 12 * mapScale),
+                                            color: AREA_COLORS[i % AREA_COLORS.length],
+                                            borderColor: AREA_COLORS[i % AREA_COLORS.length],
+                                        }}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                        onTouchStart={(e) => e.stopPropagation()}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setAreaDialog({ mode: 'edit', id: a.id });
+                                            setAreaNameDraft(a.name);
+                                        }}
+                                        title="Bereich umbenennen oder löschen"
+                                    >
+                                        {a.name}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             </div>
+
+            {/* Dialog: Bereich benennen / umbenennen / loeschen */}
+            {areaDialog && (
+                <div
+                    className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
+                    onClick={() => setAreaDialog(null)}
+                >
+                    <div
+                        role="dialog"
+                        aria-label={areaDialog.mode === 'new' ? 'Bereich benennen' : 'Bereich bearbeiten'}
+                        className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-4 space-y-3"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <p className="font-semibold text-gray-800 dark:text-gray-100">
+                            {areaDialog.mode === 'new' ? 'Neuer Bereich' : 'Bereich bearbeiten'}
+                        </p>
+                        <input
+                            autoFocus
+                            value={areaNameDraft}
+                            onChange={(e) => setAreaNameDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') saveAreaDialog();
+                                if (e.key === 'Escape') setAreaDialog(null);
+                            }}
+                            placeholder="Name, z. B. Saal, Garten, Kirche"
+                            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-transparent px-3 py-2 text-sm text-gray-800 dark:text-gray-100 outline-none focus:ring-2 focus:ring-[#6bbfd4]"
+                        />
+                        <div className="flex items-center gap-2">
+                            {areaDialog.mode === 'edit' && (
+                                <button
+                                    type="button"
+                                    onClick={deleteAreaFromDialog}
+                                    className="px-3 py-2 rounded-full text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30"
+                                >
+                                    Löschen
+                                </button>
+                            )}
+                            <div className="flex-1" />
+                            <button
+                                type="button"
+                                onClick={() => setAreaDialog(null)}
+                                className="px-3 py-2 rounded-full text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            >
+                                Abbrechen
+                            </button>
+                            <button
+                                type="button"
+                                onClick={saveAreaDialog}
+                                disabled={!areaNameDraft.trim()}
+                                className="px-4 py-2 rounded-full text-sm font-medium bg-[#6bbfd4] text-white disabled:opacity-40"
+                            >
+                                Speichern
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

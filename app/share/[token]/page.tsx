@@ -27,6 +27,8 @@ interface SharedStation {
   targetY: number;
   isFilled?: boolean;
   colorVariant?: number;
+  /** Name des wirksamen Bereichs ('' = keiner) */
+  area?: string;
 }
 
 interface MaskPolygon {
@@ -289,6 +291,7 @@ function ReadonlyLageplan({
 }
 
 function ReadonlyTabelle({ stations, sourceUrl }: { stations: SharedStation[]; sourceUrl: string | null }) {
+  const hasAreas = stations.some(s => (s.area ?? '') !== '');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   return (
@@ -315,6 +318,7 @@ function ReadonlyTabelle({ stations, sourceUrl }: { stations: SharedStation[]; s
               <tr className="bg-gray-50 border-b">
                 <th className="p-4 w-10 text-xs font-bold uppercase text-gray-600 tracking-wider">Nr.</th>
                 <th className="p-4 w-48 text-xs font-bold uppercase text-gray-600 tracking-wider">Station</th>
+                {hasAreas && <th className="max-sm:hidden sm:table-cell p-4 w-32 text-xs font-bold uppercase text-gray-600 tracking-wider">Bereich</th>}
                 <th className="max-sm:hidden sm:table-cell p-4 w-64 text-xs font-bold uppercase text-gray-600 tracking-wider">Beschreibung</th>
                 <th className="max-sm:hidden sm:table-cell p-4 w-64 text-xs font-bold uppercase text-gray-600 tracking-wider">Material</th>
                 <th className="max-sm:hidden sm:table-cell p-4 w-40 text-xs font-bold uppercase text-gray-600 tracking-wider">Gesprächsimpulse</th>
@@ -332,6 +336,7 @@ function ReadonlyTabelle({ stations, sourceUrl }: { stations: SharedStation[]; s
                   >
                     <td className="p-4 align-top font-medium text-[#6bbfd4]">{s.number}</td>
                     <td className="p-4 align-top font-bold whitespace-pre-wrap max-w-0 overflow-hidden">{s.name}</td>
+                    {hasAreas && <td className="max-sm:hidden sm:table-cell p-4 w-32 align-top text-sm whitespace-pre-wrap max-w-0 overflow-hidden">{s.area}</td>}
                     <td className="max-sm:hidden sm:table-cell p-4 w-64 align-top text-sm whitespace-pre-wrap max-w-0 overflow-hidden">{s.description}</td>
                     <td className="max-sm:hidden sm:table-cell p-4 w-64 align-top text-xs whitespace-pre-wrap text-gray-500 max-w-0 overflow-hidden">{s.material}</td>
                     <td className="max-sm:hidden sm:table-cell p-4 align-top text-sm whitespace-pre-wrap text-gray-500">{(s.impulses || []).join('\n')}</td>
@@ -352,6 +357,12 @@ function ReadonlyTabelle({ stations, sourceUrl }: { stations: SharedStation[]; s
                   {expandedId === s.id && (
                     <tr className="sm:hidden bg-gray-50/80">
                       <td colSpan={3} className="px-4 pb-4 pt-2 space-y-3">
+                        {s.area ? (
+                          <div>
+                            <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Bereich</p>
+                            <p className="text-sm whitespace-pre-wrap text-gray-700">{s.area}</p>
+                          </div>
+                        ) : null}
                         {s.description ? (
                           <div>
                             <p className="text-xs font-bold uppercase text-gray-400 tracking-wider mb-1">Beschreibung</p>
@@ -389,7 +400,7 @@ function ReadonlyTabelle({ stations, sourceUrl }: { stations: SharedStation[]; s
               ))}
               {stations.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-gray-400 text-sm">
+                  <td colSpan={hasAreas ? 9 : 8} className="p-8 text-center text-gray-400 text-sm">
                     Keine Stationen vorhanden
                   </td>
                 </tr>

@@ -43,8 +43,12 @@ describe('rowToStation', () => {
       id: 'st-1', number: '1', name: 'Wasser-Station', description: 'Beschreibung',
       material: 'Eimer', instructions: 'Aufstellen', impulses: ['frage1', 'frage2'],
       setupBy: 'Anna', conductedBy: 'Tim', x: 25, y: 75, targetX: 30, targetY: 70,
-      isFilled: true, colorVariant: 2,
+      isFilled: true, colorVariant: 2, helpersRequired: 1, time: undefined, areaId: null,
     });
+  });
+
+  it('area_id wird als areaId übernommen', () => {
+    expect(rowToStation({ ...baseStationRow, area_id: 'a1' }).areaId).toBe('a1');
   });
 
   it('impulses defaultet auf [] wenn undefined', () => {
@@ -61,6 +65,7 @@ describe('stationToRow', () => {
     id: 'st-1', number: '1', name: 'X', description: 'd', material: 'm',
     instructions: 'i', impulses: ['a'], setupBy: 'A', conductedBy: 'B',
     x: 1, y: 2, targetX: 3, targetY: 4, isFilled: true, colorVariant: 3,
+    helpersRequired: 1, time: undefined, areaId: 'a1',
   };
 
   it('mappt camelCase → snake_case und ergänzt planning_id + sort_order', () => {
@@ -73,6 +78,7 @@ describe('stationToRow', () => {
     expect(row.target_y).toBe(4);
     expect(row.is_filled).toBe(true);
     expect(row.color_variant).toBe(3);
+    expect(row.area_id).toBe('a1');
   });
 
   it('isFilled defaultet auf false wenn undefined', () => {

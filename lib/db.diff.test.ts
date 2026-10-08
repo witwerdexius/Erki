@@ -150,3 +150,11 @@ describe('VersionConflictError', () => {
     expect(err.message).toContain('5');
   });
 });
+
+describe('diffPlanRow – Bereiche', () => {
+  it('geänderte Bereiche landen im Patch, unveränderte nicht', () => {
+    const areas = [{ id: 'a1', name: 'Saal', points: [{ x: 1, y: 1 }, { x: 5, y: 1 }, { x: 5, y: 5 }] }];
+    expect(diffPlanRow(basePlan, { ...basePlan, areas })).toEqual({ areas });
+    expect(diffPlanRow({ ...basePlan, areas }, { ...basePlan, areas })).toEqual({});
+  });
+});

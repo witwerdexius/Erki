@@ -28,6 +28,7 @@ export function rowToPlan(row: any, stations: Station[]): Plan {
     url: row.url ?? undefined,
     backgroundImage: row.background_image ?? undefined,
     masks: row.masks ?? [],
+    areas: Array.isArray(row.areas) ? row.areas : [],
     logoOverlay: row.logo_overlay ?? undefined,
     labelOverlay: row.label_overlay ?? undefined,
     bgZoom: row.bg_zoom ?? 1,
@@ -61,6 +62,7 @@ export function rowToStation(row: any): Station {
     colorVariant: row.color_variant,
     helpersRequired: row.helpers_required ?? 1,
     time: row.time ?? undefined,
+    areaId: row.area_id ?? null,
   };
 }
 
@@ -84,6 +86,7 @@ export function stationToRow(station: Station, planningId: string, sortOrder: nu
     color_variant: station.colorVariant ?? 0,
     sort_order: sortOrder,
     helpers_required: station.helpersRequired ?? 1,
+    area_id: station.areaId ?? null,
   };
 }
 
@@ -163,7 +166,7 @@ export async function loadPlanningMeta(id: string): Promise<Plan> {
     await Promise.all([
       supabase
         .from('plannings')
-        .select('id, title, status, url, bg_zoom, source_url, version, task_sections, created_at, updated_at')
+        .select('id, title, status, url, bg_zoom, source_url, version, task_sections, areas, created_at, updated_at')
         .eq('id', id)
         .single(),
       supabase.from('stations').select('*').eq('planning_id', id).order('sort_order'),
@@ -217,6 +220,9 @@ export function diffPlanRow(prev: Plan, next: Plan): Record<string, unknown> {
   if (JSON.stringify(prev.masks ?? []) !== JSON.stringify(next.masks ?? [])) {
     patch.masks = next.masks ?? [];
   }
+  if (JSON.stringify(prev.areas ?? []) !== JSON.stringify(next.areas ?? [])) {
+    patch.areas = next.areas ?? [];
+  }
   if (JSON.stringify(prev.logoOverlay ?? null) !== JSON.stringify(next.logoOverlay ?? null)) {
     patch.logo_overlay = next.logoOverlay ?? null;
   }
@@ -256,6 +262,7 @@ function buildPlanningUpdatePayload(plan: Plan, previousPlan: Plan | undefined):
     url: plan.url ?? null,
     background_image: plan.backgroundImage ?? null,
     masks: plan.masks ?? [],
+    areas: plan.areas ?? [],
     logo_overlay: plan.logoOverlay ?? null,
     label_overlay: plan.labelOverlay ?? null,
     bg_zoom: plan.bgZoom ?? 1,
@@ -418,6 +425,7 @@ export async function importPlannings(
         url: plan.url ?? null,
         background_image: plan.backgroundImage ?? null,
         masks: plan.masks ?? [],
+        areas: plan.areas ?? [],
         logo_overlay: plan.logoOverlay ?? null,
         label_overlay: plan.labelOverlay ?? null,
         bg_zoom: plan.bgZoom ?? 1,

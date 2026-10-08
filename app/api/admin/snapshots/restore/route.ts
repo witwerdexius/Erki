@@ -8,7 +8,7 @@ import { SnapshotRestoreBodySchema } from '@/lib/api/validation';
 const STATION_FIELDS = [
   'id', 'planning_id', 'number', 'name', 'description', 'material',
   'instructions', 'impulses', 'setup_by', 'conducted_by',
-  'x', 'y', 'target_x', 'target_y', 'is_filled', 'color_variant', 'sort_order',
+  'x', 'y', 'target_x', 'target_y', 'is_filled', 'color_variant', 'sort_order', 'area_id',
 ] as const;
 
 function makeAdminClient(): SupabaseClient {

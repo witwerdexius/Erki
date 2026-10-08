@@ -36,6 +36,8 @@ function makeStation(overrides: Partial<Station> = {}): Station {
     targetY: 40,
     isFilled: false,
     colorVariant: 0,
+    helpersRequired: 1,
+    areaId: null,
     ...overrides,
   };
 }
@@ -57,6 +59,8 @@ function makeStationRow(s: Station): Record<string, unknown> {
     target_y: s.targetY,
     is_filled: s.isFilled,
     color_variant: s.colorVariant,
+    helpers_required: s.helpersRequired,
+    area_id: s.areaId,
   };
 }
 
@@ -227,5 +231,21 @@ describe('useRealtimeSync (module export)', () => {
 
   it('akzeptiert genau ein Options-Objekt', () => {
     expect(useRealtimeSync.length).toBe(1);
+  });
+});
+
+describe('Bereiche (areas / areaId)', () => {
+  it('geänderter Bereich einer Station ist kein Echo', () => {
+    expect(isStationEcho(makeStation({ areaId: null }), makeStation({ areaId: 'a1' }))).toBe(false);
+  });
+  it('Bereiche werden auch auf leichten Tabs (Tabelle) übernommen', () => {
+    const areas = [{ id: 'a1', name: 'Saal', points: [{ x: 1, y: 1 }, { x: 5, y: 1 }, { x: 5, y: 5 }] }];
+    const next = mergeExternalPlanUpdate(makePlan(), { areas }, false);
+    expect(next.areas).toEqual(areas);
+  });
+  it('fehlt areas im Payload, bleiben die bisherigen erhalten', () => {
+    const areas = [{ id: 'a1', name: 'Saal', points: [] }];
+    const next = mergeExternalPlanUpdate({ ...makePlan(), areas }, { title: 'X' }, false);
+    expect(next.areas).toEqual(areas);
   });
 });
