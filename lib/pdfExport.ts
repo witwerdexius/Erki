@@ -1,3 +1,5 @@
+import { loadGermanHyphenator } from './hyphenation';
+
 interface LageplanStation {
   x: number;
   y: number;
@@ -459,12 +461,8 @@ function drawLabelOverlay(
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function loadHyphenator(): Promise<(word: string) => string> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const createHyphenator = ((await import('hyphen')) as any).default ?? (await import('hyphen'));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const dePatterns = ((await import('hyphen/patterns/de-1996')) as any).default ?? (await import('hyphen/patterns/de-1996'));
-  return createHyphenator(dePatterns);
+function loadHyphenator(): Promise<(word: string) => string> {
+  return loadGermanHyphenator();
 }
 
 interface PdfPlacement {

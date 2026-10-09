@@ -9,6 +9,8 @@ import { cn } from '@/lib/utils';
 import { exportLageplanPDF, exportTablePDF } from '@/lib/pdfExport';
 import { extractUuid } from '@/lib/slugify';
 import { stationColorHex } from '@/lib/mapInteractions';
+import { softHyphenate } from '@/lib/hyphenation';
+import { useHyphenator } from '@/lib/useHyphenator';
 import type { User } from '@supabase/supabase-js';
 
 interface SharedStation {
@@ -100,6 +102,7 @@ function ReadonlyLageplan({
   const zoom = planning.bgZoom || 1;
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
+  const hyphenate = useHyphenator(); // einheitliche Silbentrennung wie Editor/PDF
   const mapScale = containerWidth > 0 ? containerWidth / 800 : 1;
 
   useEffect(() => {
@@ -243,13 +246,12 @@ function ReadonlyLageplan({
                         s.isFilled ? 'text-white' : 'text-gray-400',
                       )}
                       style={{
-                        hyphens: 'auto',
-                        WebkitHyphens: 'auto',
+                        ...(hyphenate ? { hyphens: 'manual', WebkitHyphens: 'manual' } : { hyphens: 'auto', WebkitHyphens: 'auto' }),
                         overflowWrap: 'anywhere',
                         fontSize: `${computedFontSize * mapScale}px`,
                       }}
                     >
-                      {s.name}
+                      {hyphenate ? softHyphenate(s.name, hyphenate) : s.name}
                     </span>
                   </div>
                 </div>

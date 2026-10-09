@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import type { Plan, Station, LogoOverlay, LabelOverlay, PlanArea } from '@/lib/types';
 import { areaToVisual, polygonCentroid, removeArea } from '@/lib/areas';
+import { softHyphenate } from '@/lib/hyphenation';
+import { useHyphenator } from '@/lib/useHyphenator';
 import { cn } from '@/lib/utils';
 import { exportLageplanPDF } from '@/lib/pdfExport';
 import { computePolygonPerimeterSlots, type BlockedZone, type MaskPolygon } from '@/lib/bubbleLayoutMath';
@@ -136,6 +138,12 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
     };
 
     const containerRef = useRef<HTMLDivElement>(null);
+    // Einheitliche Silbentrennung (wie im PDF): weiche Trennzeichen aus TeX-Mustern,
+    // Browser-Trennung aus. Bis die Muster geladen sind, trennt der Browser.
+    const hyphenate = useHyphenator();
+    const labelHyphenStyle: React.CSSProperties = hyphenate
+        ? { hyphens: 'manual', WebkitHyphens: 'manual' }
+        : { hyphens: 'auto', WebkitHyphens: 'auto' };
     // Verfuegbarer Bereich fuer das Blatt (Scroll-Wrapper, ohne Padding).
     const pageAreaRef = useRef<HTMLDivElement>(null);
     const [pageArea, setPageArea] = useState<{ w: number; h: number; vh: number }>({ w: 0, h: 0, vh: 0 });
@@ -900,9 +908,9 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                                         >
                                             <span
                                                 className={cn("font-mono font-bold uppercase leading-tight line-clamp-5 tracking-tight w-full", s.isFilled ? "text-white" : "text-gray-400")}
-                                                style={{ hyphens: 'auto', WebkitHyphens: 'auto', overflowWrap: 'anywhere', fontSize: `${computedFontSize * mapScale}px` }}
+                                                style={{ ...labelHyphenStyle, overflowWrap: 'anywhere', fontSize: `${computedFontSize * mapScale}px` }}
                                             >
-                                                {s.name}
+                                                {hyphenate ? softHyphenate(s.name, hyphenate) : s.name}
                                             </span>
                                         </div>
                                     </div>
