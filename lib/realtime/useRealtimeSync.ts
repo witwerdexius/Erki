@@ -124,6 +124,9 @@ export function mergeExternalPlanUpdate(
     version: (row.version as number | undefined) ?? current.version,
     // Bereiche sind leicht und werden auch im Tabellen-Tab gebraucht (Dropdown)
     areas: Array.isArray(row.areas) ? (row.areas as Plan['areas']) : current.areas,
+    // Nachdenktexte sind leicht und werden immer uebernommen
+    nachdenkInstruction: 'nachdenk_instruction' in row ? ((row.nachdenk_instruction as string | null) ?? null) : current.nachdenkInstruction,
+    nachdenkRows: Array.isArray(row.nachdenk_rows) ? (row.nachdenk_rows as Plan['nachdenkRows']) : current.nachdenkRows,
     ...heavy,
   };
 }

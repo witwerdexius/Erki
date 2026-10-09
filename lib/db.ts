@@ -29,6 +29,10 @@ export function rowToPlan(row: any, stations: Station[]): Plan {
     backgroundImage: row.background_image ?? undefined,
     masks: row.masks ?? [],
     areas: Array.isArray(row.areas) ? row.areas : [],
+    nachdenkInstruction: row.nachdenk_instruction ?? null,
+    nachdenkRows: Array.isArray(row.nachdenk_rows) ? row.nachdenk_rows : [],
+    // schweres Feld: nur gesetzt, wenn die Spalte mitgeladen wurde (sonst undefined = nicht geladen)
+    ...('nachdenk_template' in row ? { nachdenk_template: row.nachdenk_template ?? null } : {}),
     logoOverlay: row.logo_overlay ?? undefined,
     labelOverlay: row.label_overlay ?? undefined,
     bgZoom: row.bg_zoom ?? 1,
@@ -166,7 +170,7 @@ export async function loadPlanningMeta(id: string): Promise<Plan> {
     await Promise.all([
       supabase
         .from('plannings')
-        .select('id, title, status, url, bg_zoom, source_url, version, task_sections, areas, created_at, updated_at')
+        .select('id, title, status, url, bg_zoom, source_url, version, task_sections, areas, nachdenk_instruction, nachdenk_rows, created_at, updated_at')
         .eq('id', id)
         .single(),
       supabase.from('stations').select('*').eq('planning_id', id).order('sort_order'),
@@ -223,6 +227,16 @@ export function diffPlanRow(prev: Plan, next: Plan): Record<string, unknown> {
   if (JSON.stringify(prev.areas ?? []) !== JSON.stringify(next.areas ?? [])) {
     patch.areas = next.areas ?? [];
   }
+  if ((prev.nachdenkInstruction ?? null) !== (next.nachdenkInstruction ?? null)) {
+    patch.nachdenk_instruction = next.nachdenkInstruction ?? null;
+  }
+  if (JSON.stringify(prev.nachdenkRows ?? []) !== JSON.stringify(next.nachdenkRows ?? [])) {
+    patch.nachdenk_rows = next.nachdenkRows ?? [];
+  }
+  // PDF-Vorlage nur schreiben, wenn sie geladen/gesetzt ist (undefined = nicht geladen -> nie ueberschreiben)
+  if (next.nachdenk_template !== undefined && (prev.nachdenk_template ?? null) !== next.nachdenk_template) {
+    patch.nachdenk_template = next.nachdenk_template;
+  }
   if (JSON.stringify(prev.logoOverlay ?? null) !== JSON.stringify(next.logoOverlay ?? null)) {
     patch.logo_overlay = next.logoOverlay ?? null;
   }
@@ -263,6 +277,9 @@ function buildPlanningUpdatePayload(plan: Plan, previousPlan: Plan | undefined):
     background_image: plan.backgroundImage ?? null,
     masks: plan.masks ?? [],
     areas: plan.areas ?? [],
+    nachdenk_instruction: plan.nachdenkInstruction ?? null,
+    nachdenk_rows: plan.nachdenkRows ?? [],
+    ...(plan.nachdenk_template !== undefined ? { nachdenk_template: plan.nachdenk_template } : {}),
     logo_overlay: plan.logoOverlay ?? null,
     label_overlay: plan.labelOverlay ?? null,
     bg_zoom: plan.bgZoom ?? 1,
@@ -426,6 +443,8 @@ export async function importPlannings(
         background_image: plan.backgroundImage ?? null,
         masks: plan.masks ?? [],
         areas: plan.areas ?? [],
+        nachdenk_instruction: plan.nachdenkInstruction ?? null,
+        nachdenk_rows: plan.nachdenkRows ?? [],
         logo_overlay: plan.logoOverlay ?? null,
         label_overlay: plan.labelOverlay ?? null,
         bg_zoom: plan.bgZoom ?? 1,
@@ -609,6 +628,7 @@ export function rowToProfile(row: any): Profile {
     name: row.name ?? undefined,
     team: row.team ?? undefined,
     createdAt: row.created_at,
+    nachdenkInstructionDefault: row.nachdenk_instruction_default ?? undefined,
   };
 }
 
@@ -814,5 +834,20 @@ export async function updateStationHelpersRequired(stationId: string, helpersReq
     .from('stations')
     .update({ helpers_required: helpersRequired })
     .eq('id', stationId);
+  if (error) throw error;
+}
+
+// ── Nachdenktexte ───────────────────────────────────────────────
+
+/** Laedt nur die (schwere) PDF-Vorlage einer Planung; null = keine eigene. */
+export async function loadNachdenkTemplate(planId: string): Promise<string | null> {
+  const { data, error } = await supabase.from('plannings').select('nachdenk_template').eq('id', planId).single();
+  if (error) throw error;
+  return (data?.nachdenk_template as string | null) ?? null;
+}
+
+/** Speichert den persoenlichen Standard-Instruktionstext (null = eingebauter Standard). */
+export async function updateNachdenkInstructionDefault(userId: string, text: string | null): Promise<void> {
+  const { error } = await supabase.from('profiles').update({ nachdenk_instruction_default: text }).eq('id', userId);
   if (error) throw error;
 }

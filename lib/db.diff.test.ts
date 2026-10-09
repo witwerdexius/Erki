@@ -158,3 +158,21 @@ describe('diffPlanRow – Bereiche', () => {
     expect(diffPlanRow({ ...basePlan, areas }, { ...basePlan, areas })).toEqual({});
   });
 });
+
+describe('diffPlanRow – Nachdenktexte', () => {
+  it('Instruktionstext und importierte Texte landen im Patch', () => {
+    const rows = [{ station: 'A', ueberschrift: 'Ü', teil1: '1', bibelzitat: 'B', teil2: '2' }];
+    expect(diffPlanRow(basePlan, { ...basePlan, nachdenkInstruction: 'Text' })).toEqual({ nachdenk_instruction: 'Text' });
+    expect(diffPlanRow(basePlan, { ...basePlan, nachdenkRows: rows })).toEqual({ nachdenk_rows: rows });
+    expect(diffPlanRow({ ...basePlan, nachdenkInstruction: 'Text' }, { ...basePlan, nachdenkInstruction: null })).toEqual({ nachdenk_instruction: null });
+  });
+  it('PDF-Vorlage: nicht geladen (undefined) wird NIE geschrieben', () => {
+    expect(diffPlanRow({ ...basePlan, nachdenk_template: 'data:x' }, { ...basePlan, nachdenk_template: undefined })).toEqual({});
+    expect(diffPlanRow(basePlan, basePlan)).toEqual({});
+  });
+  it('PDF-Vorlage: hochgeladen oder entfernt wird geschrieben', () => {
+    expect(diffPlanRow(basePlan, { ...basePlan, nachdenk_template: 'data:neu' })).toEqual({ nachdenk_template: 'data:neu' });
+    expect(diffPlanRow({ ...basePlan, nachdenk_template: 'data:alt' }, { ...basePlan, nachdenk_template: null })).toEqual({ nachdenk_template: null });
+    expect(diffPlanRow({ ...basePlan, nachdenk_template: null }, { ...basePlan, nachdenk_template: null })).toEqual({});
+  });
+});

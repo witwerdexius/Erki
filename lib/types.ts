@@ -94,6 +94,14 @@ export interface Community {
   createdAt?: string;
 }
 
+export interface NachdenktextRow {
+  station: string;
+  ueberschrift: string;
+  teil1: string;
+  bibelzitat: string;
+  teil2: string;
+}
+
 export interface Profile {
   id: string; // same as auth user id
   communityId: string;
@@ -103,6 +111,8 @@ export interface Profile {
   name?: string;
   team?: string;
   createdAt?: string;
+  /** Persoenlicher Standard-Instruktionstext fuer Nachdenktexte. */
+  nachdenkInstructionDefault?: string;
 }
 
 export interface TimeBlock {
@@ -144,7 +154,15 @@ export interface Plan {
   bgZoom?: number; // 0.5 | 0.75 | 1 | 1.25 | 1.5 | 2
   createdAt?: string;
   updatedAt?: string;
-  nachdenk_template?: string; // base64 data URL of vorlage.pdf
+  /**
+   * Eigene PDF-Vorlage (Data-URL). undefined = noch nicht geladen (schweres Feld),
+   * null = keine eigene Vorlage (Standard-Vorlage wird verwendet).
+   */
+  nachdenk_template?: string | null;
+  /** Instruktionstext fuer das KI-Prompt; null/undefined = Standard (Profil oder eingebaut). */
+  nachdenkInstruction?: string | null;
+  /** Importierte Nachdenktexte (CSV/Einfuegen). */
+  nachdenkRows?: NachdenktextRow[];
   explanationData?: ExplanationData;
   sourceUrl?: string;
   // Optimistic Locking: wird vom DB-Trigger plannings_version_bump bei jedem
