@@ -2,21 +2,18 @@
 
 import React, { useState, useEffect } from 'react';
 import { Clipboard, Check, Upload, Download, FileText, Trash2 } from 'lucide-react';
-import { Plan } from '@/lib/types';
+import type { Plan, NachdenktextRow } from '@/lib/types';
+import { loadNachdenkTemplate, loadProfile, updateNachdenkInstructionDefault } from '@/lib/db';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
-
-interface NachdenktextRow {
-    station: string;
-    ueberschrift: string;
-    teil1: string;
-    bibelzitat: string;
-    teil2: string;
-}
 
 interface Props {
     activePlan: Plan | undefined;
     updateActivePlan: (updates: Partial<Plan>) => void;
+    /** fuer den persoenlichen Standard-Instruktionstext */
+    userId?: string;
+    /** nachgeladene PDF-Vorlage ohne "ungespeichert"-Markierung uebernehmen */
+    onTemplateLoaded?: (template: string | null) => void;
 }
 
 const DEFAULT_INSTRUCTION_TEXT = `Erstelle Texte als csv (Spalten: Stationsnummer;Stationsname;Überschrift;Teil 1;Bibelzitat;Teil 2) wie diesen
@@ -48,10 +45,41 @@ und ihm zuzutrauen, dass er mit dir geht. Auch wenn's stürmt."
 
 zu folgenden Stationen:`;
 
-export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props) {
-    const [instructionText, setInstructionText] = useState(DEFAULT_INSTRUCTION_TEXT);
+export default function NachdenktexteTab({ activePlan, updateActivePlan, userId, onTemplateLoaded }: Props) {
+    // Persoenlicher Standard (Profil) – gilt, solange die Planung keinen eigenen Text hat
+    const [profileDefault, setProfileDefault] = useState<string | null>(null);
+    const [savedAsDefault, setSavedAsDefault] = useState(false);
+    useEffect(() => {
+        if (!userId) return;
+        let alive = true;
+        loadProfile(userId)
+            .then(p => { if (alive) setProfileDefault(p?.nachdenkInstructionDefault ?? null); })
+            .catch(err => console.warn('[Nachdenktexte] Profil nicht geladen:', err));
+        return () => { alive = false; };
+    }, [userId]);
+
+    // Instruktionstext und importierte Texte werden mit der Planung gespeichert
+    const instructionText = activePlan?.nachdenkInstruction ?? profileDefault ?? DEFAULT_INSTRUCTION_TEXT;
+    const setInstructionText = (text: string) => {
+        setSavedAsDefault(false);
+        updateActivePlan({ nachdenkInstruction: text });
+    };
+    const rows: NachdenktextRow[] = activePlan?.nachdenkRows ?? [];
+    const setRows = (next: NachdenktextRow[]) => updateActivePlan({ nachdenkRows: next });
+
+    const saveAsMyDefault = async () => {
+        if (!userId) return;
+        try {
+            await updateNachdenkInstructionDefault(userId, instructionText);
+            setProfileDefault(instructionText);
+            setSavedAsDefault(true);
+        } catch (err) {
+            console.error('[Nachdenktexte] Standard nicht gespeichert:', err);
+            alert('Der Standard-Text konnte nicht gespeichert werden.');
+        }
+    };
+
     const [pasteText, setPasteText] = useState('');
-    const [rows, setRows] = useState<NachdenktextRow[]>([]);
     const [copied, setCopied] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [templateName, setTemplateName] = useState<string | null>(null);
@@ -70,12 +98,21 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
             .catch(() => {});
     }, []);
 
-    // Apply default template as soon as both plan and fetched data are available
+    // Eigene Vorlage ist ein schweres Feld und wird beim Oeffnen der Planung nicht
+    // mitgeladen (undefined). Hier gezielt nachladen; die Standard-Vorlage wird NICHT
+    // mehr in die Planung geschrieben, sondern nur beim Export verwendet.
+    const planId = activePlan?.id;
+    const templateLoaded = activePlan?.nachdenk_template !== undefined;
     useEffect(() => {
-        if (!activePlan || activePlan.nachdenk_template || !vorlageDataUrl) return;
-        updateActivePlan({ nachdenk_template: vorlageDataUrl });
-        setTemplateName('Vorlage.pdf');
-    }, [activePlan?.id, vorlageDataUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+        if (!planId || templateLoaded) return;
+        let alive = true;
+        loadNachdenkTemplate(planId)
+            .then(t => { if (alive) onTemplateLoaded?.(t); })
+            .catch(err => console.warn('[Nachdenktexte] Vorlage nicht geladen:', err));
+        return () => { alive = false; };
+    }, [planId, templateLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+    const customTemplate = activePlan?.nachdenk_template ?? null;
+    const effectiveTemplate = customTemplate ?? vorlageDataUrl;
 
     const generatePrompt = () => {
         const stationsText = (activePlan?.stations ?? [])
@@ -149,8 +186,8 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
             // Pre-embed template once
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             let embeddedTemplate: any = null;
-            if (activePlan?.nachdenk_template) {
-                const base64 = activePlan.nachdenk_template.split(',')[1];
+            if (effectiveTemplate) {
+                const base64 = effectiveTemplate.split(',')[1];
                 const binary = atob(base64);
                 const bytes = new Uint8Array(binary.length);
                 for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -250,6 +287,30 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                         placeholder="Schreibe hier den Instruktionstext für das KI-Prompt..."
                         className="w-full border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-y min-h-[100px] focus:ring-2 focus:ring-[#9b8ec4]/30 focus:outline-none"
                     />
+                    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                        <span>Wird mit dieser Planung gespeichert.</span>
+                        {userId && (
+                            <button
+                                type="button"
+                                onClick={saveAsMyDefault}
+                                disabled={savedAsDefault || instructionText === profileDefault}
+                                className="px-3 py-1 rounded-full border border-[#9b8ec4]/40 text-[#6b5fa0] dark:text-[#b9aee0] hover:bg-[#9b8ec4]/10 disabled:opacity-50"
+                                title="Neue Planungen starten mit diesem Text"
+                            >
+                                {savedAsDefault || instructionText === profileDefault ? '✓ Mein Standard' : 'Als meinen Standard merken'}
+                            </button>
+                        )}
+                        {activePlan?.nachdenkInstruction != null && (
+                            <button
+                                type="button"
+                                onClick={() => { setSavedAsDefault(false); updateActivePlan({ nachdenkInstruction: null }); }}
+                                className="hover:text-[#6b5fa0] underline-offset-2 hover:underline"
+                                title="Eigenen Text dieser Planung verwerfen"
+                            >
+                                Auf Standard zurücksetzen
+                            </button>
+                        )}
+                    </div>
                 </section>
 
                 {/* Step 2: Prompt generator */}
@@ -343,7 +404,7 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                                         <tr key={i} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/50">
                                             <td className="p-3 w-8">
                                                 <button
-                                                    onClick={() => setRows(prev => prev.filter((_, idx) => idx !== i))}
+                                                    onClick={() => setRows(rows.filter((_, idx) => idx !== i))}
                                                     className="text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors"
                                                     title="Zeile löschen"
                                                 >
@@ -373,24 +434,28 @@ export default function NachdenktexteTab({ activePlan, updateActivePlan }: Props
                         <label
                             className={cn(
                                 'flex items-center gap-2 px-4 py-2 rounded-full cursor-pointer transition-all text-sm font-medium border',
-                                activePlan?.nachdenk_template
+                                customTemplate
                                     ? 'bg-[#7bc9a0]/15 border-[#7bc9a0]/40 text-[#2d7a52] hover:bg-[#7bc9a0]/25'
                                     : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                             )}
                         >
                             <FileText className="w-4 h-4 shrink-0" />
-                            {activePlan?.nachdenk_template
-                                ? `${templateName ?? 'Vorlage hochgeladen'} ✓`
-                                : 'vorlage.pdf hochladen'}
+                            {customTemplate
+                                ? `${templateName ?? 'Eigene Vorlage'} ✓`
+                                : 'Eigene vorlage.pdf hochladen'}
                             <input type="file" accept=".pdf" className="hidden" onChange={handleTemplateUpload} />
                         </label>
-                        {activePlan?.nachdenk_template && (
+                        {customTemplate ? (
                             <button
-                                onClick={() => updateActivePlan({ nachdenk_template: undefined })}
+                                onClick={() => { setTemplateName(null); updateActivePlan({ nachdenk_template: null }); }}
                                 className="text-xs text-gray-500 dark:text-gray-400 hover:text-red-500 transition-colors"
                             >
-                                Vorlage entfernen
+                                Eigene Vorlage entfernen (Standard verwenden)
                             </button>
+                        ) : (
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                                {vorlageDataUrl ? 'Standard-Vorlage wird verwendet' : 'Standard-Vorlage wird geladen…'}
+                            </span>
                         )}
                         <button
                             onClick={exportPDF}

@@ -188,3 +188,16 @@ describe('rowToProfile', () => {
     expect(rowToProfile({ ...row, community_id: null }).communityId).toBeNull();
   });
 });
+
+describe('rowToPlan – Nachdenktexte', () => {
+  it('Vorlage nur gesetzt, wenn die Spalte geladen wurde', () => {
+    expect(rowToPlan({ id: 'p', title: 't', status: 'draft' }, []).nachdenk_template).toBeUndefined();
+    expect(rowToPlan({ id: 'p', title: 't', status: 'draft', nachdenk_template: null }, []).nachdenk_template).toBeNull();
+    expect(rowToPlan({ id: 'p', title: 't', status: 'draft', nachdenk_template: 'data:x' }, []).nachdenk_template).toBe('data:x');
+  });
+  it('Instruktionstext und Texte werden übernommen', () => {
+    const p = rowToPlan({ id: 'p', title: 't', status: 'draft', nachdenk_instruction: 'I', nachdenk_rows: [{ station: 'A' }] }, []);
+    expect(p.nachdenkInstruction).toBe('I');
+    expect(p.nachdenkRows).toEqual([{ station: 'A' }]);
+  });
+});

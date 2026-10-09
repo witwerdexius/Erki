@@ -548,6 +548,8 @@ export default function ErkiApp({ plan, user, displayName, onPlanUpdate, onExter
                         backgroundImage: imported.backgroundImage,
                         masks: imported.masks ?? [],
                         areas: imported.areas ?? [],
+                        nachdenkInstruction: imported.nachdenkInstruction ?? null,
+                        nachdenkRows: imported.nachdenkRows ?? [],
                         logoOverlay: imported.logoOverlay,
                         labelOverlay: imported.labelOverlay,
                         bgZoom: imported.bgZoom ?? 1,
@@ -773,7 +775,25 @@ export default function ErkiApp({ plan, user, displayName, onPlanUpdate, onExter
                             currentUser={presenceUser}
                         />
                     ) : activeTab === 'nachdenk' ? (
-                        <NachdenktexteTab activePlan={activePlan} updateActivePlan={updateActivePlan} />
+                        <NachdenktexteTab
+                            activePlan={activePlan}
+                            updateActivePlan={updateActivePlan}
+                            userId={user.id}
+                            onTemplateLoaded={(template) => {
+                                // Vorlage nachgeladen: ohne "ungespeichert"-Markierung uebernehmen.
+                                // Erst wenn nichts Ungespeichertes ansteht – sonst wuerden diese
+                                // Aenderungen als gespeichert gelten (Basis fuer den Diff).
+                                let tries = 0;
+                                const apply = () => {
+                                    if (isDirtyRef?.current && tries++ < 40) { setTimeout(apply, 500); return; }
+                                    const base = latestPlanRef.current ?? plan;
+                                    if (base.nachdenk_template !== undefined) return; // inzwischen gesetzt
+                                    if (isDirtyRef?.current) updateActivePlan({ nachdenk_template: template });
+                                    else onExternalPlanUpdate?.({ ...base, nachdenk_template: template });
+                                };
+                                apply();
+                            }}
+                        />
                     ) : activeTab === 'explanation' ? (
                         <ExplanationPage activePlan={activePlan} updateActivePlan={updateActivePlan} />
                     ) : activeTab === 'table' ? (

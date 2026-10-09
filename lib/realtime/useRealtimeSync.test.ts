@@ -249,3 +249,15 @@ describe('Bereiche (areas / areaId)', () => {
     expect(next.areas).toEqual(areas);
   });
 });
+
+describe('Nachdenktexte (Realtime)', () => {
+  it('Instruktionstext und Texte werden auch auf leichten Tabs übernommen', () => {
+    const next = mergeExternalPlanUpdate(makePlan(), { nachdenk_instruction: 'Neu', nachdenk_rows: [] }, false);
+    expect(next.nachdenkInstruction).toBe('Neu');
+    expect(next.nachdenkRows).toEqual([]);
+  });
+  it('fehlende Spalten im Payload lassen den Stand unverändert', () => {
+    const next = mergeExternalPlanUpdate({ ...makePlan(), nachdenkInstruction: 'Alt' }, { title: 'X' }, false);
+    expect(next.nachdenkInstruction).toBe('Alt');
+  });
+});
