@@ -120,3 +120,98 @@ export function removeArea<S extends Pick<Station, 'areaId'>>(
         stations: stations.map(s => (s.areaId === areaId ? { ...s, areaId: null } : s)),
     };
 }
+
+// ── Marker in einen Bereich verlegen ─────────────────────────────────────────
+
+function distToSegment(px: number, py: number, a: Pt, b: Pt): number {
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const len2 = dx * dx + dy * dy;
+    let t = len2 > 1e-12 ? ((px - a.x) * dx + (py - a.y) * dy) / len2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (a.x + dx * t), py - (a.y + dy * t));
+}
+
+/**
+ * Freie Stelle in einem Bereich (sichtbare %): der Punkt im Bereich mit dem
+ * groessten Abstand zugleich zum Rand und zu den uebrigen Markern. So stapeln
+ * sich Marker nicht, wenn mehrere Stationen in denselben Bereich wandern.
+ * Abstaende in % (Blatt-Seitenverhaeltnis vernachlaessigt – reicht als Heuristik).
+ */
+export function findFreeSpotInArea(area: PlanArea, otherMarkers: Pt[], bgZoom = 1): Pt {
+    const poly = areaToVisual(area, bgZoom);
+    const centroid = polygonCentroid(poly);
+    if (poly.length < 3) return centroid;
+    const xs = poly.map(p => p.x), ys = poly.map(p => p.y);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const steps = 40;
+    let best: Pt | null = null;
+    let bestScore = -Infinity;
+    let bestCenterDist = Infinity;
+    for (let j = 0; j <= steps; j++) {
+        for (let i = 0; i <= steps; i++) {
+            const x = x0 + ((x1 - x0) * i) / steps;
+            const y = y0 + ((y1 - y0) * j) / steps;
+            if (!pointInPolygon(x, y, poly)) continue;
+            let edge = Infinity;
+            for (let k = 0, l = poly.length - 1; k < poly.length; l = k++) {
+                edge = Math.min(edge, distToSegment(x, y, poly[l], poly[k]));
+            }
+            let near = Infinity;
+            for (const m of otherMarkers) near = Math.min(near, Math.hypot(m.x - x, m.y - y));
+            const score = Math.min(edge, near);
+            const centerDist = Math.hypot(x - centroid.x, y - centroid.y);
+            // groesster Abstand gewinnt; bei Gleichstand der Punkt naeher an der Mitte
+            if (score > bestScore + 1e-9 || (Math.abs(score - bestScore) <= 1e-9 && centerDist < bestCenterDist)) {
+                best = { x, y };
+                bestScore = score;
+                bestCenterDist = centerDist;
+            }
+        }
+    }
+    const p = best ?? centroid;
+    return {
+        x: Math.round(Math.max(0, Math.min(100, p.x)) * 10) / 10,
+        y: Math.round(Math.max(0, Math.min(100, p.y)) * 10) / 10,
+    };
+}
+
+type AreaStation = Pick<Station, 'id' | 'targetX' | 'targetY' | 'areaId'>;
+
+/**
+ * Bereich einer Station aendern (Tabelle / KI-Schnittstelle):
+ *  - '' / null  -> automatisch (Marker bleibt)
+ *  - AREA_NONE  -> kein Bereich (Marker bleibt)
+ *  - Bereichs-id -> liegt der Marker schon dort, bleibt er; sonst wandert er an
+ *    eine freie Stelle im Bereich. Danach wird automatisch zugeordnet (null),
+ *    ausser ein kleinerer, ueberlappender Bereich wuerde gewinnen – dann bleibt
+ *    die Wahl manuell.
+ * Der Kreis (x/y) bleibt unveraendert. Liefert eine neue Liste.
+ */
+export function assignStationToArea<S extends AreaStation>(
+    stations: S[],
+    stationId: string,
+    areaId: string | null,
+    areas: PlanArea[] | undefined,
+    bgZoom = 1,
+): S[] {
+    const station = stations.find(s => s.id === stationId);
+    if (!station) return stations;
+    const replace = (patch: Partial<S>) => stations.map(s => (s.id === stationId ? { ...s, ...patch } : s));
+
+    if (!areaId) return replace({ areaId: null } as Partial<S>);
+    if (areaId === AREA_NONE) return replace({ areaId: AREA_NONE } as Partial<S>);
+    const area = (areas ?? []).find(a => a.id === areaId);
+    if (!area) return replace({ areaId } as Partial<S>);
+
+    if (autoAreaForStation(station, areas, bgZoom)?.id === areaId) {
+        return replace({ areaId: null } as Partial<S>);
+    }
+    const others = stations.filter(s => s.id !== stationId).map(s => ({ x: s.targetX, y: s.targetY }));
+    const spot = findFreeSpotInArea(area, others, bgZoom);
+    const autoThere = autoAreaForStation({ targetX: spot.x, targetY: spot.y }, areas, bgZoom);
+    return replace({
+        targetX: spot.x,
+        targetY: spot.y,
+        areaId: autoThere?.id === areaId ? null : areaId,
+    } as Partial<S>);
+}

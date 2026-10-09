@@ -3,7 +3,9 @@ import {
     AREA_NONE,
     areaAtPoint,
     areaToVisual,
+    assignStationToArea,
     autoAreaForStation,
+    findFreeSpotInArea,
     effectiveArea,
     effectiveAreaName,
     polygonCentroid,
@@ -80,5 +82,62 @@ describe('removeArea', () => {
         const r = removeArea([saal, garten], stations, 'a1');
         expect(r.areas.map(a => a.id)).toEqual(['a2']);
         expect(r.stations.map(s => s.areaId)).toEqual([null, 'a2', AREA_NONE]);
+    });
+});
+
+describe('findFreeSpotInArea', () => {
+    it('ohne andere Marker: Punkt tief im Bereich (nahe der Mitte)', () => {
+        const p = findFreeSpotInArea(saal, []);
+        expect(p.x).toBeGreaterThan(25); expect(p.x).toBeLessThan(35);
+        expect(p.y).toBeGreaterThan(25); expect(p.y).toBeLessThan(35);
+    });
+    it('weicht vorhandenen Markern aus', () => {
+        const p = findFreeSpotInArea(saal, [{ x: 30, y: 30 }]);
+        expect(Math.hypot(p.x - 30, p.y - 30)).toBeGreaterThan(5);
+        expect(areaAtPoint([saal], p.x, p.y)?.id).toBe('a1');
+    });
+    it('mehrere Marker nacheinander stapeln sich nicht', () => {
+        const placed: { x: number; y: number }[] = [];
+        for (let i = 0; i < 4; i++) placed.push(findFreeSpotInArea(saal, placed));
+        for (let i = 0; i < placed.length; i++) for (let j = i + 1; j < placed.length; j++) {
+            expect(Math.hypot(placed[i].x - placed[j].x, placed[i].y - placed[j].y)).toBeGreaterThan(8);
+        }
+    });
+    it('beruecksichtigt den Zoom (Ergebnis in sichtbaren %)', () => {
+        const p = findFreeSpotInArea(saal, [], 0.5); // sichtbar 30..50
+        expect(p.x).toBeGreaterThan(30); expect(p.x).toBeLessThan(50);
+    });
+});
+
+describe('assignStationToArea', () => {
+    const areas = [saal, garten];
+    const base = [
+        { id: 's1', targetX: 30, targetY: 30, areaId: null as string | null, x: 5, y: 5 },
+        { id: 's2', targetX: 70, targetY: 70, areaId: null as string | null, x: 95, y: 95 },
+    ];
+    it('Bereichswechsel verlegt den Marker in den neuen Bereich, Kreis bleibt', () => {
+        const r = assignStationToArea(base, 's1', 'a2', areas);
+        const s1 = r.find(s => s.id === 's1')!;
+        expect(areaAtPoint(areas, s1.targetX, s1.targetY)?.id).toBe('a2');
+        expect(s1.areaId).toBeNull(); // folgt jetzt automatisch dem Marker
+        expect([s1.x, s1.y]).toEqual([5, 5]);
+        expect(Math.hypot(s1.targetX - 70, s1.targetY - 70)).toBeGreaterThan(5); // nicht auf s2
+    });
+    it('Marker schon im gewählten Bereich: bleibt liegen', () => {
+        const r = assignStationToArea(base, 's1', 'a1', areas);
+        expect(r[0]).toEqual({ ...base[0], areaId: null });
+    });
+    it('"Kein Bereich" und "Automatisch" verschieben nicht', () => {
+        expect(assignStationToArea(base, 's1', AREA_NONE, areas)[0]).toEqual({ ...base[0], areaId: AREA_NONE });
+        expect(assignStationToArea([{ ...base[0], areaId: 'a2' }], 's1', null, areas)[0]).toEqual({ ...base[0], areaId: null });
+    });
+    it('überlappender kleinerer Bereich: Wahl bleibt manuell', () => {
+        // Bühne liegt im Saal; Marker in den Saal verlegen kann in der Bühne landen
+        const r = assignStationToArea([{ ...base[1] }], 's2', 'a1', [saal, buehne]);
+        const s = r[0];
+        expect(effectiveArea(s, [saal, buehne])?.id).toBe('a1');
+    });
+    it('unbekannte Station -> unverändert', () => {
+        expect(assignStationToArea(base, 'x', 'a1', areas)).toBe(base);
     });
 });

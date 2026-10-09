@@ -39,5 +39,7 @@ Ohne gültiges Token antwortet der Endpunkt mit 404.
   per `planung_aendern` mit `areas` komplett ersetzbar.
 - Station `areaId` (`area_id`): `null` = automatisch (Bereich, in dem der Marker liegt),
   Bereichs-`id` = manuell, `"__none__"` = kein Bereich.
+- Wird `areaId` auf einen Bereich gesetzt (ohne `targetX`/`targetY`), verlegt `station_anlegen`/`station_aendern`
+  den Marker an eine freie Stelle im Bereich – wie die Auswahl in der Tabelle. Der Kreis bleibt.
 - `planung_lesen` liefert je Station zusätzlich `bereich` (Name des wirksamen Bereichs oder `null`).
 - Bereiche erscheinen nur im Editor und in Tabellen, nicht im Lageplan-PDF.
