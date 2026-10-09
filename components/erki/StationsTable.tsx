@@ -9,7 +9,7 @@ import {
 import type { Plan, Station } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { exportTablePDF } from '@/lib/pdfExport';
-import { AREA_NONE, autoAreaForStation, effectiveAreaName } from '@/lib/areas';
+import { AREA_NONE, assignStationToArea, autoAreaForStation, effectiveAreaName } from '@/lib/areas';
 import { supabase } from '@/lib/supabase';
 import {
     reorderStationsByDrop,
@@ -162,7 +162,10 @@ export default function StationsTable({
         return (
             <select
                 value={manualValid ? (s.areaId as string) : ''}
-                onChange={(e) => updateStation(s.id, { areaId: e.target.value === '' ? null : e.target.value })}
+                // Bereich gewaehlt -> Marker wandert an eine freie Stelle im Bereich (Kreis bleibt)
+                onChange={(e) => updateActivePlan({
+                    stations: assignStationToArea(activePlan.stations, s.id, e.target.value || null, areas, activePlan.bgZoom ?? 1),
+                })}
                 className={cn(
                     'w-full bg-transparent border border-gray-200 dark:border-gray-600 rounded-md px-1 py-1 text-sm focus:ring-1 focus:ring-[#6bbfd4]',
                     !manualValid && 'text-gray-500 dark:text-gray-400 italic',

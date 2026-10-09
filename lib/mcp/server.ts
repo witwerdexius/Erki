@@ -1,7 +1,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { McpContext, assertPlanningAccess, assertRowAccess, createSnapshot } from './context';
-import { effectiveAreaName } from '@/lib/areas';
+import { AREA_NONE, assignStationToArea, effectiveAreaName, findFreeSpotInArea } from '@/lib/areas';
+import type { PlanArea } from '@/lib/types';
 
 // ── Hilfen ──────────────────────────────────────────────────────
 
@@ -91,13 +92,48 @@ const stationFields = {
     .string()
     .nullable()
     .optional()
-    .describe('Bereich der Station: id aus planung.areas, "__none__" = kein Bereich, null = automatisch (Bereich, in dem der Marker liegt)'),
+    .describe('Bereich der Station: id aus planung.areas, "__none__" = kein Bereich, null = automatisch (Bereich, in dem der Marker liegt). Bei einer Bereichs-id ohne targetX/targetY wird der Marker an eine freie Stelle im Bereich verlegt (Kreis bleibt).'),
 };
 const STATION_MAP: Record<string, string> = {
   number: 'number', name: 'name', description: 'description', material: 'material', instructions: 'instructions',
   impulses: 'impulses', setupBy: 'setup_by', conductedBy: 'conducted_by', x: 'x', y: 'y', targetX: 'target_x',
   targetY: 'target_y', isFilled: 'is_filled', colorVariant: 'color_variant', helpersRequired: 'helpers_required', areaId: 'area_id',
 };
+
+/**
+ * Bereich gesetzt, aber kein Zielpunkt: Marker wie in der Tabelle an eine freie
+ * Stelle im Bereich verlegen (Kreis bleibt). Liefert zusaetzliche Spalten.
+ */
+export async function markerPatchForArea(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  planningId: string,
+  stationId: string | null,
+  args: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const areaId = args.areaId;
+  if (typeof areaId !== 'string' || areaId === AREA_NONE) return {};
+  if (args.targetX !== undefined || args.targetY !== undefined) return {}; // KI setzt Marker selbst
+  const [{ data: plan, error: pErr }, { data: rows, error: sErr }] = await Promise.all([
+    db.from('plannings').select('areas, bg_zoom').eq('id', planningId).single(),
+    db.from('stations').select('id, target_x, target_y, area_id').eq('planning_id', planningId),
+  ]);
+  if (pErr) throw pErr;
+  if (sErr) throw sErr;
+  const areas = (plan?.areas ?? []) as PlanArea[];
+  const zoom = (plan?.bg_zoom ?? 1) as number;
+  if (!areas.some(a => a.id === areaId)) throw new Error(`Bereich ${areaId} gibt es in dieser Planung nicht`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const list = (rows ?? []).map((r: any) => ({ id: r.id as string, targetX: r.target_x as number, targetY: r.target_y as number, areaId: r.area_id as string | null }));
+  if (!stationId) {
+    const spot = findFreeSpotInArea(areas.find(a => a.id === areaId)!, list.map((s: { targetX: number; targetY: number }) => ({ x: s.targetX, y: s.targetY })), zoom);
+    const placed = assignStationToArea([{ id: '__neu__', targetX: spot.x, targetY: spot.y, areaId: null }], '__neu__', areaId, areas, zoom)[0];
+    return { target_x: placed.targetX, target_y: placed.targetY, area_id: placed.areaId };
+  }
+  const moved = assignStationToArea(list, stationId, areaId, areas, zoom).find((s: { id: string }) => s.id === stationId);
+  if (!moved) return {};
+  return { target_x: moved.targetX, target_y: moved.targetY, area_id: moved.areaId };
+}
 
 const taskFields = {
   section: z.string().optional().describe('Abschnitt, z. B. aufbau, feierzeit, catering, abbau'),
@@ -230,6 +266,7 @@ export function buildMcpServer(ctx: McpContext): McpServer {
         sort_order: maxSort + 1,
         number: String(maxNum + 1),
         ...mapFields(args, STATION_MAP),
+        ...(await markerPatchForArea(db, args.planungId, null, args)),
       };
       const { data, error: insErr } = await db.from('stations').insert(row).select('*').single();
       if (insErr) throw insErr;
@@ -247,6 +284,11 @@ export function buildMcpServer(ctx: McpContext): McpServer {
       await assertRowAccess(ctx, 'stations', args.stationId);
       const update = mapFields(args, STATION_MAP);
       if (Object.keys(update).length === 0) throw new Error('Keine Felder zum Ändern übergeben');
+      if (typeof args.areaId === 'string') {
+        const { data: st, error: stErr } = await db.from('stations').select('planning_id').eq('id', args.stationId).single();
+        if (stErr) throw stErr;
+        Object.assign(update, await markerPatchForArea(db, st.planning_id, args.stationId, args));
+      }
       const { data, error } = await db.from('stations').update(update).eq('id', args.stationId).select('*').single();
       if (error) throw error;
       return data;
