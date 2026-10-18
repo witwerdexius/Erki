@@ -773,6 +773,7 @@ export default function ErkiApp({ plan, user, displayName, onPlanUpdate, onExter
                             onAddStation={addStation}
                             onlineUsers={online}
                             currentUser={presenceUser}
+                            userId={user.id}
                         />
                     ) : activeTab === 'nachdenk' ? (
                         <NachdenktexteTab

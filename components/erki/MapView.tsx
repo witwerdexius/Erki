@@ -3,8 +3,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
     Plus, Map as MapIcon, Download, Upload, Move, Palette, PenLine, Eraser,
-    Image as ImageIcon, Type, ZoomIn, ZoomOut, LassoSelect, Eye, EyeOff,
+    Image as ImageIcon, Type, ZoomIn, ZoomOut, LassoSelect, Eye, EyeOff, LayoutTemplate,
 } from 'lucide-react';
+import MapTemplateDialog from '@/components/erki/MapTemplateDialog';
 import type { Plan, Station, LogoOverlay, LabelOverlay, PlanArea } from '@/lib/types';
 import { areaToVisual, polygonCentroid, removeArea } from '@/lib/areas';
 import { softHyphenate } from '@/lib/hyphenation';
@@ -106,9 +107,12 @@ interface MapViewProps {
     onAddStation: () => void;
     onlineUsers?: PresenceUserLike[];
     currentUser?: PresenceUserLike;
+    /** Für Lageplan-Vorlagen (Speichern/Berechtigungen). Ohne userId kein Vorlagen-Button. */
+    userId?: string;
 }
 
-export default function MapView({ activePlan, updateActivePlan, onAddStation, onlineUsers, currentUser }: MapViewProps) {
+export default function MapView({ activePlan, updateActivePlan, onAddStation, onlineUsers, currentUser, userId }: MapViewProps) {
+    const [showTemplates, setShowTemplates] = useState(false);
     // ── Map-eigener State (zuvor in ErkiApp) ──────────────────────────────────
     const [aspectRatio, setAspectRatio] = useState<'portrait' | 'landscape'>('landscape');
     const [draggedItem, setDraggedItem] = useState<{ id: string; type: 'bubble' | 'target' } | null>(null);
@@ -573,6 +577,16 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                     <Download className="w-4 h-4" />
                     <span className="hidden sm:inline">PDF</span>
                 </button>
+                {userId && (
+                    <button
+                        onClick={() => setShowTemplates(true)}
+                        className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full shadow-lg border dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 transition-all active:scale-95 text-sm font-medium"
+                        title="Lageplan-Vorlagen: speichern und laden"
+                    >
+                        <LayoutTemplate className="w-4 h-4 text-[#6bbfd4]" />
+                        <span className="hidden sm:inline">Vorlagen</span>
+                    </button>
+                )}
                 <label className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 rounded-full shadow-lg border dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 transition-all active:scale-95 text-sm font-medium">
                     <Upload className="w-4 h-4 text-[#6bbfd4]" />
                     <span className="hidden sm:inline text-gray-600 dark:text-gray-300">Lageplan hochladen</span>
@@ -699,6 +713,15 @@ export default function MapView({ activePlan, updateActivePlan, onAddStation, on
                     </button>
                 )}
             </div>
+
+            {showTemplates && userId && (
+                <MapTemplateDialog
+                    plan={activePlan}
+                    userId={userId}
+                    onApply={updateActivePlan}
+                    onClose={() => setShowTemplates(false)}
+                />
+            )}
 
             <div ref={pageAreaRef} className="flex-1 min-h-0 overflow-auto p-2 sm:p-8 flex items-center justify-center" style={{ overscrollBehavior: 'contain' }}>
                 <div

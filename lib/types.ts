@@ -51,6 +51,21 @@ export interface PlanArea {
   points: { x: number; y: number }[]; // % des Blatts, ungezoomt (wie masks)
 }
 
+/** Lageplan-Vorlage: Hintergrund, Zoom, Masken, Bereiche, Logo, Überschrift. */
+export interface MapTemplate {
+  id: string;
+  userId: string;
+  name: string;
+  backgroundImage: string | null;
+  bgZoom: number;
+  masks: MaskPolygon[];
+  areas: PlanArea[];
+  logoOverlay: LogoOverlay | null;
+  labelOverlay: LabelOverlay | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export type PlanStatus = 'draft' | 'active' | 'archive';
 
 export interface StationTemplate {
