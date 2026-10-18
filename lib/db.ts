@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
-import { Plan, PlanStatus, Station, LogoOverlay, LabelOverlay, StationTemplate, TaskTemplate, Profile, Community, UserRole, PlanningTask, TaskSection } from './types';
+import { Plan, PlanStatus, Station, LogoOverlay, LabelOverlay, StationTemplate, TaskTemplate, Profile, Community, UserRole, PlanningTask, TaskSection, MapTemplate } from './types';
+import type { MapTemplateContent } from './mapTemplates';
 
 // ── Errors ──────────────────────────────────────────────────────
 
@@ -487,6 +488,72 @@ export async function importPlannings(
       throw e;
     }
   }
+}
+
+// ── Lageplan-Vorlagen ───────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function rowToMapTemplate(row: any): MapTemplate {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    name: row.name,
+    backgroundImage: row.background_image ?? null,
+    bgZoom: typeof row.bg_zoom === 'number' ? row.bg_zoom : Number(row.bg_zoom ?? 1),
+    masks: Array.isArray(row.masks) ? row.masks : [],
+    areas: Array.isArray(row.areas) ? row.areas : [],
+    logoOverlay: row.logo_overlay ?? null,
+    labelOverlay: row.label_overlay ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapTemplateToRow(c: MapTemplateContent) {
+  return {
+    background_image: c.backgroundImage ?? null,
+    bg_zoom: c.bgZoom ?? 1,
+    masks: c.masks ?? [],
+    areas: c.areas ?? [],
+    logo_overlay: c.logoOverlay ?? null,
+    label_overlay: c.labelOverlay ?? null,
+  };
+}
+
+/** Alle sichtbaren Lageplan-Vorlagen (eigene + Community), nach Name sortiert. */
+export async function loadMapTemplates(): Promise<MapTemplate[]> {
+  const { data, error } = await supabase.from('map_templates').select('*').order('name');
+  if (error) throw error;
+  return (data ?? []).map(rowToMapTemplate);
+}
+
+export async function createMapTemplate(name: string, content: MapTemplateContent, userId: string): Promise<MapTemplate> {
+  const { data, error } = await supabase
+    .from('map_templates')
+    .insert({ name, user_id: userId, ...mapTemplateToRow(content) })
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToMapTemplate(data);
+}
+
+/** Überschreibt den Inhalt einer Vorlage. Wirft, wenn keine Berechtigung (0 Zeilen). */
+export async function overwriteMapTemplate(id: string, content: MapTemplateContent): Promise<MapTemplate> {
+  const { data, error } = await supabase
+    .from('map_templates')
+    .update({ ...mapTemplateToRow(content), updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select();
+  if (error) throw error;
+  if (!data || data.length === 0) throw new Error('Keine Berechtigung, diese Vorlage zu ändern.');
+  return rowToMapTemplate(data[0]);
+}
+
+/** Löscht eine Vorlage. Wirft, wenn keine Berechtigung (0 Zeilen). */
+export async function deleteMapTemplate(id: string): Promise<void> {
+  const { data, error } = await supabase.from('map_templates').delete().eq('id', id).select('id');
+  if (error) throw error;
+  if (!data || data.length === 0) throw new Error('Keine Berechtigung, diese Vorlage zu löschen.');
 }
 
 // ── Templates ───────────────────────────────────────────────────

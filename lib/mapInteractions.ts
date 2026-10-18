@@ -380,3 +380,17 @@ export function fitPageSize(
     }
     return { width, height };
 }
+
+/**
+ * Hoch-/Querformat des Lageplans aus den Bildmaßen ableiten (wie im Editor).
+ * Ohne Bild oder bei Ladefehler: Querformat.
+ */
+export function loadImageAspectRatio(src: string | null | undefined): Promise<'portrait' | 'landscape'> {
+    return new Promise(resolve => {
+        if (!src || typeof Image === 'undefined') { resolve('landscape'); return; }
+        const img = new Image();
+        img.onload = () => resolve(img.width >= img.height ? 'landscape' : 'portrait');
+        img.onerror = () => resolve('landscape');
+        img.src = src;
+    });
+}
