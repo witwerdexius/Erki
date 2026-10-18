@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { exportLageplanPDF, exportTablePDF } from '@/lib/pdfExport';
 import { extractUuid } from '@/lib/slugify';
-import { stationColorHex } from '@/lib/mapInteractions';
+import { stationColorHex, loadImageAspectRatio, fitPageSize, computeMapScale } from '@/lib/mapInteractions';
 import { softHyphenate } from '@/lib/hyphenation';
 import { useHyphenator } from '@/lib/useHyphenator';
 import type { User } from '@supabase/supabase-js';
@@ -101,19 +101,51 @@ function ReadonlyLageplan({
 }) {
   const zoom = planning.bgZoom || 1;
   const containerRef = useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = useState(0);
+  const pageAreaRef = useRef<HTMLDivElement>(null);
+  const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
+  const [pageArea, setPageArea] = useState({ w: 0, h: 0, vh: 0 });
+  // Hoch-/Querformat wie im Editor aus dem Hintergrundbild ableiten
+  const [aspectRatio, setAspectRatio] = useState<'portrait' | 'landscape'>('landscape');
   const hyphenate = useHyphenator(); // einheitliche Silbentrennung wie Editor/PDF
-  const mapScale = containerWidth > 0 ? containerWidth / 800 : 1;
+  // Blasen-Skalierung wie im Editor: lange Blattseite / 800
+  const mapScale = containerSize.w > 0 ? computeMapScale(containerSize.w, containerSize.h) : 1;
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadImageAspectRatio(fullData?.backgroundImage).then(r => { if (!cancelled) setAspectRatio(r); });
+    return () => { cancelled = true; };
+  }, [fullData?.backgroundImage]);
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const ro = new ResizeObserver(entries => {
-      setContainerWidth(entries[0].contentRect.width);
+      const r = entries[0].contentRect;
+      setContainerSize({ w: r.width, h: r.height });
     });
     ro.observe(el);
     return () => ro.disconnect();
   }, [fullData]);
+
+  // Verfügbare Fläche messen, um das Blatt (A4 hoch/quer) einzupassen – wie im Editor
+  useEffect(() => {
+    const el = pageAreaRef.current;
+    if (!el) return;
+    const measure = () => {
+      const cs = getComputedStyle(el);
+      const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+      const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+      setPageArea({ w: el.clientWidth - padX, h: el.clientHeight - padY, vh: window.innerHeight });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener('resize', measure);
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
+  }, [fullData]);
+
+  const pageSize = fitPageSize(pageArea.w, pageArea.h, aspectRatio, 1024, pageArea.vh * 0.8 || Infinity);
+  const pageStyle = pageSize.width > 0 ? { width: pageSize.width, height: pageSize.height } : undefined;
 
   if (!fullData) {
     return (
@@ -124,8 +156,16 @@ function ReadonlyLageplan({
   }
 
   return (
-    <div className="flex-1 overflow-auto p-2 sm:p-8 flex items-center justify-center" style={{ overscrollBehavior: 'contain' }}>
-      <div ref={containerRef} className="relative bg-white shadow-2xl overflow-hidden border border-gray-200 aspect-[297/210] h-auto w-full max-w-5xl">
+    <div ref={pageAreaRef} className="flex-1 min-h-0 overflow-auto p-2 sm:p-8 flex items-center justify-center" style={{ overscrollBehavior: 'contain' }}>
+      <div
+        ref={containerRef}
+        className={
+          'relative bg-white shadow-2xl overflow-hidden border border-gray-200 shrink-0 ' +
+          // CSS nur als Fallback bis zur ersten Messung; danach feste px-Groesse (pageStyle)
+          (aspectRatio === 'landscape' ? 'aspect-[297/210] h-auto w-full max-w-5xl' : 'aspect-[210/297] w-auto h-full max-h-[80vh]')
+        }
+        style={pageStyle}
+      >
         <div
           className="absolute inset-0 pointer-events-none origin-center"
           style={{ transform: `scale(${zoom})` }}
@@ -514,7 +554,7 @@ export default function SharePage() {
         logoOverlay: fd.logoOverlay,
         labelOverlay: fd.labelOverlay,
         title: planning.title,
-        aspectRatio: 'landscape',
+        aspectRatio: await loadImageAspectRatio(fd.backgroundImage),
       });
     } finally {
       setIsExporting(false);
