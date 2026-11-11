@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState, MutableRefObject } from 'react';
 import { motion } from 'framer-motion';
 import {
     ChevronDown, ChevronUp, Plus, Trash2, Download, GripVertical,
-    BookTemplate, Bookmark,
+    BookTemplate, Bookmark, LayoutGrid, Table2,
 } from 'lucide-react';
 import type { Plan, Station } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -18,6 +18,7 @@ import {
 import type { PresenceUserLike } from '@/lib/realtime/presenceUtils';
 import { getPresenceColor } from '@/lib/realtime/presenceUtils';
 import PresenceStack from '@/components/erki/PresenceStack';
+import StationCard from '@/components/erki/StationCard';
 import { useBroadcast } from '@/lib/realtime/useBroadcast';
 import { planningChannelNames } from '@/lib/realtime/channelNames';
 import {
@@ -41,6 +42,8 @@ interface StationsTableProps {
     onDeleteStation?: (station: Station) => void;
 }
 
+const VIEW_STORAGE_KEY = 'erki.stationsView';
+
 export default function StationsTable({
     activePlan,
     updateActivePlan,
@@ -57,6 +60,17 @@ export default function StationsTable({
     const [dragOverRowId, setDragOverRowId] = useState<string | null>(null);
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
     const [editingMap, setEditingMap] = useState<EditingMap>({});
+    // Test: Ansicht Tabelle vs. Cards, pro Browser gemerkt
+    // (Komponente wird erst nach Login clientseitig gemountet -> kein Hydration-Risiko)
+    const [view, setView] = useState<'table' | 'cards'>(() => {
+        try {
+            return localStorage.getItem(VIEW_STORAGE_KEY) === 'cards' ? 'cards' : 'table';
+        } catch { return 'table'; }
+    });
+    const changeView = (v: 'table' | 'cards') => {
+        setView(v);
+        try { localStorage.setItem(VIEW_STORAGE_KEY, v); } catch { /* ignorieren */ }
+    };
 
     const tableRef = useRef<HTMLDivElement>(null);
 
@@ -107,7 +121,7 @@ export default function StationsTable({
             ta.style.height = 'auto';
             ta.style.height = ta.scrollHeight + 'px';
         });
-    }, [activePlan.id, activePlan?.stations]);
+    }, [activePlan.id, activePlan?.stations, view]);
 
     const exportTableToPDF = async () => {
         await exportTablePDF({
@@ -221,11 +235,74 @@ export default function StationsTable({
 
     return (
         <div ref={tableRef} className="flex-1 min-h-0 overflow-auto p-4 sm:p-12" style={{ overscrollBehavior: 'contain' }}>
-            {onlineUsers && currentUser && (
-                <div className="flex justify-end mb-4">
-                    <PresenceStack onlineUsers={onlineUsers} currentUser={currentUser} />
+            <div className="flex items-center justify-between gap-4 mb-4">
+                <div role="group" aria-label="Ansicht" className="inline-flex rounded-full bg-gray-100 dark:bg-gray-800 p-1 border border-gray-200 dark:border-gray-700">
+                    {([
+                        { key: 'table', label: 'Tabelle', Icon: Table2 },
+                        { key: 'cards', label: 'Karten', Icon: LayoutGrid },
+                    ] as const).map(({ key, label, Icon }) => (
+                        <button
+                            key={key}
+                            type="button"
+                            onClick={() => changeView(key)}
+                            aria-pressed={view === key}
+                            className={cn(
+                                'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
+                                view === key
+                                    ? 'bg-white dark:bg-gray-700 text-[#6bbfd4] shadow-sm'
+                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200',
+                            )}
+                        >
+                            <Icon className="w-4 h-4" />
+                            {label}
+                        </button>
+                    ))}
                 </div>
-            )}
+                {onlineUsers && currentUser && (
+                    <PresenceStack onlineUsers={onlineUsers} currentUser={currentUser} />
+                )}
+            </div>
+            {view === 'cards' ? (
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4 items-start">
+                        {activePlan?.stations.map(s => (
+                            <StationCard
+                                key={s.id}
+                                station={s}
+                                areaSelect={renderAreaSelect(s)}
+                                editingMap={editingMap}
+                                currentUser={currentUser}
+                                isDragged={draggedRowId === s.id}
+                                isDragOver={dragOverRowId === s.id}
+                                onDragStart={() => handleRowDragStart(s.id)}
+                                onDragOver={(e) => handleRowDragOver(e, s.id)}
+                                onDrop={() => handleRowDrop(s.id)}
+                                onDragEnd={handleRowDragEnd}
+                                onReorder={(v) => handleRowReorder(s.id, v)}
+                                onUpdate={(u) => updateStation(s.id, u)}
+                                onFieldFocus={() => handleFieldFocus(s.id)}
+                                onFieldBlur={() => handleFieldBlur(s.id)}
+                                onSaveAsTemplate={() => onSaveAsTemplate(s)}
+                                onDelete={() => deleteStation(s.id)}
+                            />
+                        ))}
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-3 mt-4">
+                        <button
+                            onClick={onAddStation}
+                            className="flex-1 p-5 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:text-[#6bbfd4] hover:border-[#6bbfd4] hover:bg-[#6bbfd4]/10 transition-all flex items-center justify-center gap-2 font-medium"
+                        >
+                            <Plus className="w-5 h-5" /> Station hinzufügen
+                        </button>
+                        <button
+                            onClick={onOpenTemplatePicker}
+                            className="flex-1 p-5 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:text-[#6bbfd4] hover:border-[#6bbfd4] hover:bg-[#6bbfd4]/10 transition-all flex items-center justify-center gap-2 font-medium"
+                        >
+                            <BookTemplate className="w-5 h-5" /> Aus Vorlage
+                        </button>
+                    </div>
+                </motion.div>
+            ) : (
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -506,6 +583,7 @@ export default function StationsTable({
                     </button>
                 </div>
             </motion.div>
+            )}
             <div className="flex justify-center mt-4">
                 <button
                     onClick={exportTableToPDF}
